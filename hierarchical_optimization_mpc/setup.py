@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test = hierarchical_optimization_mpc.test:main'
+            'test = hierarchical_optimization_mpc.test:main',
+            'test_multi_robot = hierarchical_optimization_mpc.test_multi_robot:main',
         ],
     },
 )

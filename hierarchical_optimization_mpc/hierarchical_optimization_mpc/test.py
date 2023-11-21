@@ -66,17 +66,13 @@ def main():
     )
         
     task_input_min = u
-        
+    
     # ============================ Create The MPC ============================ #
     
     hompc = HOMPC(s, u, s_kp1)
     hompc.n_control = 3
     hompc.n_pred = 0
-    
-    state_meas = np.array([1,2,0.5])
-    
-    hompc.initialize(state_meas)
-        
+                
     hompc.create_task(
         name = "input_limits", prio = 1,
         ineq_task_ls = task_input_limits,
@@ -102,6 +98,8 @@ def main():
     s_history = np.zeros((n_steps, 3))
         
     for k in range(n_steps):
+        print(k)
+        
         u_star = hompc(s)
                 
         for i in range(10):

@@ -25,7 +25,7 @@ def subs(f: ca.SX, input: list[ca.SX], input_0: list[ca.SX]) -> np.ndarray:
 class HOMPC:
     """
     Class to perform Model Predictive Control (MPC) with Hierarchical
-    Optimization. 
+    Optimization.
     """
     
     
@@ -129,10 +129,15 @@ class HOMPC:
         
     # ============================== Initialize ============================== #
         
-    def initialize(self, state_meas: np.ndarray, inputs: list[np.ndarray] = None):
+    def _initialize(self, state_meas: np.ndarray, inputs: list[np.ndarray] = None):
         """
         Update the linearization points (x_bar_k, u_bar_k) from the current
         position and the history of optimal inputs.
+        When state_meas in None, rerun the optimization updating the
+        linearization points. When state_meas is given, either perform the
+        optimization linearing around the evolution with the previous optimal
+        inputs shifted by one (when inputs is None), or with the given inputs
+        sequence.
 
         Args:
             state_meas (np.ndarray): measured state.
@@ -142,9 +147,16 @@ class HOMPC:
         n_c = self._n_control
         n_p = self._n_pred
         
-        if inputs is not None:
+        if state_meas is None:
+            # Rerun the optimization. The trajectory is linearized around the
+            # previous optimal inputs.
+            state_meas = self._state_bar[0]
+        elif inputs is None:
+            # Shift the previous optimal inputs by one.
+            self._input_bar[0:-1] = self._input_bar[1:]
+        else:
+            # use the given inputs.
             self._input_bar = inputs
-            self._input_bar.append(inputs[-1])
         
         state_meas = state_meas.reshape((-1, 1))    # convert to a column vector.
         self._state_bar = [state_meas] * (n_c + n_p + 1)
@@ -162,7 +174,7 @@ class HOMPC:
                 
     # ============================ Linearize_model =========================== #
     
-    def linearize_model(
+    def _linearize_model(
         self, state_bar: np.ndarray, input_bar: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -197,7 +209,7 @@ class HOMPC:
     
     # ======================= Dynamics_consistency_task ====================== #
     
-    def task_dynamics_consistency(self) -> tuple[np.ndarray, np.ndarray]:
+    def _task_dynamics_consistency(self) -> tuple[np.ndarray, np.ndarray]:
         """Construct the constraints matrices that enforce the system dynamics"""
         
         n_s = self._n_state
@@ -205,22 +217,22 @@ class HOMPC:
         n_c = self._n_control
         n_p = self._n_pred
         
-        n_x_opt = self.get_n_x_opt()
+        n_x_opt = self._get_n_x_opt()
         
         A_dyn = np.zeros(((n_c+n_p)*n_s, n_x_opt))
         b_dyn = np.zeros(((n_c+n_p)*n_s, 1))
         
-        [_, B_0, _] = self.linearize_model(self._state_bar[0], self._input_bar[0])
+        [_, B_0, _] = self._linearize_model(self._state_bar[0], self._input_bar[0])
         
-        A_dyn[0:n_s, self.get_idx_state_kp1(0)] = np.eye(n_s)
-        A_dyn[0:n_s, self.get_idx_input_k(0)] = - B_0
+        A_dyn[0:n_s, self._get_idx_state_kp1(0)] = np.eye(n_s)
+        A_dyn[0:n_s, self._get_idx_input_k(0)] = - B_0
         
         for k in range(1, n_c+n_p):
-            A_dyn[k*n_s:(k+1)*n_s, self.get_idx_state_kp1(k)] = np.eye(n_s)
+            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_state_kp1(k)] = np.eye(n_s)
             
-            [A_k, B_k, _] = self.linearize_model(self._state_bar[k], self._input_bar[k-1])
-            A_dyn[k*n_s:(k+1)*n_s, self.get_idx_state_kp1(k-1)] = - A_k
-            A_dyn[k*n_s:(k+1)*n_s, self.get_idx_input_k(k)] = - B_k
+            [A_k, B_k, _] = self._linearize_model(self._state_bar[k], self._input_bar[k-1])
+            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_state_kp1(k-1)] = - A_k
+            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_input_k(k)] = - B_k
             
         return A_dyn, b_dyn
             
@@ -276,9 +288,9 @@ class HOMPC:
         n_c = self._n_control
         n_p = self._n_pred
         
-        A = np.zeros((ne * (n_c+n_p), self.get_n_x_opt()))
+        A = np.zeros((ne * (n_c+n_p), self._get_n_x_opt()))
         b = np.zeros((ne * (n_c+n_p), 1))
-        C = np.zeros((ni * (n_c+n_p), self.get_n_x_opt()))
+        C = np.zeros((ni * (n_c+n_p), self._get_n_x_opt()))
         d = np.zeros((ni * (n_c+n_p), 1))
         
         for k in range(n_c + n_p):
@@ -287,12 +299,12 @@ class HOMPC:
             else:
                 ki = k
             
-            A[k*ne:(k+1)*ne, self.get_idx_state_kp1(k)] = subs(
+            A[k*ne:(k+1)*ne, self._get_idx_state_kp1(k)] = subs(
                 [t.eq_J_T_s],
                 [self._state, self._input],
                 [self._state_bar[k+1], self._input_bar[ki]]
             )
-            A[k*ne:(k+1)*ne, self.get_idx_input_k(k)] = subs(
+            A[k*ne:(k+1)*ne, self._get_idx_input_k(k)] = subs(
                 [t.eq_J_T_u],
                 [self._state, self._input],
                 [self._state_bar[k+1], self._input_bar[ki]],
@@ -303,12 +315,12 @@ class HOMPC:
                 [self._state_bar[k+1], self._input_bar[ki]],
             )
             
-            C[k*ni:(k+1)*ni, self.get_idx_state_kp1(k)] = subs(
+            C[k*ni:(k+1)*ni, self._get_idx_state_kp1(k)] = subs(
                 [t.ineq_J_T_s],
                 [self._state, self._input],
                 [self._state_bar[k+1], self._input_bar[ki]]
             )
-            C[k*ni:(k+1)*ni, self.get_idx_input_k(k)] = subs(
+            C[k*ni:(k+1)*ni, self._get_idx_input_k(k)] = subs(
                 [t.ineq_J_T_u],
                 [self._state, self._input],
                 [self._state_bar[k+1], self._input_bar[ki]],
@@ -323,8 +335,8 @@ class HOMPC:
         
     # ======================================================================== #
     
-    def __call__(self, state_meas: np.ndarray, inputs: list[np.ndarray] = None) -> np.ndarray:
-        self.initialize(state_meas, inputs)
+    def __call__(self, state_meas: np.ndarray = None, inputs: list[np.ndarray] = None) -> np.ndarray:
+        self._initialize(state_meas, inputs)
         
         n_tasks = len(self._tasks)
         
@@ -333,7 +345,7 @@ class HOMPC:
         C = [None] * (1 + n_tasks)
         d = [None] * (1 + n_tasks)
         
-        A[0], b[0] = self.task_dynamics_consistency()
+        A[0], b[0] = self._task_dynamics_consistency()
         
         for k in range(n_tasks):
             kp = k + 1
@@ -345,17 +357,16 @@ class HOMPC:
         
         n_c = self._n_control
         
-        u_0 = self._input_bar[0] + x_star[self.get_idx_input_k(0)]
+        u_0 = self._input_bar[0] + x_star[self._get_idx_input_k(0)]
         
-        for k in range(n_c - 1):
-            self._input_bar[k] = self._input_bar[k+1] + x_star[self.get_idx_input_k(k+1)]
-        self._input_bar[n_c - 1] = self._input_bar[n_c - 2]
+        for k in range(n_c):
+            self._input_bar[k] = self._input_bar[k] + x_star[self._get_idx_input_k(k)]
                 
         return u_0
                         
     # ======================================================================== #
     
-    def get_n_x_opt(self) -> int:
+    def _get_n_x_opt(self) -> int:
         """
         Return the dimension of the optimization vector n_x_opt.
         n_x_opt = [u_0; u_1; ...; u_{n_c-1}; s_1; s_2; ...; s_{n_c+n_p}]
@@ -364,7 +375,7 @@ class HOMPC:
         return self._n_control * self._n_input \
             + (self._n_control + self._n_pred) * self._n_state
     
-    def get_idx_input_k(self, k) -> np.ndarray:
+    def _get_idx_input_k(self, k) -> np.ndarray:
         """
         Return the indices that correspond to the input u_{k} in n_x_opt.
         When k >= n_c, return u_{n_c-1}.
@@ -380,7 +391,7 @@ class HOMPC:
         
         return np.arange(k*n_i, (k+1)*n_i)
     
-    def get_idx_state_kp1(self, k) -> np.ndarray:
+    def _get_idx_state_kp1(self, k) -> np.ndarray:
         """Return the indices that correspond to the state s_{k+1} in n_x_opt."""
         
         if k < 0 or k > self._n_control + self._n_pred - 1:

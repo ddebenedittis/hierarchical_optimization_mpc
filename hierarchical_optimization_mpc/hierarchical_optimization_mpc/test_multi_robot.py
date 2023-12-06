@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from casadi import *
+import casadi as ca
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
@@ -29,55 +29,50 @@ def main():
     
     # Define the state and input variables, and the discrete-time dynamics model.
     
-    s_1 = SX.sym('x', 3)  # state
-    u_1 = SX.sym('u', 2)  # input
+    s = []
+    u = []
     dt = 0.01           # timestep size
+    s_kp1 = []
+    
+    s.append(ca.SX.sym('x', 3))     # state
+    u.append(ca.SX.sym('u', 2))     # input
     
     # state_{k+1} = s_kpi(state_k, input_k)
-    s_kp1_1 = vertcat(
-        s_1[0] + dt * u_1[0] * cos(s_1[2]),
-        s_1[1] + dt * u_1[0] * sin(s_1[2]),
-        s_1[2] + dt * u_1[1]
-    )
+    s_kp1.append(ca.vertcat(
+        s[0][0] + dt * u[0][0] * ca.cos(s[0][2]),
+        s[0][1] + dt * u[0][0] * ca.sin(s[0][2]),
+        s[0][2] + dt * u[0][1]
+    ))
     
     
-    n_robots = [1]
+    s.append(ca.SX.sym('x2', 2))     # state
+    u.append(ca.SX.sym('u2', 2))     # input
+    
+    # state_{k+1} = s_kpi(state_k, input_k)
+    s_kp1.append(ca.vertcat(
+        s[1][0] + dt * u[1][0],
+        s[1][1] + dt * u[1][1],
+    ))
+    
+    n_robots = [1, 2]
     
     # =========================== Define The Tasks =========================== #
     
-    # Define the tasks separately.
-    
-    # Input limits
-    v_max = 5
-    v_min = -5
-    omega_max = 1
-    omega_min = -1
-    
-    task_input_limits = vertcat(
-          u_1[0] - v_max,
-        - u_1[0] + v_min,
-          u_1[1] - omega_max,
-        - u_1[1] + omega_min
-    )
-    task_input_limits_coeffs = [
-        np.array([0, 0, 0, 0])
-    ]
-    
-    task_vel_reference = vertcat(
-        (s_kp1_1[0] - s_1[0]) / dt - 1,
-        (s_kp1_1[1] - s_1[1]) / dt - 0
-    )
-        
-    task_input_min = u_1
+
     
     # ============================ Create The MPC ============================ #
     
-    hompc = HOMPCMultiRobot([s_1], [u_1], [s_kp1_1], n_robots)
+    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots)
     hompc.n_control = 3
     hompc.n_pred = 0
     
-    hompc._initialize([[np.zeros(3)]])
-                
+    hompc._initialize([
+        [np.array([0, 0, 0])],
+        [np.array([2, 0]), np.array([3,0])],
+    ])
+    
+    hompc()
+    
     # hompc.create_task(
     #     name = "input_limits", prio = 1,
     #     ineq_task_ls = task_input_limits,

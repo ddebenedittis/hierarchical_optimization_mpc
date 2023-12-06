@@ -62,7 +62,7 @@ class HOMPCMultiRobot(HOMPC):
         self._Js_f_x: list[ca.SX] = [ca.jacobian(fs[i], states[i]) for i in range(len(fs))]
         self._Js_f_u: list[ca.SX] = [ca.jacobian(fs[i], inputs[i]) for i in range(len(fs))]
         
-        self._state_bar = [[None] * n_robots[i] for i in range(len(states))]
+        self._state_bar = [[[None] * (self.n_control + self.n_pred)] * n_robots[i] for i in range(len(states))]
         self._input_bar = [
             [[np.zeros(self._n_inputs[i])] * self.n_control] * n_robots[i] for i in range(len(states))
         ]
@@ -81,6 +81,7 @@ class HOMPCMultiRobot(HOMPC):
             ValueError('"n_control" must be equal or greater than 1.')
         else:
             self._n_control = value
+            self._state_bar = [[[None] * (self.n_control + self.n_pred)] * self.n_robots[i] for i in range(len(self.n_robots))]
             self._input_bar = [
                 [[np.zeros(self._n_inputs[i])] * self.n_control] * self.n_robots[i] for i in range(len(self.n_robots))
             ]
@@ -89,12 +90,13 @@ class HOMPCMultiRobot(HOMPC):
     def n_pred(self):
         return self._n_pred
     
-    @n_control.setter
+    @n_pred.setter
     def n_pred(self, value):
         if value < 0:
             ValueError('"n_pred" must be equal or greater than 0.')
         else:
             self._n_pred = value
+            self._state_bar = [[[None] * (self.n_control + self.n_pred)] * self.n_robots[i] for i in range(len(self.n_robots))]
         
     # ============================== Initialize ============================== #
         
@@ -122,14 +124,16 @@ class HOMPCMultiRobot(HOMPC):
         if states_meas is None:
             # Rerun the optimization. The trajectory is linearized around the
             # previous optimal inputs.
-            states_meas = self._state_bar[0]
+            states_meas = [[self._state_bar[c][j][0] for j in range(self.n_robots[c])] for c in range(len(self.n_robots))]
         elif inputs is None:
             # Shift the previous optimal inputs by one.
-            self._input_bar[:][:][:][0:1] = self._input_bar[:][:][:][1:]
+            for c, n_r in enumerate(self.n_robots):
+                for j in range(n_r):
+                    self._input_bar[c][j][0:1] = self._input_bar[c][j][1:]
         else:
             # use the given inputs.
-            self._input_bar = inputs            
-        
+            self._input_bar = inputs
+                
         for i, n_r in enumerate(self.n_robots):
             model = self._models[i]
             for j in range(n_r):
@@ -146,11 +150,11 @@ class HOMPCMultiRobot(HOMPC):
                     self._state_bar[i][j][k+n_c] = model(
                         self._state_bar[i][j][n_c-1], self._input_bar[i][j][n_c-1]
                     ).full()
-                
+                                    
     # ============================ Linearize_model =========================== #
     
     def _linearize_model(
-        self, state_bar: np.ndarray, input_bar: np.ndarray
+        self, robot_class: int, state_bar: np.ndarray, input_bar: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute the matrices A_k, B_k, and f_bar_k of the system linearized in
@@ -166,19 +170,19 @@ class HOMPCMultiRobot(HOMPC):
         """
         
         A = subs(
-            [self._Js_f_x],
-            [self._states, self._inputs],
+            [self._Js_f_x[robot_class]],
+            [self._states[robot_class], self._inputs[robot_class]],
             [state_bar, input_bar]
         )
         A = A # + np.eye(*A.shape)
         
         B = subs(
-            [self._Js_f_u],
-            [self._states, self._inputs],
+            [self._Js_f_u[robot_class]],
+            [self._states[robot_class], self._inputs[robot_class]],
             [state_bar, input_bar]
         )
         
-        f_bar = self._models(state_bar, input_bar).full()
+        f_bar = self._models[robot_class](state_bar, input_bar).full()
         
         return A, B, f_bar
     
@@ -187,6 +191,8 @@ class HOMPCMultiRobot(HOMPC):
     def _task_dynamics_consistency(self) -> tuple[np.ndarray, np.ndarray]:
         """Construct the constraints matrices that enforce the system dynamics"""
         
+        n_classes = len(self.n_robots)
+        
         n_s = self._n_states
         
         n_c = self._n_control
@@ -194,20 +200,31 @@ class HOMPCMultiRobot(HOMPC):
         
         n_x_opt = self._get_n_x_opt()
         
-        A_dyn = np.zeros(((n_c+n_p)*n_s, n_x_opt))
-        b_dyn = np.zeros(((n_c+n_p)*n_s, 1))
+        n_rows = self._get_idx_state_kp1(n_classes-1, self.n_robots[n_classes-1] - 1, n_c + n_p - 1)[-1] \
+            - self._get_idx_state_kp1(0, 0, 0)[0] + 1
         
-        [_, B_0, _] = self._linearize_model(self._state_bar[0], self._input_bar[0])
+        A_dyn = np.zeros((n_rows, n_x_opt))
+        b_dyn = np.zeros((n_rows, 1))
         
-        A_dyn[0:n_s, self._get_idx_state_kp1(0)] = np.eye(n_s)
-        A_dyn[0:n_s, self._get_idx_input_k(0)] = - B_0
+        i = 0
         
-        for k in range(1, n_c+n_p):
-            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_state_kp1(k)] = np.eye(n_s)
-            
-            [A_k, B_k, _] = self._linearize_model(self._state_bar[k], self._input_bar[k-1])
-            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_state_kp1(k-1)] = - A_k
-            A_dyn[k*n_s:(k+1)*n_s, self._get_idx_input_k(k)] = - B_k
+        for c in range(n_classes):
+            n_s = self._n_states[c]
+            for j in range(self.n_robots[c]):
+                A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, 0)] = np.eye(n_s)
+                
+                [_, B_0, _] = self._linearize_model(c, self._state_bar[c][j][0], self._input_bar[c][j][0])
+                A_dyn[i:i+n_s, self._get_idx_input_k(c, j, 0)] = - B_0
+                i+= n_s
+                    
+                for k in range(1, n_c + n_p):
+                    A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, k)] = np.eye(n_s)
+                    
+                    [A_k, B_k, _] = self._linearize_model(c, self._state_bar[c][j][k], self._input_bar[c][j][k])
+                    A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, k-1)] = - A_k
+                    A_dyn[i:i+n_s, self._get_idx_input_k(c, j, k)] = - B_k
+                    
+                    i+= n_s
             
         return A_dyn, b_dyn
             
@@ -332,10 +349,16 @@ class HOMPCMultiRobot(HOMPC):
         
         n_c = self._n_control
         
-        u_0 = self._input_bar[0] + x_star[self._get_idx_input_k(0)]
+        u_0 = [
+            [self._input_bar[c][j][0] + x_star[self._get_idx_input_k(c, j, 0)]
+                for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots))
+        ]
         
-        for k in range(n_c):
-            self._input_bar[k] = self._input_bar[k] + x_star[self._get_idx_input_k(k)]
+        for c, n_r in enumerate(self.n_robots):
+            for j in range(n_r):
+                for k in range(n_c):
+                    self._input_bar[c][j][k] = self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                 
         return u_0
                         
@@ -347,13 +370,27 @@ class HOMPCMultiRobot(HOMPC):
         n_x_opt = [u_0; u_1; ...; u_{n_c-1}; s_1; s_2; ...; s_{n_c+n_p}]
         """
         
-        return self._n_control * self._n_inputs \
-            + (self._n_control + self._n_pred) * self._n_states
+        n_x = 0
+        for i, n_r in enumerate(self.n_robots):
+            n_x += n_r * (
+                self.n_control * self._n_inputs[i] \
+                    + (self.n_control + self.n_pred) * self._n_states[i]
+            )
+        
+        return n_x
     
-    def _get_idx_input_k(self, k) -> np.ndarray:
+    def _get_idx_input_k(self, c: int, j: int, k: int) -> np.ndarray:
         """
-        Return the indices that correspond to the input u_{k} in n_x_opt.
-        When k >= n_c, return u_{n_c-1}.
+        Return the indices that correspond to the input u_{c, j, k} in n_x_opt.
+        When k >= n_c, return u_{c, j, n_c-1}.
+
+        Args:
+            c (int): robot class index
+            j (int): robot number in the class c
+            k (int): timestep k
+
+        Returns:
+            np.ndarray: _description_
         """
         
         if k < 0 or k > self._n_control + self._n_pred - 1:
@@ -361,24 +398,36 @@ class HOMPCMultiRobot(HOMPC):
         
         if k > self._n_control - 1:
             k = self._n_control - 1
+            
+        n_c = self._n_control  
+        n_i = self._n_inputs[c]
         
-        n_i = self._n_inputs
+        temp1 = sum(np.multiply(self.n_robots[0:c], self._n_inputs[0:c])) * n_c
+        temp2 = j * n_i * n_c
         
-        return np.arange(k*n_i, (k+1)*n_i)
+        return np.arange(
+            temp1 + temp2 + k*n_i,
+            temp1 + temp2 + (k+1)*n_i
+        )
     
-    def _get_idx_state_kp1(self, k) -> np.ndarray:
+    def _get_idx_state_kp1(self, c: int, j: int, k: int) -> np.ndarray:
         """Return the indices that correspond to the state s_{k+1} in n_x_opt."""
+        
+        if j < 0 or j > self.n_robots[c] - 1:
+            raise ValueError
         
         if k < 0 or k > self._n_control + self._n_pred - 1:
             raise ValueError
         
-        n_s = self._n_states
-        n_i = self._n_inputs
-        
         n_c = self._n_control
+        n_s = self._n_states[c]
+        
+        temp1 = sum(np.multiply(self.n_robots, self._n_inputs)) * n_c
+        temp2 = sum(np.multiply(self.n_robots[0:c], self._n_states[0:c])) * n_c
+        temp3 = j * n_s * n_c
         
         return np.arange(
-            n_c*n_i + k * n_s,
-            n_c*n_i + (k+1) * n_s
+            temp1 + temp2 + temp3 + k * n_s,
+            temp1 + temp2 + temp3 + (k+1) * n_s
         )
         

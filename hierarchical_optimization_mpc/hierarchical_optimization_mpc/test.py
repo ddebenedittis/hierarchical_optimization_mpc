@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from casadi import *
+import casadi as ca
 from hierarchical_optimization_mpc.ho_mpc import HOMPC
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
@@ -29,14 +29,14 @@ def main():
     
     # Define the state and input variables, and the discrete-time dynamics model.
     
-    s = SX.sym('x', 3)  # state
-    u = SX.sym('u', 2)  # input
+    s = ca.SX.sym('x', 3)  # state
+    u = ca.SX.sym('u', 2)  # input
     dt = 0.01           # timestep size
     
     # state_{k+1} = s_kpi(state_k, input_k)
-    s_kp1 = vertcat(
-        s[0] + dt * u[0] * cos(s[2]),
-        s[1] + dt * u[0] * sin(s[2]),
+    s_kp1 = ca.vertcat(
+        s[0] + dt * u[0] * ca.cos(s[2]),
+        s[1] + dt * u[0] * ca.sin(s[2]),
         s[2] + dt * u[1]
     )
     
@@ -50,7 +50,7 @@ def main():
     omega_max = 1
     omega_min = -1
     
-    task_input_limits = vertcat(
+    task_input_limits = ca.vertcat(
           u[0] - v_max,
         - u[0] + v_min,
           u[1] - omega_max,
@@ -60,7 +60,7 @@ def main():
         np.array([0, 0, 0, 0])
     ]
     
-    task_vel_reference = vertcat(
+    task_vel_reference = ca.vertcat(
         (s_kp1[0] - s[0]) / dt - 1,
         (s_kp1[1] - s[1]) / dt - 0
     )

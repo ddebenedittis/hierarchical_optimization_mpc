@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from enum import auto, Enum
 
 import casadi as ca
 import numpy as np
@@ -6,6 +7,10 @@ from hierarchical_qp.hierarchical_qp import HierarchicalQP
 from hierarchical_optimization_mpc.ho_mpc import subs, HOMPC
 
 
+
+class TaskType(Enum):
+    Same = auto()
+    Sum = auto()
 
 # ============================================================================ #
 #                                     HOMPC                                    #
@@ -16,6 +21,26 @@ class HOMPCMultiRobot(HOMPC):
     Class to perform Model Predictive Control (MPC) with Hierarchical
     Optimization.
     """
+    
+    
+    @dataclass
+    class Task:
+        """A single hierarchical task."""
+        
+        name:  str                  # task name
+        prio:  int                  # task priority
+        
+        type: TaskType
+        
+        eq_task_ls: list[ca.SX]           # equality part: eq_task_ls = eq_coeff
+        eq_coeff: list[list[np.ndarray]]
+        ineq_task_ls: list[ca.SX]         # inequality part: ineq_task_ls = ineq_coeff
+        ineq_coeff: list[list[np.ndarray]]
+        
+        eq_J_T_s: list[ca.SX] = field(repr=False)     # jacobian(eq_task_ls, state)
+        eq_J_T_u: list[ca.SX] = field(repr=False)     # jacobian(eq_task_ls, input)
+        ineq_J_T_s: list[ca.SX] = field(repr=False)   # jacobian(ineq_task_ls, state)
+        ineq_J_T_u: list[ca.SX] = field(repr=False)   # jacobian(ineq_task_ls, input)
 
     
     # ======================================================================== #
@@ -234,10 +259,11 @@ class HOMPCMultiRobot(HOMPC):
         self,
         name: str,
         prio: int,
-        eq_task_ls: ca.SX = ca.SX.sym("eq", 0),
-        eq_task_coeff: list[np.ndarray] = None,
-        ineq_task_ls: ca.SX = ca.SX.sym("ineq", 0),
-        ineq_task_coeff: list[np.ndarray] = None,
+        type: TaskType,
+        eq_task_ls: list[ca.SX] = None,
+        eq_task_coeff: list[list[np.ndarray]] = None,
+        ineq_task_ls: list[ca.SX] = None,
+        ineq_task_coeff: list[list[np.ndarray]] = None,
     ):
         """
         Create a HOMPC.Task
@@ -251,77 +277,154 @@ class HOMPCMultiRobot(HOMPC):
             ineq_task_coeff (list[np.ndarray], optional): _description_.
         """
         
+        if eq_task_ls is None:
+            eq_task_ls = [ca.SX.sym("eq", 0)] * len(self.n_robots)
+            
+        if ineq_task_ls is None:
+            ineq_task_ls = [ca.SX.sym("ineq", 0)] * len(self.n_robots)
+                
         if eq_task_coeff is None:
-            eq_task_coeff = self.InfList([np.zeros((eq_task_ls.size1(),1))])
+            eq_task_coeff = [self.InfList([np.zeros((eq_task_ls[c].size1(),1))]) for c in range(len(self.n_robots))]
             
         if ineq_task_coeff is None:
-            ineq_task_coeff = self.InfList([np.zeros((ineq_task_ls.size1(),1))])
+            ineq_task_coeff = [self.InfList([np.zeros((ineq_task_ls[c].size1(),1))]) for c in range(len(self.n_robots))]
         
         self._tasks.append(self.Task(
             name = name,
             prio = prio,
+            type = type,
             eq_task_ls = eq_task_ls,
-            eq_J_T_s = ca.jacobian(eq_task_ls, self._states),
-            eq_J_T_u = ca.jacobian(eq_task_ls, self._inputs),
-            eq_coeff = self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff]),
+            eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
+            eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
+            eq_coeff = [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c]]) for c in range(len(self.n_robots))],
             ineq_task_ls = ineq_task_ls,
-            ineq_J_T_s = ca.jacobian(ineq_task_ls, self._states),
-            ineq_J_T_u = ca.jacobian(ineq_task_ls, self._inputs),
-            ineq_coeff = self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff])
+            ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
+            ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
+            ineq_coeff = [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c]]) for c in range(len(self.n_robots))]
         ))
         
     # ======================================================================== #
         
-    def create_task_i_matrices(self, i) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        t = self._tasks[i]
-        ne = t.eq_J_T_s.shape[0]
-        ni = t.ineq_J_T_s.shape[0]
-        
+    def create_task_i_matrices(self, ie) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        t = self._tasks[ie]
         n_c = self._n_control
         n_p = self._n_pred
         
-        A = np.zeros((ne * (n_c+n_p), self._get_n_x_opt()))
-        b = np.zeros((ne * (n_c+n_p), 1))
-        C = np.zeros((ni * (n_c+n_p), self._get_n_x_opt()))
-        d = np.zeros((ni * (n_c+n_p), 1))
-        
-        for k in range(n_c + n_p):
-            if k > n_c - 1:
-                ki = n_c - 1
-            else:
-                ki = k
+        if t.type == TaskType.Same:
+            ne = sum(np.multiply(
+                [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                self.n_robots,
+            )) * (n_c + n_p)
             
-            A[k*ne:(k+1)*ne, self._get_idx_state_kp1(k)] = subs(
-                [t.eq_J_T_s],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]]
-            )
-            A[k*ne:(k+1)*ne, self._get_idx_input_k(k)] = subs(
-                [t.eq_J_T_u],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]],
-            )
-            b[k*ne:(k+1)*ne] = t.eq_coeff[k] - subs(
-                [t.eq_task_ls],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]],
-            )
+            ni = sum(np.multiply(
+                [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                self.n_robots,
+            )) * (n_c + n_p)
             
-            C[k*ni:(k+1)*ni, self._get_idx_state_kp1(k)] = subs(
-                [t.ineq_J_T_s],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]]
-            )
-            C[k*ni:(k+1)*ni, self._get_idx_input_k(k)] = subs(
-                [t.ineq_J_T_u],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]],
-            )
-            d[k*ni:(k+1)*ni] = t.ineq_coeff[k] - subs(
-                [t.ineq_task_ls],
-                [self._states, self._inputs],
-                [self._state_bar[k+1], self._input_bar[ki]],
-            )
+            A = np.zeros((ne, self._get_n_x_opt()))
+            b = np.zeros((ne, 1))
+            C = np.zeros((ni, self._get_n_x_opt()))
+            d = np.zeros((ni, 1))
+            
+            ie = 0
+            ii = 0
+            for c, n_r in enumerate(self.n_robots):
+                for j in range(n_r):
+                    for k in range(n_c + n_p):
+                        if k > n_c - 1:
+                            ki = n_c - 1
+                        else:
+                            ki = k
+                            
+                        ne = t.eq_J_T_s[c].shape[0]
+                        ni = t.ineq_J_T_s[c].shape[0]
+                        
+                        A[ie:ie+ne, self._get_idx_state_kp1(c, j, k)] = subs(
+                            [t.eq_J_T_s[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+                        )
+                        A[ie:ie+ne, self._get_idx_input_k(c, j, k)] = subs(
+                            [t.eq_J_T_u[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        b[ie:ie+ne] = t.eq_coeff[c][k] - subs(
+                            [t.eq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        
+                        C[ii:ii+ni, self._get_idx_state_kp1(c, j, k)] = subs(
+                            [t.ineq_J_T_s[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+                        )
+                        C[ii:ii+ni, self._get_idx_input_k(c, j, k)] = subs(
+                            [t.ineq_J_T_u[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        d[ii:ii+ni] = t.ineq_coeff[c][k] - subs(
+                            [t.ineq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        
+                        ie += ne
+                        ii += ni
+        elif t.type == TaskType.Sum:
+            ne = t.eq_J_T_s[0].shape[0] * (n_c + n_p)
+            
+            ni = t.ineq_J_T_s[0].shape[0] * (n_c + n_p)
+            
+            A = np.zeros((ne, self._get_n_x_opt()))
+            b = np.zeros((ne, 1))
+            C = np.zeros((ni, self._get_n_x_opt()))
+            d = np.zeros((ni, 1))
+            
+            for c, n_r in enumerate(self.n_robots):
+                for j in range(n_r):
+                    for k in range(n_c + n_p):
+                        if k > n_c - 1:
+                            ki = n_c - 1
+                        else:
+                            ki = k
+                            
+                        ne = t.eq_J_T_s[c].shape[0]
+                        ni = t.ineq_J_T_s[c].shape[0]
+                        
+                        A[0:ne, self._get_idx_state_kp1(c, j, k)] = subs(
+                            [t.eq_J_T_s[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+                        )
+                        A[0:ne, self._get_idx_input_k(c, j, k)] = subs(
+                            [t.eq_J_T_u[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        b[0:ne] = t.eq_coeff[c][k] - subs(
+                            [t.eq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        
+                        C[0:ni, self._get_idx_state_kp1(c, j, k)] = subs(
+                            [t.ineq_J_T_s[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+                        )
+                        C[0:ni, self._get_idx_input_k(c, j, k)] = subs(
+                            [t.ineq_J_T_u[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
+                        d[0:ni] = t.ineq_coeff[c][k] - subs(
+                            [t.ineq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        )
             
         return A, b, C, d
         
@@ -342,7 +445,7 @@ class HOMPCMultiRobot(HOMPC):
         for k in range(n_tasks):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self.create_task_i_matrices(k)
-                        
+                                    
         hqp = HierarchicalQP()
         
         x_star = hqp(A, b, C, d)

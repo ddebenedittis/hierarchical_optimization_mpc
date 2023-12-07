@@ -60,7 +60,7 @@ source install/setup.base
 
 ## Known Bugs
 
-- None
+- HO-MPC for multi robots becomes extremely slow after a few steps.
 
 ## Author
 

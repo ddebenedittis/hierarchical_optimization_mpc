@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
+import copy
+import sys
+
 import casadi as ca
-from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot
+from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskType
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +13,8 @@ import numpy as np
 np.set_printoptions(
     precision=3,
     linewidth=300,
-    suppress=True
+    suppress=True,
+    threshold=sys.maxsize,
 )
 
 
@@ -20,8 +24,37 @@ class Animation():
         self.data = data
     
     def update(self, frame):
-        self.scat.set_offsets((self.data[frame, 0], self.data[frame, 1]))
+        state = self.data[frame]
+        counter = 0
+        for s_c in state:
+            for s_c_j in s_c:
+                self.scat[counter].set_offsets((s_c_j[0], s_c_j[1]))
+                counter += 1
+        
         return self.scat
+    
+
+def evolve(s, u_star, dt):
+    n_intervals = 10
+    
+    for c in range(len(s)):
+        for j in range(len(s[c])):
+            if c == 0:
+                for _ in range(n_intervals):
+                    s[c][j] = s[c][j] + dt / n_intervals * np.array([
+                        u_star[c][j][0] * np.cos(s[c][j][2]),
+                        u_star[c][j][0] * np.sin(s[c][j][2]),
+                        u_star[c][j][1],
+                    ])
+            
+            if c == 1:
+                for _ in range(n_intervals):
+                    s[c][j] = s[c][j] + dt / n_intervals * np.array([
+                        u_star[c][j][0],
+                        u_star[c][j][1],
+                    ])
+                    
+    return s
 
 
 def main():
@@ -58,7 +91,58 @@ def main():
     
     # =========================== Define The Tasks =========================== #
     
-
+    # Input limits
+    v_max = 5
+    v_min = -5
+    omega_max = 1
+    omega_min = -1
+    
+    task_input_limits = [
+        ca.vertcat(
+            u[0][0] - v_max,
+            - u[0][0] + v_min,
+            u[0][1] - omega_max,
+            - u[0][1] + omega_min
+        ),
+        ca.vertcat(
+            u[1][0] - v_max,
+            - u[1][0] + v_min,
+            u[1][1] - omega_max,
+            - u[1][1] + omega_min
+        ),
+    ]
+    
+    task_input_limits_coeffs = [
+        [np.array([0, 0, 0, 0])],
+        [np.array([0, 0, 0, 0])],
+    ]
+    
+    # Velocity reference
+    task_vel_ref = [
+        ca.vertcat(
+            (s_kp1[0][0] - s[0][0]) / dt - 1,
+            (s_kp1[0][1] - s[0][1]) / dt - 0,
+        ) / sum(n_robots),
+        ca.vertcat(
+            (s_kp1[1][0] - s[1][0]) / dt - 1,
+            (s_kp1[1][1] - s[1][1]) / dt - 0,
+        ) / sum(n_robots),
+    ]
+    
+    task_input_min = [
+        ca.vertcat(
+            u[0][0],
+            - u[0][0],
+            u[0][1],
+            - u[0][1]
+        ),
+        ca.vertcat(
+            u[1][0],
+            - u[1][0],
+            u[1][1],
+            - u[1][1]
+        ),
+    ]
     
     # ============================ Create The MPC ============================ #
     
@@ -71,60 +155,65 @@ def main():
         [np.array([2, 0]), np.array([3,0])],
     ])
     
-    hompc()
+    hompc.create_task(
+        name = "input_limits", prio = 1,
+        type = TaskType.Same,
+        ineq_task_ls = task_input_limits,
+        ineq_task_coeff = task_input_limits_coeffs,
+    )
     
-    # hompc.create_task(
-    #     name = "input_limits", prio = 1,
-    #     ineq_task_ls = task_input_limits,
-    #     ineq_task_coeff=task_input_limits_coeffs
-    # )
-        
-    # hompc.create_task(
-    #     name = "reference", prio = 2,
-    #     eq_task_ls = task_vel_reference,
-    # )
+    hompc.create_task(
+        name = "vel_ref", prio = 2,
+        type = TaskType.Sum,
+        eq_task_ls = task_vel_ref,
+    )
     
-    # hompc.create_task(
-    #     name = "input_minimization", prio = 3,
-    #     eq_task_ls = task_input_min,
-    # )
+    hompc.create_task(
+        name = "input_minimization", prio = 3,
+        type = TaskType.Same,
+        eq_task_ls = task_input_min,
+    )
     
     # ======================================================================== #
     
-    # s = np.array([0., 0., 0.8])
-    
-    # n_steps = 1000
-    
-    # s_history = np.zeros((n_steps, 3))
+    s = [
+        [np.array([0, 0, 0.8])],
+        [np.array([2, 0]), np.array([3,0])],
+    ]
         
-    # for k in range(n_steps):
-    #     print(k)
+    n_steps = 100
+    
+    s_history = [None] * n_steps
         
-    #     u_star = hompc(s)
+    for k in range(n_steps):
+        print(k)
                 
-    #     for i in range(10):
-    #         s = s + dt / 10 * np.array([
-    #             u_star[0] * np.cos(s[2]),
-    #             u_star[0] * np.sin(s[2]),
-    #             u_star[1]
-    #         ])
+        u_star = hompc(copy.deepcopy(s))
         
-    #     print(s)
-    #     print(u_star)
-    #     print()
+        print(s)
+                    
+        s = evolve(s, u_star, dt)
+                
+        s_history[k] = s
         
-    #     s_history[k, :] = s
-        
-    # fig, ax = plt.subplots()
-    # scat = ax.scatter(s[0], s[1])
-    # ax.set(xlim=[-5, 5], ylim=[-5, 5], xlabel='x [m]', ylabel='y [m]')
-    # ax.legend()
+    fig, ax = plt.subplots()
+    scat = []
+    for c, n_r in enumerate(n_robots):
+        for j in range(n_r):
+            state = s[c][j]
+            scat.append(ax.scatter(state[0], state[1]))
     
-    # anim = Animation(scat, s_history)
+    ax.set(xlim=[-5, 5], ylim=[-5, 5], xlabel='x [m]', ylabel='y [m]')
+    ax.legend()
     
-    # temp = FuncAnimation(fig=fig, func=anim.update, frames=range(1000), interval=30)
-    # plt.show()
+    anim = Animation(scat, s_history)
+    
+    temp = FuncAnimation(fig=fig, func=anim.update, frames=range(n_steps), interval=30)
+    plt.show()
     
     
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except:
+        pass

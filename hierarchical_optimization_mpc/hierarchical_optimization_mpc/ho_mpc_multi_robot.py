@@ -394,33 +394,33 @@ class HOMPCMultiRobot(HOMPC):
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]
                         
-                        A[0:ne, self._get_idx_state_kp1(c, j, k)] = subs(
+                        A[k*ne:(k+1)*ne, self._get_idx_state_kp1(c, j, k)] = subs(
                             [t.eq_J_T_s[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
                         )
-                        A[0:ne, self._get_idx_input_k(c, j, k)] = subs(
+                        A[k*ne:(k+1)*ne, self._get_idx_input_k(c, j, k)] = subs(
                             [t.eq_J_T_u[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
                         )
-                        b[0:ne] = t.eq_coeff[c][k] - subs(
+                        b[k*ne:(k+1)*ne] = t.eq_coeff[c][k] - subs(
                             [t.eq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
                         )
                         
-                        C[0:ni, self._get_idx_state_kp1(c, j, k)] = subs(
+                        C[k*ni:(k+1)*ni, self._get_idx_state_kp1(c, j, k)] = subs(
                             [t.ineq_J_T_s[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
                         )
-                        C[0:ni, self._get_idx_input_k(c, j, k)] = subs(
+                        C[k*ni:(k+1)*ni, self._get_idx_input_k(c, j, k)] = subs(
                             [t.ineq_J_T_u[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
                         )
-                        d[0:ni] = t.ineq_coeff[c][k] - subs(
+                        d[k*ni:(k+1)*ni] = t.ineq_coeff[c][k] - subs(
                             [t.ineq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],

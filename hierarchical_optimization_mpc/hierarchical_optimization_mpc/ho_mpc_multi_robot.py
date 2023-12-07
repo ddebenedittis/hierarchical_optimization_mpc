@@ -154,7 +154,7 @@ class HOMPCMultiRobot(HOMPC):
             # Shift the previous optimal inputs by one.
             for c, n_r in enumerate(self.n_robots):
                 for j in range(n_r):
-                    self._input_bar[c][j][0:1] = self._input_bar[c][j][1:]
+                    self._input_bar[c][j][0:-1] = self._input_bar[c][j][1:]
         else:
             # use the given inputs.
             self._input_bar = inputs

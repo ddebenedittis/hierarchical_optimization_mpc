@@ -23,13 +23,25 @@ class Animation():
         self.scat = scat
         self.data = data
     
+        self.n_robots = sum(len(data_i) for data_i in data[0])
+                
+        self.x = np.zeros(self.n_robots)
+        self.y = np.zeros(self.n_robots)
+    
     def update(self, frame):
-        state = self.data[frame]
-        counter = 0
-        for s_c in state:
+        s = self.data[frame]
+        
+        k = 0
+        for s_c in s:
             for s_c_j in s_c:
-                self.scat[counter].set_offsets((s_c_j[0], s_c_j[1]))
-                counter += 1
+                self.x[k] = s_c_j[0]
+                self.y[k] = s_c_j[1]
+                k += 1
+                
+        if len(self.x) == 1:
+            self.scat.set_offsets((self.x[0], self.y[0]))
+        else:
+            self.scat.set_offsets((self.x, self.y))
         
         return self.scat
     
@@ -181,7 +193,7 @@ def main():
         [np.array([2, 0]), np.array([3,0])],
     ]
         
-    n_steps = 100
+    n_steps = 1000
     
     s_history = [None] * n_steps
         
@@ -194,16 +206,23 @@ def main():
                     
         s = evolve(s, u_star, dt)
                 
-        s_history[k] = s
+        s_history[k] = copy.deepcopy(s)
         
     fig, ax = plt.subplots()
     scat = []
+    x = np.zeros(sum(n_robots))
+    y = np.zeros(sum(n_robots))
+    k = 0
     for c, n_r in enumerate(n_robots):
         for j in range(n_r):
             state = s[c][j]
-            scat.append(ax.scatter(state[0], state[1]))
+            x[k] = state[0]
+            y[k] = state[1]
+            k += 1
     
-    ax.set(xlim=[-5, 5], ylim=[-5, 5], xlabel='x [m]', ylabel='y [m]')
+    scat = ax.scatter(x, y)
+    
+    ax.set(xlim=[-5., 5.], ylim=[-5., 5.], xlabel='x [m]', ylabel='y [m]')
     ax.legend()
     
     anim = Animation(scat, s_history)

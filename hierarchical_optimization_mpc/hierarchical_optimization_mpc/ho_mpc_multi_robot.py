@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass, field
 from enum import auto, Enum
 
@@ -11,6 +12,7 @@ from hierarchical_optimization_mpc.ho_mpc import subs, HOMPC
 class TaskType(Enum):
     Same = auto()
     Sum = auto()
+    SameTimeDiff = auto()
 
 # ============================================================================ #
 #                                     HOMPC                                    #
@@ -45,18 +47,27 @@ class HOMPCMultiRobot(HOMPC):
     
     # ======================================================================== #
     
-    def __init__(self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int]):
+    def __init__(
+        self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int]
+    ) -> None:
         """
         Initialize the instance.
 
         Args:
-            state (ca.SX): state symbolic variable
-            input (ca.SX): input symbolic variable
-            f (ca.SX):     discrete-time system equation:
-                           state_{k+1} = f(state_k, input_k)
+            state (list[ca.SX]): state symbolic variable
+            input (list[ca.SX]): input symbolic variable
+            f (list[ca.SX]):     discrete-time system equation:
+                                 state_{k+1} = f(state_k, input_k)
         """
         
+        if len(states) != len(inputs) \
+            or len(states) != len(fs) \
+            or len(states) != len(n_robots):
+            raise ValueError('Incorrect dimensions of the states, inputs, fs, and n_robots.')
         
+        for i, n_r in enumerate(n_robots):
+            if n_r < 0:
+                raise ValueError(f'The {i}-th class of robots has a negative number of robots.')
         
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
@@ -65,15 +76,17 @@ class HOMPCMultiRobot(HOMPC):
         
         # ==================================================================== #
         
-        self._states = states # state variable
-        self._inputs = inputs # input variable
+        self._states = states   # state variable
+        self._inputs = inputs   # input variable
         
+        # Number of robots for every robot class.
         self.n_robots = n_robots
         
+        # State and input variables of every robot class.
         self._n_states: list[int] = [state.numel() for state in states]
         self._n_inputs: list[int] = [input.numel() for input in inputs]
         
-        # System model: state_{k+1} = f(state_k, input_k)
+        # System models: state_{k+1} = f(state_k, input_k)
         self._models = [
             ca.Function(
                 'f',
@@ -87,9 +100,17 @@ class HOMPCMultiRobot(HOMPC):
         self._Js_f_x: list[ca.SX] = [ca.jacobian(fs[i], states[i]) for i in range(len(fs))]
         self._Js_f_u: list[ca.SX] = [ca.jacobian(fs[i], inputs[i]) for i in range(len(fs))]
         
-        self._state_bar = [[[None] * (self.n_control + self.n_pred)] * n_robots[i] for i in range(len(states))]
+        # States around which the linearization is performed.
+        # _state_bar[class c][robot j][timestep k]
+        self._state_bar = [
+            [[None] * (self.n_control + self.n_pred)] * n_robots[i]
+            for i in range(len(states))
+        ]
+        # Inputs around which the linearization is performed.
+        # _input_bar[class c][robot j][timestep k]
         self._input_bar = [
-            [[np.zeros(self._n_inputs[i])] * self.n_control] * n_robots[i] for i in range(len(states))
+            [[np.zeros(self._n_inputs[i])] * self.n_control] * n_robots[i]
+            for i in range(len(states))
         ]
         
         self._tasks: list[self.Task] = []
@@ -106,11 +127,16 @@ class HOMPCMultiRobot(HOMPC):
             ValueError('"n_control" must be equal or greater than 1.')
         else:
             self._n_control = value
-            self._state_bar = [[[None] * (self.n_control + self.n_pred)] * self.n_robots[i] for i in range(len(self.n_robots))]
-            self._input_bar = [
-                [[np.zeros(self._n_inputs[i])] * self.n_control] * self.n_robots[i] for i in range(len(self.n_robots))
-            ]
             
+            # Adapt the sizes of the state and input linearization points.
+            self._state_bar = [
+                [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
+                for i in range(len(self.n_robots))
+            ]
+            self._input_bar = [
+                [[np.zeros(self._n_inputs[i]) for _ in range(self.n_control)] for _ in range(self.n_robots[i])]
+                for i in range(len(self.n_robots))
+            ]
     @property
     def n_pred(self):
         return self._n_pred
@@ -121,7 +147,12 @@ class HOMPCMultiRobot(HOMPC):
             ValueError('"n_pred" must be equal or greater than 0.')
         else:
             self._n_pred = value
-            self._state_bar = [[[None] * (self.n_control + self.n_pred)] * self.n_robots[i] for i in range(len(self.n_robots))]
+            
+            # Adapt the size of the state linearization points.
+            self._state_bar = [
+                [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
+                for i in range(len(self.n_robots))
+            ]
         
     # ============================== Initialize ============================== #
         
@@ -156,9 +187,11 @@ class HOMPCMultiRobot(HOMPC):
                 for j in range(n_r):
                     self._input_bar[c][j][0:-1] = self._input_bar[c][j][1:]
         else:
-            # use the given inputs.
+            # Use the given inputs.
             self._input_bar = inputs
                 
+        # Generate the state linearization points from the measured state and
+        # the linearization inputs.
         for i, n_r in enumerate(self.n_robots):
             model = self._models[i]
             for j in range(n_r):
@@ -175,7 +208,7 @@ class HOMPCMultiRobot(HOMPC):
                     self._state_bar[i][j][k+n_c] = model(
                         self._state_bar[i][j][n_c-1], self._input_bar[i][j][n_c-1]
                     ).full()
-                                    
+        
     # ============================ Linearize_model =========================== #
     
     def _linearize_model(
@@ -214,7 +247,13 @@ class HOMPCMultiRobot(HOMPC):
     # ======================= Dynamics_consistency_task ====================== #
     
     def _task_dynamics_consistency(self) -> tuple[np.ndarray, np.ndarray]:
-        """Construct the constraints matrices that enforce the system dynamics"""
+        """
+        Construct the constraints matrices that enforce the system dynamics
+        The task equation is
+            x_tilde_k+1 = A_k x_tilde_k + B_k u_tilde_k
+        
+        (x_tilde_0 is a zero vector)
+        """
         
         n_classes = len(self.n_robots)
         
@@ -231,25 +270,24 @@ class HOMPCMultiRobot(HOMPC):
         A_dyn = np.zeros((n_rows, n_x_opt))
         b_dyn = np.zeros((n_rows, 1))
         
-        i = 0
-        
+        i = 0   # row index used for the matrices A_dyn and b_dyn.
         for c in range(n_classes):
             n_s = self._n_states[c]
             for j in range(self.n_robots[c]):
+                # For the first timestep it is different because state_tilde_k is 0.
                 A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, 0)] = np.eye(n_s)
-                
                 [_, B_0, _] = self._linearize_model(c, self._state_bar[c][j][0], self._input_bar[c][j][0])
                 A_dyn[i:i+n_s, self._get_idx_input_k(c, j, 0)] = - B_0
-                i+= n_s
+                i += n_s
                     
+                # Formulate the task for the remaining timesteps.
                 for k in range(1, n_c + n_p):
                     A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, k)] = np.eye(n_s)
-                    
                     [A_k, B_k, _] = self._linearize_model(c, self._state_bar[c][j][k], self._input_bar[c][j][k])
                     A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, k-1)] = - A_k
                     A_dyn[i:i+n_s, self._get_idx_input_k(c, j, k)] = - B_k
                     
-                    i+= n_s
+                    i += n_s
             
         return A_dyn, b_dyn
             
@@ -305,7 +343,17 @@ class HOMPCMultiRobot(HOMPC):
         
     # ======================================================================== #
         
-    def create_task_i_matrices(self, ie) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _create_task_i_matrices(self, ie) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Create the matrices that are used for the HO MPC problem.
+
+        Args:
+            ie (_type_): _description_
+
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: [A, b, C, d]
+        """
+        
         t = self._tasks[ie]
         n_c = self._n_control
         n_p = self._n_pred
@@ -331,48 +379,23 @@ class HOMPCMultiRobot(HOMPC):
             for c, n_r in enumerate(self.n_robots):
                 for j in range(n_r):
                     for k in range(n_c + n_p):
-                        if k > n_c - 1:
-                            ki = n_c - 1
-                        else:
-                            ki = k
-                            
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]
                         
-                        A[ie:ie+ne, self._get_idx_state_kp1(c, j, k)] = subs(
-                            [t.eq_J_T_s[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
-                        )
-                        A[ie:ie+ne, self._get_idx_input_k(c, j, k)] = subs(
-                            [t.eq_J_T_u[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
-                        b[ie:ie+ne] = t.eq_coeff[c][k] - subs(
-                            [t.eq_task_ls[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
-                        
-                        C[ii:ii+ni, self._get_idx_state_kp1(c, j, k)] = subs(
-                            [t.ineq_J_T_s[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
-                        )
-                        C[ii:ii+ni, self._get_idx_input_k(c, j, k)] = subs(
-                            [t.ineq_J_T_u[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
-                        d[ii:ii+ni] = t.ineq_coeff[c][k] - subs(
-                            [t.ineq_task_ls[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
+                        [
+                            A[ie:ie+ne, self._get_idx_state_kp1(c, j, k)],
+                            A[ie:ie+ne, self._get_idx_input_k(c, j, k)],
+                            b[ie:ie+ne],
+                            C[ii:ii+ni, self._get_idx_state_kp1(c, j, k)],
+                            C[ii:ii+ni, self._get_idx_input_k(c, j, k)],
+                            d[ii:ii+ni],
+                        ] = self._helper_create_task_i_matrices(t, c, j, k)
                         
                         ie += ne
                         ii += ni
+                        
+        # ==================================================================== #
+        
         elif t.type == TaskType.Sum:
             ne = t.eq_J_T_s[0].shape[0] * (n_c + n_p)
             
@@ -385,48 +408,159 @@ class HOMPCMultiRobot(HOMPC):
             
             for c, n_r in enumerate(self.n_robots):
                 for j in range(n_r):
-                    for k in range(n_c + n_p):
-                        if k > n_c - 1:
-                            ki = n_c - 1
-                        else:
-                            ki = k
-                            
+                    for k in range(n_c + n_p):                            
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]
                         
-                        A[k*ne:(k+1)*ne, self._get_idx_state_kp1(c, j, k)] = subs(
-                            [t.eq_J_T_s[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
-                        )
-                        A[k*ne:(k+1)*ne, self._get_idx_input_k(c, j, k)] = subs(
-                            [t.eq_J_T_u[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
-                        b[k*ne:(k+1)*ne] = t.eq_coeff[c][k] - subs(
+                        [
+                            A[k*ne:(k+1)*ne, self._get_idx_state_kp1(c, j, k)],
+                            A[k*ne:(k+1)*ne, self._get_idx_input_k(c, j, k)],
+                            b_temp,
+                            C[k*ni:(k+1)*ni, self._get_idx_state_kp1(c, j, k)],
+                            C[k*ni:(k+1)*ni, self._get_idx_input_k(c, j, k)],
+                            d_temp,
+                        ] = self._helper_create_task_i_matrices(t, c, j, k)
+                        
+                        b[k*ne:(k+1)*ne] += b_temp
+                        d[k*ni:(k+1)*ni] += d_temp
+                        
+        # ==================================================================== #
+        
+        elif t.type == TaskType.SameTimeDiff:
+            ne = sum(np.multiply(
+                [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                self.n_robots,
+            )) * (n_c + n_p)
+            
+            ni = sum(np.multiply(
+                [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                self.n_robots,
+            )) * (n_c + n_p)
+            
+            A = np.zeros((ne, self._get_n_x_opt()))
+            b = np.zeros((ne, 1))
+            C = np.zeros((ni, self._get_n_x_opt()))
+            d = np.zeros((ni, 1))
+            
+            ie = 0
+            ii = 0
+            for c, n_r in enumerate(self.n_robots):
+                for j in range(n_r):
+                    for k in range(1, n_c + n_p):
+                        ne = t.eq_J_T_s[c].shape[0]
+                        ni = t.ineq_J_T_s[c].shape[0]
+                        
+                        [
+                            A[ie:ie+ne, self._get_idx_state_kp1(c, j, k)],
+                            A[ie:ie+ne, self._get_idx_input_k(c, j, k)],
+                            b[ie:ie+ne],
+                            C[ii:ii+ni, self._get_idx_state_kp1(c, j, k)],
+                            C[ii:ii+ni, self._get_idx_input_k(c, j, k)],
+                            d[ii:ii+ni],
+                        ] = self._helper_create_task_i_matrices(t, c, j, k)
+                        
+                        [
+                            A[ie:ie+ne, self._get_idx_state_kp1(c, j, k-1)],
+                            A[ie:ie+ne, self._get_idx_input_k(c, j, k-1)],
+                            b[ie:ie+ne],
+                            C[ii:ii+ni, self._get_idx_state_kp1(c, j, k-1)],
+                            C[ii:ii+ni, self._get_idx_input_k(c, j, k-1)],
+                            d[ii:ii+ni],
+                        ] = [-e for e in self._helper_create_task_i_matrices(t, c, j, k-1)]
+                        
+                        if k > self.n_control - 1:
+                            ki = self.n_control - 1
+                        else:
+                            ki = k
+                        
+                        b[ie:ie+ne] = t.eq_coeff[c][k] - subs(
                             [t.eq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        ) + subs(
+                            [t.eq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k], self._input_bar[c][j][ki-1]],
                         )
                         
-                        C[k*ni:(k+1)*ni, self._get_idx_state_kp1(c, j, k)] = subs(
-                            [t.ineq_J_T_s[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
-                        )
-                        C[k*ni:(k+1)*ni, self._get_idx_input_k(c, j, k)] = subs(
-                            [t.ineq_J_T_u[c]],
-                            [self._states[c], self._inputs[c]],
-                            [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
-                        )
-                        d[k*ni:(k+1)*ni] = t.ineq_coeff[c][k] - subs(
+                        d[ii:ii+ni] = t.ineq_coeff[c][k] - subs(
                             [t.ineq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+                        ) + subs(
+                            [t.ineq_task_ls[c]],
+                            [self._states[c], self._inputs[c]],
+                            [self._state_bar[c][j][k], self._input_bar[c][j][ki-1]],
                         )
+                        
+                        ie += ne
+                        ii += ni
             
         return A, b, C, d
+    
+    # ==================== _helper_create_task_i_matrices ==================== #
+    
+    # Auxiliary matrix to create the matrices A, b, C, d
+    def _helper_create_task_i_matrices(
+        self, t: Task, c: int, j: int, k: int
+    ):
+        """
+        _summary_
+
+        Args:
+            t (Task): task
+            c (int): robot class index
+            j (int): robot number in the class
+            k (int): timestep
+
+        Returns:
+            [
+                A[e1:e2, self._get_idx_state_kp1(c, j, k)],
+                A[e1:e2, self._get_idx_input_k(c, j, k)],
+                b[e1:e2],
+                C[i1:i2, self._get_idx_state_kp1(c, j, k)],
+                C[i1:i2, self._get_idx_input_k(c, j, k)],
+                d[i1:i2],
+            ]
+        """
+        
+        if k > self.n_control - 1:
+            ki = self.n_control - 1
+        else:
+            ki = k
+        
+        return [
+            subs(
+                [t.eq_J_T_s[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+            ),
+            subs(
+                [t.eq_J_T_u[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+            ),
+            t.eq_coeff[c][k] - subs(
+                [t.eq_task_ls[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+            ),
+            subs(
+                [t.ineq_J_T_s[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]]
+            ),
+            subs(
+                [t.ineq_J_T_u[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+            ),
+            t.ineq_coeff[c][k] - subs(
+                [t.ineq_task_ls[c]],
+                [self._states[c], self._inputs[c]],
+                [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
+            ),
+        ]
         
     # ======================================================================== #
     
@@ -444,7 +578,7 @@ class HOMPCMultiRobot(HOMPC):
         
         for k in range(n_tasks):
             kp = k + 1
-            A[kp], b[kp], C[kp], d[kp] = self.create_task_i_matrices(k)
+            A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
                                     
         hqp = HierarchicalQP()
         
@@ -461,7 +595,7 @@ class HOMPCMultiRobot(HOMPC):
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
-                    self._input_bar[c][j][k] = self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
+                    self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
         return u_0
                         

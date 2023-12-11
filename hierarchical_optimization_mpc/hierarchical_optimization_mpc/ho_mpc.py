@@ -26,6 +26,16 @@ class HOMPC:
     """
     Class to perform Model Predictive Control (MPC) with Hierarchical
     Optimization.
+    
+    The input at time i is u_i. The state at time i is s_i.
+    
+    The linearization points are (u_bar_i, s_bar_i).
+    
+    The optimization vector is
+    [u_tilde_0, ..., u_tilde_n_c-1, s_tilde_1, ..., s_tilde_n_c]^T,\\
+    where u_tilde_i = u_i - u_bar and s_tilde_i = s_i - s_bar.
+    
+    The system dynamics are x_tilde_k+1 = A_k x_tilde_k + B_k u_tilde_k.
     """
     
     
@@ -280,7 +290,7 @@ class HOMPC:
         
     # ======================================================================== #
         
-    def create_task_i_matrices(self, i) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _create_task_i_matrices(self, i) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         t = self._tasks[i]
         ne = t.eq_J_T_s.shape[0]
         ni = t.ineq_J_T_s.shape[0]
@@ -349,7 +359,7 @@ class HOMPC:
         
         for k in range(n_tasks):
             kp = k + 1
-            A[kp], b[kp], C[kp], d[kp] = self.create_task_i_matrices(k)
+            A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
                         
         hqp = HierarchicalQP()
         

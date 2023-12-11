@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import copy
+from dataclasses import dataclass
 import sys
 
 import casadi as ca
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskType
+import matplotlib as mpl
 from matplotlib.animation import FuncAnimation
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -16,35 +19,47 @@ np.set_printoptions(
     suppress=True,
     threshold=sys.maxsize,
 )
+    
 
+def gen_arrow_head_marker(rot):
+    """generate a marker to plot with matplotlib scatter, plot, ...
 
-class Animation():
-    def __init__(self, scat, data) -> None:
-        self.scat = scat
-        self.data = data
-    
-        self.n_robots = sum(len(data_i) for data_i in data[0])
-                
-        self.x = np.zeros(self.n_robots)
-        self.y = np.zeros(self.n_robots)
-    
-    def update(self, frame):
-        s = self.data[frame]
-        
-        k = 0
-        for s_c in s:
-            for s_c_j in s_c:
-                self.x[k] = s_c_j[0]
-                self.y[k] = s_c_j[1]
-                k += 1
-                
-        if len(self.x) == 1:
-            self.scat.set_offsets((self.x[0], self.y[0]))
-        else:
-            self.scat.set_offsets((self.x, self.y))
-        
-        return self.scat
-    
+    https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
+
+    rot=0: positive x direction
+    Parameters
+    ----------
+    rot : float
+        rotation in degree
+        0 is positive x direction
+
+    Returns
+    -------
+    arrow_head_marker : Path
+        use this path for marker argument of plt.scatter
+    scale : float
+        multiply a argument of plt.scatter with this factor got get markers
+        with the same size independent of their rotation.
+        Paths are autoscaled to a box of size -1 <= x, y <= 1 by plt.scatter
+    """
+    arr = np.array([[.1, .3], [.1, -.3], [1, 0], [.1, .3]])  # arrow shape
+    angle = rot / 180 * np.pi
+    rot_mat = np.array([
+        [np.cos(angle), np.sin(angle)],
+        [-np.sin(angle), np.cos(angle)]
+        ])
+    arr = np.matmul(arr, rot_mat)  # rotates the arrow
+
+    # scale
+    x0 = np.amin(arr[:, 0])
+    x1 = np.amax(arr[:, 0])
+    y0 = np.amin(arr[:, 1])
+    y1 = np.amax(arr[:, 1])
+    scale = np.amax(np.abs([x0, x1, y0, y1]))
+    codes = [mpl.path.Path.MOVETO, mpl.path.Path.LINETO,mpl.path.Path.LINETO, mpl.path.Path.CLOSEPOLY]
+    arrow_head_marker = mpl.path.Path(arr, codes)
+    return arrow_head_marker, scale
+
 
 def evolve(s, u_star, dt):
     n_intervals = 10
@@ -69,7 +84,67 @@ def evolve(s, u_star, dt):
     return s
 
 
+@dataclass
+class MultiRobotScatter:
+    unicycles: ...
+    omnidir: ...
+    centroid: ...
+
+
+class Animation():
+    def __init__(self, scat: MultiRobotScatter, data) -> None:
+        self.scat = scat
+        self.data = data
+        
+        self.n_robots = [len(data_i) for data_i in data[0]]
+    
+    def update(self, frame):
+        state = self.data[frame]
+        
+        x = [
+            np.zeros((self.n_robots[0], 3)),
+            np.zeros((self.n_robots[0], 2)),
+        ]
+        
+        for c in range(len(state)):
+            for j, s_c_j in enumerate(state[c]):
+                x[c][j, 0] = s_c_j[0]
+                x[c][j, 1] = s_c_j[1]
+                if c == 0:
+                    x[c][j, 2] = s_c_j[2]
+                
+        for i in range(self.n_robots[0]):
+            self.scat.unicycles[i].remove()
+        for i in range(self.n_robots[1]):
+            self.scat.omnidir[i].remove()
+                
+        for i in range(self.n_robots[0]):
+            deg = x[0][i,2] * 180 / np.pi
+            marker, scale = gen_arrow_head_marker(deg)
+                        
+            self.scat.unicycles[i] = plt.scatter(
+                x = x[0][i,0], y = x[0][i,1],
+                s = 250 * scale**2, c = 'C0',
+                marker = marker,
+            )
+            
+        for i in range(self.n_robots[1]):
+            self.scat.omnidir[i] = plt.scatter(
+                x = x[1][i,0], y = x[1][i,1],
+                s = 25, c = 'C1',
+                marker = 'o',
+            )
+        
+        self.scat.centroid.set_offsets(
+            (np.mean(x[0][:,0:2],axis=0)*self.n_robots[0] + np.mean(x[1][:,0:2],axis=0)*self.n_robots[1]) / sum(self.n_robots)
+        )
+                
+        return self.scat
+
+
 def main():
+    np.random.seed()
+    
     # ======================== Define The System Model ======================= #
     
     # Define the state and input variables, and the discrete-time dynamics model.
@@ -100,6 +175,7 @@ def main():
     ))
     
     n_robots = [1, 2]
+    n_robots = [10, 1]
     
     # =========================== Define The Tasks =========================== #
     
@@ -129,6 +205,19 @@ def main():
         [np.array([0, 0, 0, 0])],
     ]
     
+    task_input_smooth = [
+        ca.vertcat(
+            u[0][0],
+            - u[0][0],
+            u[0][1],
+            - u[0][1]
+        ),
+    ]
+    
+    task_input_smooth_coeffs = [
+        [np.array([0.2, 0.2, 0.1, 0.1])]
+    ]
+    
     # Velocity reference
     task_vel_ref = [
         ca.vertcat(
@@ -144,9 +233,7 @@ def main():
     task_input_min = [
         ca.vertcat(
             u[0][0],
-            - u[0][0],
             u[0][1],
-            - u[0][1]
         ),
         ca.vertcat(
             u[1][0],
@@ -162,17 +249,19 @@ def main():
     hompc.n_control = 3
     hompc.n_pred = 0
     
-    hompc._initialize([
-        [np.array([0, 0, 0])],
-        [np.array([2, 0]), np.array([3,0])],
-    ])
-    
     hompc.create_task(
         name = "input_limits", prio = 1,
         type = TaskType.Same,
         ineq_task_ls = task_input_limits,
         ineq_task_coeff = task_input_limits_coeffs,
     )
+    
+    # hompc.create_task(
+    #     name = "input_smooth", prio = 2,
+    #     type = TaskType.SameTimeDiff,
+    #     ineq_task_ls = task_input_smooth,
+    #     ineq_task_coeff = task_input_smooth_coeffs,
+    # )
     
     hompc.create_task(
         name = "vel_ref", prio = 2,
@@ -189,11 +278,12 @@ def main():
     # ======================================================================== #
     
     s = [
-        [np.array([0, 0, 0.8])],
-        [np.array([2, 0]), np.array([3,0])],
+        [np.multiply(np.random.random((3)), np.array([2, 2, 2*np.pi])) + np.array([1, 1, 0])
+         for i in range(n_robots[0])],
+        [np.array([2,0])],
     ]
-        
-    n_steps = 1000
+    
+    n_steps = 10
     
     s_history = [None] * n_steps
         
@@ -202,28 +292,45 @@ def main():
                 
         u_star = hompc(copy.deepcopy(s))
         
-        print(s)
+        print(u_star)
                     
         s = evolve(s, u_star, dt)
                 
         s_history[k] = copy.deepcopy(s)
-        
+            
     fig, ax = plt.subplots()
-    scat = []
-    x = np.zeros(sum(n_robots))
-    y = np.zeros(sum(n_robots))
-    k = 0
+    x = [np.zeros(n_r) for n_r in n_robots]
+    y = [np.zeros(n_r) for n_r in n_robots]
     for c, n_r in enumerate(n_robots):
         for j in range(n_r):
             state = s[c][j]
-            x[k] = state[0]
-            y[k] = state[1]
-            k += 1
+            x[c][j] = state[0]
+            y[c][j] = state[1]
     
-    scat = ax.scatter(x, y)
+    scat = MultiRobotScatter
+    scat.unicycles = [None] * n_robots[0]
+    scat.omnidir = [None] * n_robots[1]
+        
+    for i in range(n_robots[0]):
+        scat.unicycles[i] = ax.scatter(x[0], y[0], 25, 'C0')
+    for i in range(n_robots[1]):
+        scat.omnidir[i] = ax.scatter(x[1], y[1], 25, 'C1')
+        
+    scat.centroid = ax.scatter(
+        (np.mean(x[0])*n_robots[0] + np.mean(x[1])*n_robots[1]) / sum(n_robots),
+        (np.mean(y[0])*n_robots[0] + np.mean(y[1])*n_robots[1]) / sum(n_robots),
+        25, 'C2')
     
     ax.set(xlim=[-5., 5.], ylim=[-5., 5.], xlabel='x [m]', ylabel='y [m]')
-    ax.legend()
+    
+    marker, scale = gen_arrow_head_marker(0)
+    legend_elements = [
+        Line2D([], [], marker=marker, color='C0', linestyle='None', label='Unicycles'),
+        Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
+        Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
+    ]
+    
+    ax.legend(handles=legend_elements)
     
     anim = Animation(scat, s_history)
     

@@ -264,8 +264,7 @@ class HOMPCMultiRobot(HOMPC):
         
         n_x_opt = self._get_n_x_opt()
         
-        n_rows = self._get_idx_state_kp1(n_classes-1, self.n_robots[n_classes-1] - 1, n_c + n_p - 1)[-1] \
-            - self._get_idx_state_kp1(0, 0, 0)[0] + 1
+        n_rows = sum(np.multiply(self.n_robots, n_s) * (n_c+n_p))
         
         A_dyn = np.zeros((n_rows, n_x_opt))
         b_dyn = np.zeros((n_rows, 1))
@@ -662,6 +661,12 @@ class HOMPCMultiRobot(HOMPC):
         temp1 = sum(np.multiply(self.n_robots, self._n_inputs)) * n_c
         temp2 = sum(np.multiply(self.n_robots[0:c], self._n_states[0:c])) * n_c
         temp3 = j * n_s * n_c
+        
+        if j == -1:
+            return np.arange(
+            temp1 + temp2 + temp3 + k * n_s,
+            temp1 + temp2 + temp3 + (k+1) * n_s
+        )
         
         return np.arange(
             temp1 + temp2 + temp3 + k * n_s,

@@ -174,8 +174,7 @@ def main():
         s[1][1] + dt * u[1][1],
     ))
     
-    n_robots = [1, 2]
-    n_robots = [10, 1]
+    n_robots = [2, 1]
     
     # =========================== Define The Tasks =========================== #
     
@@ -278,12 +277,13 @@ def main():
     # ======================================================================== #
     
     s = [
-        [np.multiply(np.random.random((3)), np.array([2, 2, 2*np.pi])) + np.array([1, 1, 0])
-         for i in range(n_robots[0])],
-        [np.array([2,0])],
+        [np.multiply(np.random.random((3)), np.array([2, 2, 2*np.pi])) + np.array([-1, -1, 0])
+         for _ in range(n_robots[0])],
+        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
+         for _ in range(n_robots[1])],
     ]
     
-    n_steps = 10
+    n_steps = 1000
     
     s_history = [None] * n_steps
         
@@ -325,7 +325,7 @@ def main():
     
     marker, scale = gen_arrow_head_marker(0)
     legend_elements = [
-        Line2D([], [], marker=marker, color='C0', linestyle='None', label='Unicycles'),
+        Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
         Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
         Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
     ]

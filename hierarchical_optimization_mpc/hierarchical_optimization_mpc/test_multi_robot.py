@@ -103,7 +103,7 @@ class Animation():
         
         x = [
             np.zeros((self.n_robots[0], 3)),
-            np.zeros((self.n_robots[0], 2)),
+            np.zeros((self.n_robots[1], 2)),
         ]
         
         for c in range(len(state)):
@@ -138,7 +138,7 @@ class Animation():
         self.scat.centroid.set_offsets(
             (np.mean(x[0][:,0:2],axis=0)*self.n_robots[0] + np.mean(x[1][:,0:2],axis=0)*self.n_robots[1]) / sum(self.n_robots)
         )
-                
+        
         return self.scat
 
 
@@ -159,8 +159,8 @@ def main():
     
     # state_{k+1} = s_kpi(state_k, input_k)
     s_kp1.append(ca.vertcat(
-        s[0][0] + dt * u[0][0] * ca.cos(s[0][2]),
-        s[0][1] + dt * u[0][0] * ca.sin(s[0][2]),
+        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 1/2*dt * u[0][1]),
+        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 1/2*dt * u[0][1]),
         s[0][2] + dt * u[0][1]
     ))
     
@@ -211,10 +211,17 @@ def main():
             u[0][1],
             - u[0][1]
         ),
+        ca.vertcat(
+            u[1][0],
+            - u[1][0],
+            u[1][1],
+            - u[1][1]
+        ),
     ]
     
     task_input_smooth_coeffs = [
-        [np.array([0.2, 0.2, 0.1, 0.1])]
+        [np.array([0.9, 0.9, 0.8, 0.8])],
+        [np.array([0.9, 0.9, 0.8, 0.8])],
     ]
     
     # Velocity reference
@@ -242,6 +249,23 @@ def main():
         ),
     ]
     
+    aux = ca.SX.sym('aux', 2, 2)
+    
+    mapping = [
+        ca.vertcat(
+            s[0][0],
+            s[0][1],
+        ),
+        ca.vertcat(
+            s[1][0],
+            s[1][1],
+        ),
+    ]
+    
+    task_avoid_collision = ca.vertcat(
+        (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 5,
+    )
+    
     # ============================ Create The MPC ============================ #
     
     hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots)
@@ -255,21 +279,29 @@ def main():
         ineq_task_coeff = task_input_limits_coeffs,
     )
     
-    # hompc.create_task(
-    #     name = "input_smooth", prio = 2,
-    #     type = TaskType.SameTimeDiff,
-    #     ineq_task_ls = task_input_smooth,
-    #     ineq_task_coeff = task_input_smooth_coeffs,
+    hompc.create_task(
+        name = "input_smooth", prio = 2,
+        type = TaskType.SameTimeDiff,
+        ineq_task_ls = task_input_smooth,
+        ineq_task_coeff = task_input_smooth_coeffs,
+    )
+    
+    # hompc.create_task_bi(
+    #     name = "input_smooth", prio = 3,
+    #     type = TaskType.Bi,
+    #     aux = aux,
+    #     mapping = mapping,
+    #     eq_task_ls = task_avoid_collision,
     # )
     
     hompc.create_task(
-        name = "vel_ref", prio = 2,
+        name = "vel_ref", prio = 3,
         type = TaskType.Sum,
         eq_task_ls = task_vel_ref,
     )
     
     hompc.create_task(
-        name = "input_minimization", prio = 3,
+        name = "input_minimization", prio = 4,
         type = TaskType.Same,
         eq_task_ls = task_input_min,
     )
@@ -292,7 +324,9 @@ def main():
                 
         u_star = hompc(copy.deepcopy(s))
         
+        print(s)
         print(u_star)
+        print()
                     
         s = evolve(s, u_star, dt)
                 
@@ -321,7 +355,7 @@ def main():
         (np.mean(y[0])*n_robots[0] + np.mean(y[1])*n_robots[1]) / sum(n_robots),
         25, 'C2')
     
-    ax.set(xlim=[-5., 5.], ylim=[-5., 5.], xlabel='x [m]', ylabel='y [m]')
+    ax.set(xlim=[-10., 10.], ylim=[-10., 10.], xlabel='x [m]', ylabel='y [m]')
     
     marker, scale = gen_arrow_head_marker(0)
     legend_elements = [

@@ -134,9 +134,9 @@ class Animation():
                 s = 25, c = 'C1',
                 marker = 'o',
             )
-        
+                
         self.scat.centroid.set_offsets(
-            (np.mean(x[0][:,0:2],axis=0)*self.n_robots[0] + np.mean(x[1][:,0:2],axis=0)*self.n_robots[1]) / sum(self.n_robots)
+            sum([np.nan_to_num(np.mean(x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]) / sum(self.n_robots)
         )
         
         return self.scat

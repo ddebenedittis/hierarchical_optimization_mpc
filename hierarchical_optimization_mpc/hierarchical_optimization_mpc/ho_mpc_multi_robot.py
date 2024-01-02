@@ -5,7 +5,7 @@ import itertools
 
 import casadi as ca
 import numpy as np
-from hierarchical_qp.hierarchical_qp import HierarchicalQP
+from hierarchical_qp.hierarchical_qp import HierarchicalQP, QPSolver
 from hierarchical_optimization_mpc.ho_mpc import subs, HOMPC
 from scipy.special import binom
 
@@ -53,7 +53,8 @@ class HOMPCMultiRobot(HOMPC):
     # ======================================================================== #
     
     def __init__(
-        self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int]
+        self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int],
+        solver: QPSolver = QPSolver.quadprog
     ) -> None:
         """
         Initialize the instance.
@@ -82,6 +83,8 @@ class HOMPCMultiRobot(HOMPC):
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
         
         self.regularization = 1e-6  # regularization factor
+        
+        self.solver = solver
         
         # ==================================================================== #
         
@@ -617,7 +620,7 @@ class HOMPCMultiRobot(HOMPC):
     
     # ==================== _helper_create_task_i_matrices ==================== #
     
-    # Auxiliary matrix to create the matrices A, b, C, d
+    # Auxiliary function to create the matrices A, b, C, d
     def _helper_create_task_i_matrices(
         self, t: Task, c: int, j: int, k: int
     ):
@@ -638,6 +641,13 @@ class HOMPCMultiRobot(HOMPC):
                 C[i1:i2, self._get_idx_state_kp1(c, j, k)],
                 C[i1:i2, self._get_idx_input_k(c, j, k)],
                 d[i1:i2],
+            ] = [
+                jacobian(eq_task, state_c0),
+                jacobian(eq_task, input_c0),
+                eq_task in the linearization point,
+                jacobian(ineq_task, state_c0),
+                jacobian(ineq_task, input_c0),
+                ineq_task in the linearization point,
             ]
         """
         
@@ -693,8 +703,10 @@ class HOMPCMultiRobot(HOMPC):
 
         Args:
             t (Task): task
-            c (int): robot class index
-            j (int): robot number in the class
+            c0 (int): first robot class index
+            j0 (int): robot number in the class c0
+            c1 (int): second robot class index
+            j1 (int): robot number in the class c1
             k (int): timestep
 
         Returns:
@@ -709,6 +721,17 @@ class HOMPCMultiRobot(HOMPC):
                 C[i1:i2, self._get_idx_input_k(c1, j1, k)],
                 C[i1:i2, self._get_idx_input_k(c2, j2, k)],
                 d[i1:i2],
+            ] = [
+                jacobian(eq_task, state_c0),
+                jacobian(eq_task, state_c1),
+                jacobian(eq_task, input_c0),
+                jacobian(eq_task, input_c1),
+                eq_task in the linearization point,
+                jacobian(ineq_task, state_c0),
+                jacobian(ineq_task, state_c1),
+                jacobian(ineq_task, input_c0),
+                jacobian(ineq_task, input_c1),
+                ineq_task in the linearization point,
             ]
         """
         
@@ -717,7 +740,8 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
                 
-        def aux(self, task_ls: ca.SX, ci: int, derivating_var: ca.SX, c0: int = c0, c1: int = c1):
+        def J_f_var(self, task_ls: ca.SX, ci: int, derivating_var: ca.SX):
+            """Return jacobian(task_ls, derivating_var) computed in x_bar, u_bar."""
             if ci == c0:
                 i = 0
             else:
@@ -730,29 +754,28 @@ class HOMPCMultiRobot(HOMPC):
                  subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
                  subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
             ),
+            
+        def f_in_x_bar_u_bar(self, task: ca.SX):
+            """Returns task_ls computed in x_bar, u_bar."""
+            return - subs(
+                [task],
+                [ca.vertcat(t.aux_var[0,:].T), ca.vertcat(t.aux_var[1,:].T)],
+                [subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
+                 subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
+            )
         
         return [
-            aux(t.eq_task_ls, c0, self._states),
-            aux(t.eq_task_ls, c1, self._states),
-            aux(t.eq_task_ls, c0, self._inputs),
-            aux(t.eq_task_ls, c1, self._inputs),
-            - subs(
-                [t.eq_task_ls],
-                [ca.vertcat(t.aux_var[0,:].T), ca.vertcat(t.aux_var[1,:].T)],
-                [subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
-                 subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
-            ),
+            J_f_var(t.eq_task_ls, c0, self._states),
+            J_f_var(t.eq_task_ls, c1, self._states),
+            J_f_var(t.eq_task_ls, c0, self._inputs),
+            J_f_var(t.eq_task_ls, c1, self._inputs),
+            f_in_x_bar_u_bar(t.eq_task_ls),
             
-            aux(t.ineq_task_ls, c0, self._states),
-            aux(t.ineq_task_ls, c1, self._states),
-            aux(t.ineq_task_ls, c0, self._inputs),
-            aux(t.ineq_task_ls, c1, self._inputs),
-            - subs(
-                [t.ineq_task_ls],
-                [ca.vertcat(t.aux_var[0,:].T), ca.vertcat(t.aux_var[1,:].T)],
-                [subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
-                 subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
-            ),
+            J_f_var(t.ineq_task_ls, c0, self._states),
+            J_f_var(t.ineq_task_ls, c1, self._states),
+            J_f_var(t.ineq_task_ls, c0, self._inputs),
+            J_f_var(t.ineq_task_ls, c1, self._inputs),
+            f_in_x_bar_u_bar(t.ineq_task_ls),
         ]
         
     # ======================================================================== #
@@ -773,7 +796,7 @@ class HOMPCMultiRobot(HOMPC):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
                                     
-        hqp = HierarchicalQP()
+        hqp = HierarchicalQP(solver=self.solver)
         
         x_star = hqp(A, b, C, d)
         

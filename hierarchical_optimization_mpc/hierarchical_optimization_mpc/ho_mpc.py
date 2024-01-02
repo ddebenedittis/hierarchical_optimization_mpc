@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import casadi as ca
 import numpy as np
-from hierarchical_qp.hierarchical_qp import HierarchicalQP
+from hierarchical_qp.hierarchical_qp import HierarchicalQP, QPSolver
     
 
 
@@ -71,7 +71,7 @@ class HOMPC:
     
     # ======================================================================== #
     
-    def __init__(self, state: ca.SX, input: ca.SX, f: ca.SX):
+    def __init__(self, state: ca.SX, input: ca.SX, f: ca.SX, solver: QPSolver = QPSolver.quadprog):
         """
         Initialize the instance.
 
@@ -86,6 +86,8 @@ class HOMPC:
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
         
         self.regularization = 1e-6  # regularization factor.
+        
+        self.solver = solver
         
         # ==================================================================== #
         
@@ -361,7 +363,7 @@ class HOMPC:
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
                         
-        hqp = HierarchicalQP()
+        hqp = HierarchicalQP(solver=self.solver)
         
         x_star = hqp(A, b, C, d)
         

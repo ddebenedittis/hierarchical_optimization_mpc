@@ -2,10 +2,11 @@
 
 import copy
 from dataclasses import dataclass
+import time
 import sys
 
 import casadi as ca
-from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskType
+from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, QPSolver, TaskType
 import matplotlib as mpl
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
@@ -143,6 +144,8 @@ class Animation():
 
 
 def main():
+    time_start = time.time()
+    
     np.random.seed()
     
     # ======================== Define The System Model ======================= #
@@ -268,7 +271,7 @@ def main():
     
     # ============================ Create The MPC ============================ #
     
-    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots)
+    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = QPSolver.quadprog)
     hompc.n_control = 3
     hompc.n_pred = 0
     
@@ -331,6 +334,8 @@ def main():
         s = evolve(s, u_star, dt)
                 
         s_history[k] = copy.deepcopy(s)
+        
+    print(f"The time elapsed is {time.time() - time_start} seconds")
             
     fig, ax = plt.subplots()
     x = [np.zeros(n_r) for n_r in n_robots]

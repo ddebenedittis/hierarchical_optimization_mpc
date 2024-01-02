@@ -27,6 +27,7 @@ Python 3 packages:
 - `casadi`
 - `matplotlib`
 - `numpy`
+- `osqp`
 - `quadprog`
 - `scipy`
 - `torch`

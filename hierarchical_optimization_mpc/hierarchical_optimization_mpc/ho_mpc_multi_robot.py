@@ -37,15 +37,15 @@ class HOMPCMultiRobot(HOMPC):
         
         type: TaskType
         
-        eq_task_ls: list[ca.SX]           # equality part: eq_task_ls = eq_coeff
-        eq_coeff: list[list[np.ndarray]]
-        ineq_task_ls: list[ca.SX]         # inequality part: ineq_task_ls = ineq_coeff
-        ineq_coeff: list[list[np.ndarray]]
+        eq_task_ls: list[ca.SX]                     # equality part: eq_task_ls = eq_coeff
+        eq_coeff: list[list[list[np.ndarray]]]      # eq_coeff[c][j][k]
+        ineq_task_ls: list[ca.SX]                   # inequality part: ineq_task_ls = ineq_coeff
+        ineq_coeff: list[list[list[np.ndarray]]]    # ineq_coeff[c][j][k]
         
-        eq_J_T_s: list[ca.SX] = field(repr=False)     # jacobian(eq_task_ls, state)
-        eq_J_T_u: list[ca.SX] = field(repr=False)     # jacobian(eq_task_ls, input)
-        ineq_J_T_s: list[ca.SX] = field(repr=False)   # jacobian(ineq_task_ls, state)
-        ineq_J_T_u: list[ca.SX] = field(repr=False)   # jacobian(ineq_task_ls, input)
+        eq_J_T_s: list[ca.SX] = field(repr=False)   # jacobian(eq_task_ls, state)
+        eq_J_T_u: list[ca.SX] = field(repr=False)   # jacobian(eq_task_ls, input)
+        ineq_J_T_s: list[ca.SX] = field(repr=False) # jacobian(ineq_task_ls, state)
+        ineq_J_T_u: list[ca.SX] = field(repr=False) # jacobian(ineq_task_ls, input)
         
         aux_var: ca.SX = None
         mapping: list[ca.SX] = None
@@ -313,9 +313,9 @@ class HOMPCMultiRobot(HOMPC):
         prio: int,
         type: TaskType,
         eq_task_ls: list[ca.SX] = None,
-        eq_task_coeff: list[list[np.ndarray]] = None,
+        eq_task_coeff: list[list[list[np.ndarray]]] = None,
         ineq_task_ls: list[ca.SX] = None,
-        ineq_task_coeff: list[list[np.ndarray]] = None,
+        ineq_task_coeff: list[list[list[np.ndarray]]] = None,
     ):
         """
         Create a HOMPC.Task
@@ -336,10 +336,16 @@ class HOMPCMultiRobot(HOMPC):
             ineq_task_ls = [ca.SX.sym("ineq", 0)] * len(self.n_robots)
                 
         if eq_task_coeff is None:
-            eq_task_coeff = [self.InfList([np.zeros((eq_task_ls[c].size1(),1))]) for c in range(len(self.n_robots))]
+            eq_task_coeff = [
+                [self.InfList([np.zeros((eq_task_ls[c].size1(),1))]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ]
             
         if ineq_task_coeff is None:
-            ineq_task_coeff = [self.InfList([np.zeros((ineq_task_ls[c].size1(),1))]) for c in range(len(self.n_robots))]
+            ineq_task_coeff = [
+                [self.InfList([np.zeros((ineq_task_ls[c].size1(),1))]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ]
         
         self._tasks.append(self.Task(
             name = name,
@@ -348,11 +354,17 @@ class HOMPCMultiRobot(HOMPC):
             eq_task_ls = eq_task_ls,
             eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
-            eq_coeff = [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c]]) for c in range(len(self.n_robots))],
+            eq_coeff = [
+                [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ],
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
-            ineq_coeff = [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c]]) for c in range(len(self.n_robots))]
+            ineq_coeff = [
+                [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ]
         ))
         
     # ======================================================================== #
@@ -522,7 +534,7 @@ class HOMPCMultiRobot(HOMPC):
                         else:
                             ki = k
                         
-                        b[ie:ie+ne] = t.eq_coeff[c][k] - subs(
+                        b[ie:ie+ne] = t.eq_coeff[c][j][k] - subs(
                             [t.eq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -532,7 +544,7 @@ class HOMPCMultiRobot(HOMPC):
                             [self._state_bar[c][j][k], self._input_bar[c][j][ki-1]],
                         )
                         
-                        d[ii:ii+ni] = t.ineq_coeff[c][k] - subs(
+                        d[ii:ii+ni] = t.ineq_coeff[c][j][k] - subs(
                             [t.ineq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -570,7 +582,7 @@ class HOMPCMultiRobot(HOMPC):
                         
                         ni = (int)(binom(sum(self.n_robots), 2) * t.ineq_task_ls.size1())
                         
-                        for k in range(2, n_c + n_p):
+                        for k in range(0, n_c + n_p):
                             [
                                 A[ie:ie+ne, self._get_idx_state_kp1(c, j0, k)],
                                 A[ie:ie+ne, self._get_idx_state_kp1(c, j1, k)],
@@ -599,7 +611,7 @@ class HOMPCMultiRobot(HOMPC):
                         ne = t.eq_task_ls.shape[0]
                         ni = t.ineq_task_ls.shape[0]
                         
-                        for k in range(2, n_c + n_p):
+                        for k in range(0, n_c + n_p):
                             [
                                 A[ie:ie+ne, self._get_idx_state_kp1(c0, j0, k)],
                                 A[ie:ie+ne, self._get_idx_state_kp1(c1, j1, k)],
@@ -667,7 +679,7 @@ class HOMPCMultiRobot(HOMPC):
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
             ),
-            t.eq_coeff[c][k] - subs(
+            t.eq_coeff[c][j][k] - subs(
                 [t.eq_task_ls[c]],
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -682,7 +694,7 @@ class HOMPCMultiRobot(HOMPC):
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
             ),
-            t.ineq_coeff[c][k] - subs(
+            t.ineq_coeff[c][j][k] - subs(
                 [t.ineq_task_ls[c]],
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -734,23 +746,23 @@ class HOMPCMultiRobot(HOMPC):
                 ineq_task in the linearization point,
             ]
         """
-        
+                
         if k > self.n_control - 1:
             ki = self.n_control - 1
         else:
             ki = k
                 
-        def J_f_var(self, task_ls: ca.SX, ci: int, derivating_var: ca.SX):
+        def J_f_var(self, task_ls: ca.SX, ci: int, ji: int, derivating_var: ca.SX):
             """Return jacobian(task_ls, derivating_var) computed in x_bar, u_bar."""
-            if ci == c0:
+            if ci == c0 and ji == j0:
                 i = 0
             else:
                 i = 1
-            
+                            
             return subs(
                 [ca.jacobian(task_ls, t.aux_var[i,:]) @ ca.jacobian(t.mapping[ci], derivating_var[ci])],
                 [self._states[ci], self._inputs[ci], ca.vertcat(t.aux_var[0,:].T), ca.vertcat(t.aux_var[1,:].T)],
-                [self._state_bar[ci][j0][k+1], self._input_bar[ci][j0][ki],
+                [self._state_bar[ci][ji][k+1], self._input_bar[ci][ji][ki],
                  subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
                  subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
             ),
@@ -765,17 +777,17 @@ class HOMPCMultiRobot(HOMPC):
             )
         
         return [
-            J_f_var(t.eq_task_ls, c0, self._states),
-            J_f_var(t.eq_task_ls, c1, self._states),
-            J_f_var(t.eq_task_ls, c0, self._inputs),
-            J_f_var(t.eq_task_ls, c1, self._inputs),
-            f_in_x_bar_u_bar(t.eq_task_ls),
+            J_f_var(self, t.eq_task_ls, c0, j0, self._states),
+            J_f_var(self, t.eq_task_ls, c1, j1, self._states),
+            J_f_var(self, t.eq_task_ls, c0, j0, self._inputs),
+            J_f_var(self, t.eq_task_ls, c1, j1, self._inputs),
+            f_in_x_bar_u_bar(self, t.eq_task_ls),
             
-            J_f_var(t.ineq_task_ls, c0, self._states),
-            J_f_var(t.ineq_task_ls, c1, self._states),
-            J_f_var(t.ineq_task_ls, c0, self._inputs),
-            J_f_var(t.ineq_task_ls, c1, self._inputs),
-            f_in_x_bar_u_bar(t.ineq_task_ls),
+            J_f_var(self, t.ineq_task_ls, c0, j0, self._states),
+            J_f_var(self, t.ineq_task_ls, c1, j1, self._states),
+            J_f_var(self, t.ineq_task_ls, c0, j0, self._inputs),
+            J_f_var(self, t.ineq_task_ls, c1, j1, self._inputs),
+            f_in_x_bar_u_bar(self, t.ineq_task_ls),
         ]
         
     # ======================================================================== #

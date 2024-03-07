@@ -17,6 +17,19 @@ class TaskType(Enum):
     SameTimeDiff = auto()
     Bi = auto()
 
+
+class TaskBiCoeff:
+    def __init__(self, c0, j0, c1, j1, k, coeff) -> None:
+        self.c0 = c0
+        self.j0 = j0
+        self.c1 = c1
+        self.j1 = j1
+        self.k  = k
+        self.coeff = coeff
+        
+    def get(self):
+        return self.c0, self.j0, self.c1, self.j1, self.k, self.coeff
+
 # ============================================================================ #
 #                                     HOMPC                                    #
 # ============================================================================ #
@@ -49,6 +62,11 @@ class HOMPCMultiRobot(HOMPC):
         
         aux_var: ca.SX = None
         mapping: list[ca.SX] = None
+        
+    class ConstraintType(Enum):
+        Both = auto()
+        Eq = auto()
+        Ineq = auto()
     
     # ======================================================================== #
     
@@ -393,11 +411,11 @@ class HOMPCMultiRobot(HOMPC):
             eq_task_ls = eq_task_ls,
             eq_J_T_s = None,
             eq_J_T_u = None,
-            eq_coeff = None,
+            eq_coeff = eq_task_coeff,
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = None,
             ineq_J_T_u = None,
-            ineq_coeff = None,
+            ineq_coeff = ineq_task_coeff,
             aux_var = aux,
             mapping = mapping,
         ))
@@ -558,76 +576,96 @@ class HOMPCMultiRobot(HOMPC):
                         ii += ni
                         
         elif t.type == TaskType.Bi:
-            ne = (int)(binom(sum(self.n_robots), 2) * t.eq_task_ls.size1()) * (n_c + n_p)
+            if t.eq_coeff is None and t.ineq_coeff is None:
             
-            ni = (int)(binom(sum(self.n_robots), 2) * t.ineq_task_ls.size1()) * (n_c + n_p)
-                        
-            A = np.zeros((ne, self._get_n_x_opt()))
-            b = np.zeros((ne, 1))
-            C = np.zeros((ni, self._get_n_x_opt()))
-            d = np.zeros((ni, 1))
-            
-            ie = 0
-            ii = 0
-            for e_c in set(itertools.combinations([i for i in range(len(self.n_robots))] * 2, 2)):
-                if e_c[0] == e_c[1]:
-                    c = e_c[0]
-                    for e_j in set(itertools.combinations(
-                        [i for i in range(self.n_robots[c])], 2
-                    )):
-                        j0 = e_j[0]
-                        j1 = e_j[1]
-                                                
-                        ne = (int)(binom(sum(self.n_robots), 2) * t.eq_task_ls.size1())
-                        
-                        ni = (int)(binom(sum(self.n_robots), 2) * t.ineq_task_ls.size1())
-                        
-                        for k in range(0, n_c + n_p):
-                            [
-                                A[ie:ie+ne, self._get_idx_state_kp1(c, j0, k)],
-                                A[ie:ie+ne, self._get_idx_state_kp1(c, j1, k)],
-                                A[ie:ie+ne, self._get_idx_input_k(c, j0, k)],
-                                A[ie:ie+ne, self._get_idx_input_k(c, j1, k)],
-                                b[ie:ie+ne],
-                                C[ii:ii+ni, self._get_idx_state_kp1(c, j0, k)],
-                                C[ii:ii+ni, self._get_idx_state_kp1(c, j1, k)],
-                                C[ii:ii+ni, self._get_idx_input_k(c, j0, k)],
-                                C[ii:ii+ni, self._get_idx_input_k(c, j1, k)],
-                                d[ii:ii+ni],
-                            ] = self._helper_create_task_bi_i_matrices(t, c, j0, c, j1, k)
-                                                        
-                            ie += ne
-                            ii += ni
-                else:
-                    c0 = e_c[0]
-                    c1 = e_c[1]
-                    for e_j in list(itertools.product(
-                        [i for i in range(self.n_robots[c0])],
-                        [i for i in range(self.n_robots[c1])]
-                    )):
-                        j0 = e_j[0]
-                        j1 = e_j[1]
-                        
-                        ne = t.eq_task_ls.shape[0]
-                        ni = t.ineq_task_ls.shape[0]
-                        
-                        for k in range(0, n_c + n_p):
-                            [
-                                A[ie:ie+ne, self._get_idx_state_kp1(c0, j0, k)],
-                                A[ie:ie+ne, self._get_idx_state_kp1(c1, j1, k)],
-                                A[ie:ie+ne, self._get_idx_input_k(c0, j0, k)],
-                                A[ie:ie+ne, self._get_idx_input_k(c1, j1, k)],
-                                b[ie:ie+ne],
-                                C[ii:ii+ni, self._get_idx_state_kp1(c0, j0, k)],
-                                C[ii:ii+ni, self._get_idx_state_kp1(c1, j1, k)],
-                                C[ii:ii+ni, self._get_idx_input_k(c0, j0, k)],
-                                C[ii:ii+ni, self._get_idx_input_k(c1, j1, k)],
-                                d[ii:ii+ni],
-                            ] = self._helper_create_task_bi_i_matrices(t, c0, j0, c1, j1, k)
+                ne = (int)(binom(sum(self.n_robots), 2) * t.eq_task_ls.size1()) * (n_c + n_p)
+                ni = (int)(binom(sum(self.n_robots), 2) * t.ineq_task_ls.size1()) * (n_c + n_p)
                             
-                            ie += ne
-                            ii += ni
-            
+                A = np.zeros((ne, self._get_n_x_opt()))
+                b = np.zeros((ne, 1))
+                C = np.zeros((ni, self._get_n_x_opt()))
+                d = np.zeros((ni, 1))
+                
+                ie = 0
+                ii = 0
+                for e_c in set(itertools.combinations([i for i in range(len(self.n_robots))] * 2, 2)):
+                    c0, c1 = (e_c[0], e_c[0]) if e_c[0] == e_c[1] else e_c
+                    combinations = set(
+                        itertools.combinations([i for i in range(self.n_robots[c0])], 2)
+                    ) if c0 == c1 else list(
+                        itertools.product([i for i in range(self.n_robots[c0])], [i for i in range(self.n_robots[c1])])
+                    )
+                    
+                    for e_j in combinations:
+                        j0, j1 = e_j
+
+                        ne_block = t.eq_task_ls.shape[0]
+                        ni_block = t.ineq_task_ls.shape[0]
+
+                        for k in range(n_c + n_p):                            
+                            [
+                                A[ie:ie + ne_block, self._get_idx_state_kp1(c0, j0, k)],
+                                A[ie:ie + ne_block, self._get_idx_state_kp1(c1, j1, k)],
+                                A[ie:ie + ne_block, self._get_idx_input_k(c0, j0, k)],
+                                A[ie:ie + ne_block, self._get_idx_input_k(c1, j1, k)],
+                                b[ie:ie + ne_block],
+                                C[ii:ii + ni_block, self._get_idx_state_kp1(c0, j0, k)],
+                                C[ii:ii + ni_block, self._get_idx_state_kp1(c1, j1, k)],
+                                C[ii:ii + ni_block, self._get_idx_input_k(c0, j0, k)],
+                                C[ii:ii + ni_block, self._get_idx_input_k(c1, j1, k)],
+                                d[ii:ii + ni_block],
+                            ] = self._helper_create_task_bi_i_matrices(t, c0, j0, c1, j1, k)
+
+                            ie += ne_block
+                            ii += ni_block
+                            
+            else: 
+                ne = 0 if t.eq_coeff is None else len(t.eq_coeff) * t.eq_task_ls.shape[0]
+                ni = 0 if t.ineq_coeff is None else len(t.ineq_coeff) * t.ineq_task_ls.shape[0]
+                
+                A = np.zeros((ne, self._get_n_x_opt()))
+                b = np.zeros((ne, 1))
+                C = np.zeros((ni, self._get_n_x_opt()))
+                d = np.zeros((ni, 1))
+                
+                ie = 0
+                ii = 0
+                if t.eq_coeff is not None:
+                    for eq_coeff in t.eq_coeff:
+                        c0, j0, c1, j1, k, coeff = eq_coeff.get()
+                        
+                        ne_block = t.eq_task_ls.shape[0]
+                        
+                        [
+                            A[ie:ie + ne_block, self._get_idx_state_kp1(c0, j0, k)],
+                            A[ie:ie + ne_block, self._get_idx_state_kp1(c1, j1, k)],
+                            A[ie:ie + ne_block, self._get_idx_input_k(c0, j0, k)],
+                            A[ie:ie + ne_block, self._get_idx_input_k(c1, j1, k)],
+                            b[ie:ie + ne_block],
+                        ] = self._helper_create_task_bi_i_matrices(t, c0, j0, c1, j1, k, self.ConstraintType.Eq)
+                        
+                        b[ie:ie + ne_block] += coeff
+
+                        ie += ne_block
+                
+                if t.ineq_coeff is not None:
+                    for ineq_coeff in t.ineq_coeff:
+                        c0, j0, c1, j1, k, coeff = ineq_coeff.get()
+                        
+                        ni_block = t.ineq_task_ls.shape[0]
+                        
+                        [
+                            C[ii:ii + ni_block, self._get_idx_state_kp1(c0, j0, k)],
+                            C[ii:ii + ni_block, self._get_idx_state_kp1(c1, j1, k)],
+                            C[ii:ii + ni_block, self._get_idx_input_k(c0, j0, k)],
+                            C[ii:ii + ni_block, self._get_idx_input_k(c1, j1, k)],
+                            d[ii:ii + ni_block],
+                        ] = self._helper_create_task_bi_i_matrices(t, c0, j0, c1, j1, k, self.ConstraintType.Ineq)
+                        
+                        d[ii:ii + ni_block] += coeff
+
+                        ii += ni_block
+                                        
         return A, b, C, d
     
     # ==================== _helper_create_task_i_matrices ==================== #
@@ -709,6 +747,7 @@ class HOMPCMultiRobot(HOMPC):
         c0: int, j0: int,
         c1: int, j1: int,
         k: int,
+        constr_type: ConstraintType = ConstraintType.Both
     ):
         """
         _summary_
@@ -758,7 +797,7 @@ class HOMPCMultiRobot(HOMPC):
                 i = 0
             else:
                 i = 1
-                            
+            
             return subs(
                 [ca.jacobian(task_ls, t.aux_var[i,:]) @ ca.jacobian(t.mapping[ci], derivating_var[ci])],
                 [self._states[ci], self._inputs[ci], ca.vertcat(t.aux_var[0,:].T), ca.vertcat(t.aux_var[1,:].T)],
@@ -775,6 +814,23 @@ class HOMPCMultiRobot(HOMPC):
                 [subs([t.mapping[c0]], [self._states[c0], self._inputs[c0]], [self._state_bar[c0][j0][k+1], self._input_bar[c0][j0][ki]]),
                  subs([t.mapping[c1]], [self._states[c1], self._inputs[c1]], [self._state_bar[c1][j1][k+1], self._input_bar[c1][j1][ki]])]
             )
+            
+        if constr_type == self.ConstraintType.Eq:
+            return [
+                J_f_var(self, t.eq_task_ls, c0, j0, self._states),
+                J_f_var(self, t.eq_task_ls, c1, j1, self._states),
+                J_f_var(self, t.eq_task_ls, c0, j0, self._inputs),
+                J_f_var(self, t.eq_task_ls, c1, j1, self._inputs),
+                f_in_x_bar_u_bar(self, t.eq_task_ls),
+            ]
+        if constr_type == self.ConstraintType.Ineq:
+            return [
+                J_f_var(self, t.ineq_task_ls, c0, j0, self._states),
+                J_f_var(self, t.ineq_task_ls, c1, j1, self._states),
+                J_f_var(self, t.ineq_task_ls, c0, j0, self._inputs),
+                J_f_var(self, t.ineq_task_ls, c1, j1, self._inputs),
+                f_in_x_bar_u_bar(self, t.ineq_task_ls),
+            ]
         
         return [
             J_f_var(self, t.eq_task_ls, c0, j0, self._states),

@@ -11,6 +11,10 @@ from scipy.special import binom
 
 
 
+class TaskIndexes(Enum):
+    All = auto()
+    Last = auto()
+
 class TaskType(Enum):
     Same = auto()
     Sum = auto()
@@ -62,6 +66,8 @@ class HOMPCMultiRobot(HOMPC):
         
         aux_var: ca.SX = None
         mapping: list[ca.SX] = None
+        
+        time_index: TaskIndexes = TaskIndexes.All
         
     class ConstraintType(Enum):
         Both = auto()
@@ -334,6 +340,7 @@ class HOMPCMultiRobot(HOMPC):
         eq_task_coeff: list[list[list[np.ndarray]]] = None,
         ineq_task_ls: list[ca.SX] = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] = None,
+        time_index: TaskIndexes = TaskIndexes.All
     ):
         """
         Create a HOMPC.Task
@@ -382,7 +389,8 @@ class HOMPCMultiRobot(HOMPC):
             ineq_coeff = [
                 [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
-            ]
+            ],
+            time_index = time_index,
         ))
         
     # ======================================================================== #
@@ -398,6 +406,7 @@ class HOMPCMultiRobot(HOMPC):
         eq_task_coeff: list[np.ndarray] = None,
         ineq_task_ls: ca.SX = None,
         ineq_task_coeff: list[np.ndarray] = None,
+        time_index: TaskIndexes = TaskIndexes.All
     ):
         if eq_task_ls is None:
             eq_task_ls = ca.SX.sym("eq", 0)
@@ -418,6 +427,7 @@ class HOMPCMultiRobot(HOMPC):
             ineq_coeff = ineq_task_coeff,
             aux_var = aux,
             mapping = mapping,
+            time_index = time_index
         ))
     
     # ======================================================================== #
@@ -438,15 +448,19 @@ class HOMPCMultiRobot(HOMPC):
         n_p = self._n_pred
         
         if t.type == TaskType.Same:
+            timesteps = list(range(n_c + n_p)) if t.time_index == TaskIndexes.All \
+                else [n_c + n_p] if t.time_index == TaskIndexes.Last \
+                else [n_c + n_p]
+            
             ne = sum(np.multiply(
                 [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
                 self.n_robots,
-            )) * (n_c + n_p)
+            )) * len(timesteps)
             
             ni = sum(np.multiply(
                 [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
                 self.n_robots,
-            )) * (n_c + n_p)
+            )) * len(timesteps)
             
             A = np.zeros((ne, self._get_n_x_opt()))
             b = np.zeros((ne, 1))
@@ -457,7 +471,7 @@ class HOMPCMultiRobot(HOMPC):
             ii = 0
             for c, n_r in enumerate(self.n_robots):
                 for j in range(n_r):
-                    for k in range(n_c + n_p):
+                    for k in timesteps:
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]
                         

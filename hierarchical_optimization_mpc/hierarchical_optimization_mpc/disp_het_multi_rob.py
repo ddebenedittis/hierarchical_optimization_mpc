@@ -52,7 +52,7 @@ def gen_arrow_head_marker(rot):
     return arrow_head_marker, scale
 
 @dataclass
-class MultiRobotScatter:
+class MultiRobotArtists:
     unicycles: ...
     omnidir: ...
     centroid: ...
@@ -61,11 +61,57 @@ class MultiRobotScatter:
 # ================================= Animation ================================ #
 
 class Animation():
-    def __init__(self, scat: MultiRobotScatter, data) -> None:
-        self.scat = scat
+    def __init__(self, data, ax, dt) -> None:
         self.data = data
+        self.ax = ax
+        self.dt = dt
         
         self.n_robots = [len(data_i) for data_i in data[0]]
+    
+    # ================================= Init ================================= #
+        
+    def init(self):
+        self.ax.clear()
+        
+        self.artists = MultiRobotArtists
+        self.artists.unicycles = [None] * self.n_robots[0]
+        self.artists.omnidir = [None] * self.n_robots[1]
+        
+        # We create one object for the unicycles because each of them needs to
+        # have a different dimension.    
+        for i in range(self.n_robots[0]):
+            self.artists.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
+        
+        self.artists.omnidir = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o',)
+            
+        self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
+        
+        self.artists.voronoi = [self.ax.plot([],[])]
+        
+        self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
+        
+        marker, scale = gen_arrow_head_marker(0)
+        legend_elements = [
+            Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
+            Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
+            Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
+        ]
+        
+        self.ax.legend(handles=legend_elements)
+        
+        self.fr_number = self.ax.annotate(
+            "0",
+            (0, 1),
+            xycoords="axes fraction",
+            xytext=(10, -10),
+            textcoords="offset points",
+            ha="left",
+            va="top",
+        )
+        
+        # self.ax.axis('equal')
+    
+    # ================================ Update ================================ #
     
     def update(self, frame):
         state = self.data[frame]
@@ -83,28 +129,27 @@ class Animation():
                     x[c][j, 2] = s_c_j[2]
                 
         for i in range(self.n_robots[0]):
-            self.scat.unicycles[i].remove()
-        for i in range(self.n_robots[1]):
-            self.scat.omnidir[i].remove()
+            self.artists.unicycles[i].remove()
+
+        self.artists.omnidir.remove()
                 
         for i in range(self.n_robots[0]):
             deg = x[0][i,2] * 180 / np.pi
             marker, scale = gen_arrow_head_marker(deg)
                         
-            self.scat.unicycles[i] = plt.scatter(
+            self.artists.unicycles[i] = plt.scatter(
                 x = x[0][i,0], y = x[0][i,1],
                 s = 250 * scale**2, c = 'C0',
                 marker = marker,
             )
             
-        for i in range(self.n_robots[1]):
-            self.scat.omnidir[i] = plt.scatter(
-                x = x[1][i,0], y = x[1][i,1],
-                s = 25, c = 'C1',
-                marker = 'o',
-            )
+        self.artists.omnidir = plt.scatter(
+            x = x[1][:,0], y = x[1][:,1],
+            s = 25, c = 'C1',
+            marker = 'o',
+        )
                 
-        self.scat.centroid.set_offsets(
+        self.artists.centroid.set_offsets(
             sum([np.nan_to_num(np.mean(x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]) / sum(self.n_robots)
         )
          
@@ -113,61 +158,24 @@ class Animation():
         )
         bounding_box = np.array([-20, 20, -20, 20])
         vor = BoundedVoronoi(towers, bounding_box)
-        for i in range(len(self.scat.voronoi)):
-            try:
-                self.scat.voronoi[i].pop(0).remove()
-            except:
-                pass
-        self.scat.voronoi = vor.plot()
+        for i in range(len(self.artists.voronoi)):
+            self.artists.voronoi[i].pop(0).remove()
+        self.artists.voronoi = vor.plot()
         
-        return self.scat    
+        self.fr_number.set_text(f"t: {frame*self.dt:.2f} s")
+        
+        return self.artists
 
 # ============================= Display_animation ============================ #
 
-def display_animation(n_robots, s_history):
+def display_animation(s_history, dt):
     fig, ax = plt.subplots()
     
-    x = [np.zeros(n_r) for n_r in n_robots]
-    y = [np.zeros(n_r) for n_r in n_robots]
-    for c, n_r in enumerate(n_robots):
-        for j in range(n_r):
-            state = s_history[0][c][j]
-            x[c][j] = state[0]
-            y[c][j] = state[1]
-    
-    scat = MultiRobotScatter
-    scat.unicycles = [None] * n_robots[0]
-    scat.omnidir = [None] * n_robots[1]
-        
-    for i in range(n_robots[0]):
-        scat.unicycles[i] = ax.scatter(x[0], y[0], 25, 'C0')
-    for i in range(n_robots[1]):
-        scat.omnidir[i] = ax.scatter(x[1], y[1], 25, 'C1')
-        
-    scat.centroid = ax.scatter(
-        (np.mean(x[0])*n_robots[0] + np.mean(x[1])*n_robots[1]) / sum(n_robots),
-        (np.mean(y[0])*n_robots[0] + np.mean(y[1])*n_robots[1]) / sum(n_robots),
-        25, 'C2')
-    
-    scat.voronoi = [None]
-    
-    ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
-    
-    marker, scale = gen_arrow_head_marker(0)
-    legend_elements = [
-        Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
-        Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
-        Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
-    ]
-    
-    ax.legend(handles=legend_elements)
-    
-    ax.axis('equal')
-    
-    anim = Animation(scat, s_history)
+    anim = Animation(s_history, ax, dt)
     
     n_steps = len(s_history)
-    ani = FuncAnimation(fig=fig, func=anim.update, frames=range(n_steps), interval=30)
+    ani = FuncAnimation(fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps), interval=dt*1000)
+    
     plt.show()
     
     # writervideo = FFMpegWriter(fps=60)

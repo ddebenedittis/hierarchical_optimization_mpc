@@ -225,7 +225,7 @@ def main():
         
     print(f"The time elapsed is {time.time() - time_start} seconds")
     
-    display_animation(n_robots, s_history)
+    display_animation(s_history, dt)
     
     
 if __name__ == '__main__':

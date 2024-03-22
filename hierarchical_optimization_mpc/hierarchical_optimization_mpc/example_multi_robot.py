@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
 import copy
-from dataclasses import dataclass
 import time
 import sys
 
 import casadi as ca
-import matplotlib as mpl
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, QPSolver, TaskType
+from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.disp_het_multi_rob import Animation, gen_arrow_head_marker, MultiRobotScatter
+from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
+from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
 
 
 np.set_printoptions(
@@ -47,10 +47,14 @@ def evolve(s, u_star, dt):
     return s
 
 
+# ============================================================================ #
+#                                     MAIN                                     #
+# ============================================================================ #
+
 def main():
     time_start = time.time()
     
-    np.random.seed()
+    np.random.seed(1)
     
     # ======================== Define The System Model ======================= #
     
@@ -58,7 +62,7 @@ def main():
     
     s = []
     u = []
-    dt = 0.01           # timestep size
+    dt = 0.1           # timestep size
     s_kp1 = []
     
     s.append(ca.SX.sym('x', 3))     # state
@@ -66,8 +70,8 @@ def main():
     
     # state_{k+1} = s_kpi(state_k, input_k)
     s_kp1.append(ca.vertcat(
-        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 1/2*dt * u[0][1]),
-        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 1/2*dt * u[0][1]),
+        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 0/2*dt * u[0][1]),
+        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 0/2*dt * u[0][1]),
         s[0][2] + dt * u[0][1]
     ))
     
@@ -81,105 +85,36 @@ def main():
         s[1][1] + dt * u[1][1],
     ))
     
-    n_robots = [2, 0]
+    n_robots = [6, 0]
     
     # =========================== Define The Tasks =========================== #
     
-    # Input limits
-    v_max = 5
-    v_min = -5
-    omega_max = 1
-    omega_min = -1
-    
-    task_input_limits = [
-        ca.vertcat(
-            u[0][0] - v_max,
-            - u[0][0] + v_min,
-            u[0][1] - omega_max,
-            - u[0][1] + omega_min
-        ),
-        ca.vertcat(
-            u[1][0] - v_max,
-            - u[1][0] + v_min,
-            u[1][1] - omega_max,
-            - u[1][1] + omega_min
-        ),
-    ]
-    
-    task_input_limits_coeffs = [
-        [np.array([0, 0, 0, 0])],
-        [np.array([0, 0, 0, 0])],
-    ]
-    
-    task_input_smooth = [
-        ca.vertcat(
-            u[0][0],
-            - u[0][0],
-            u[0][1],
-            - u[0][1]
-        ),
-        ca.vertcat(
-            u[1][0],
-            - u[1][0],
-            u[1][1],
-            - u[1][1]
-        ),
-    ]
-    
-    task_input_smooth_coeffs = [
-        [[np.array([0.9, 0.9, 0.8, 0.8])] for j in range(n_robots[0])],
-        [[np.array([0.9, 0.9, 0.8, 0.8])] for j in range(n_robots[1])],
-    ]
-    
-    # Centroid velocity reference
-    task_vel_ref = [
-        ca.vertcat(
-            (s_kp1[0][0] - s[0][0]) / dt - 1,
-            (s_kp1[0][1] - s[0][1]) / dt - 0,
-        ) / sum(n_robots),
-        ca.vertcat(
-            (s_kp1[1][0] - s[1][0]) / dt - 1,
-            (s_kp1[1][1] - s[1][1]) / dt - 0,
-        ) / sum(n_robots),
-    ]
-    
-    task_input_min = [
-        ca.vertcat(
-            u[0][0],
-            u[0][1],
-        ),
-        ca.vertcat(
-            u[1][0],
-            - u[1][0],
-            u[1][1],
-            - u[1][1]
-        ),
-    ]
-    
-    aux = ca.SX.sym('aux', 2, 2)
-    
-    mapping = [
-        ca.vertcat(
-            s[0][0],
-            s[0][1],
-        ),
-        ca.vertcat(
-            s[1][0],
-            s[1][1],
-        ),
-    ]
-    
-    # task_avoid_collision = ca.vertcat(
-    #     (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 5,
-    # )
-    task_avoid_collision = ca.vertcat(
-        (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 10,
+    tasks_creator = TasksCreatorHOMPCMultiRobot(
+        s, u, s_kp1, dt, n_robots,
     )
+    
+    task_input_limits = tasks_creator.get_task_input_limits()
+    
+    task_input_smooth, task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
+    
+    # task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([3, 1])
+    
+    # task_vel_ref, task_vel_ref_coeff = tasks_creator.get_task_vel_ref(
+    #     [3, 1]
+    # )
+    
+    task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_pos_ref(
+        [[np.random.rand(2) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
+    )
+    
+    # aux, mapping, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
+    
+    task_input_min = tasks_creator.get_task_input_min()
     
     # ============================ Create The MPC ============================ #
     
     hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = QPSolver.quadprog)
-    hompc.n_control = 2
+    hompc.n_control = 4
     hompc.n_pred = 0
     
     hompc.create_task(
@@ -196,18 +131,45 @@ def main():
         ineq_task_coeff = task_input_smooth_coeffs,
     )
     
-    hompc.create_task_bi(
-        name = "collision_avoidance", prio = 3,
-        type = TaskType.Bi,
-        aux = aux,
-        mapping = mapping,
-        ineq_task_ls = task_avoid_collision,
-    )
+    # hompc.create_task_bi(
+    #     name = "collision_avoidance", prio = 3,
+    #     type = TaskType.Bi,
+    #     aux = aux,
+    #     mapping = mapping,
+    #     eq_task_ls = task_avoid_collision,
+    #     eq_task_coeff = task_avoid_collision_coeff,
+    # )
+    
+    # hompc.create_task_bi(
+    #     name = "formation", prio = 3,
+    #     type = TaskType.Bi,
+    #     aux = aux,
+    #     mapping = mapping,
+    #     eq_task_ls = task_formation,
+    #     eq_task_coeff = task_formation_coeff,
+    # )
+    
+    # hompc.create_task(
+    #     name = "centroid_vel_ref", prio = 4,
+    #     type = TaskType.Sum,
+    #     eq_task_ls = task_centroid_vel_ref,
+    #     time_index = TaskIndexes.Last,
+    # )
+    
+    # hompc.create_task(
+    #     name = "vel_ref", prio = 4,
+    #     type = TaskType.Same,
+    #     eq_task_ls = task_vel_ref,
+    #     eq_task_coeff = task_vel_ref_coeff,
+    #     time_index = [0],
+    # )
     
     hompc.create_task(
-        name = "vel_ref", prio = 4,
-        type = TaskType.Sum,
-        eq_task_ls = task_vel_ref,
+        name = "pos_ref", prio = 4,
+        type = TaskType.Same,
+        eq_task_ls = task_pos_ref,
+        eq_task_coeff = task_pos_ref_coeff,
+        time_index = [0, 1, 2, 3],
     )
     
     hompc.create_task(
@@ -219,18 +181,40 @@ def main():
     # ======================================================================== #
     
     s = [
-        [np.multiply(np.random.random((3)), np.array([2, 2, 2*np.pi])) + np.array([-1, -1, 0])
+        [np.multiply(np.random.random((3)), np.array([10, 10, 2*np.pi])) + np.array([-5, -5, 0])
          for _ in range(n_robots[0])],
         [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
          for _ in range(n_robots[1])],
     ]
     
-    n_steps = 1000
+    print(s)
+    
+    n_steps = 200
     
     s_history = [None] * n_steps
-        
+            
     for k in range(n_steps):
         print(k)
+        
+        towers = np.array(
+            [e[0:2] for e in s[0]]
+        )
+        bounding_box = np.array([-20, 20, -20, 20])
+        b_vor = BoundedVoronoi(towers, bounding_box)
+        centroids = b_vor.get_centroids_2()
+        pos_ref = [[np.array([0, 0]) for _ in range(n_robots[0])]]
+        for i in range(len(pos_ref[0])):
+            pos_ref[0][i] = centroids[i,:]
+            
+        task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_pos_ref(
+            pos_ref
+        )
+        
+        hompc.update_task(
+            name = "pos_ref",
+            eq_task_ls = task_pos_ref,
+            eq_task_coeff = task_pos_ref_coeff,
+        )
                 
         u_star = hompc(copy.deepcopy(s))
         
@@ -267,7 +251,9 @@ def main():
         (np.mean(y[0])*n_robots[0] + np.mean(y[1])*n_robots[1]) / sum(n_robots),
         25, 'C2')
     
-    ax.set(xlim=[-10., 10.], ylim=[-10., 10.], xlabel='x [m]', ylabel='y [m]')
+    scat.voronoi = [None]
+    
+    ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
     
     marker, scale = gen_arrow_head_marker(0)
     legend_elements = [
@@ -279,9 +265,13 @@ def main():
     ax.legend(handles=legend_elements)
     
     anim = Animation(scat, s_history)
-    
-    temp = FuncAnimation(fig=fig, func=anim.update, frames=range(n_steps), interval=30)
+        
+    ani = FuncAnimation(fig=fig, func=anim.update, frames=range(n_steps), interval=30)
     plt.show()
+    
+    # writervideo = FFMpegWriter(fps=60)
+    # ani.save('output.mp4', writer=writervideo)
+    # plt.close()
     
     
 if __name__ == '__main__':

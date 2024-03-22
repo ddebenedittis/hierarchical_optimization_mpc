@@ -21,7 +21,6 @@ class TaskType(Enum):
     SameTimeDiff = auto()
     Bi = auto()
 
-
 class TaskBiCoeff:
     def __init__(self, c0, j0, c1, j1, k, coeff) -> None:
         self.c0 = c0
@@ -268,7 +267,6 @@ class HOMPCMultiRobot(HOMPC):
             [self._states[robot_class], self._inputs[robot_class]],
             [state_bar, input_bar]
         )
-        A = A
         
         B = subs(
             [self._Js_f_u[robot_class]],
@@ -305,6 +303,15 @@ class HOMPCMultiRobot(HOMPC):
         
         n_rows = sum(np.multiply(self.n_robots, n_s) * (n_c+n_p))
         
+        # Example:
+        # x_opt = [  s1   u0   s2   u1   s3   u2]^T
+        #
+        #         [   I -B_0    0    0    0    0]
+        # A_dyn = [-A_1    0    I -B_1    0    0]
+        #         [   0    0 -A_2    0    I -B_2]
+        #
+        # b_dyn = [0 0 0]^T
+        
         A_dyn = np.zeros((n_rows, n_x_opt))
         b_dyn = np.zeros((n_rows, 1))
         
@@ -318,7 +325,7 @@ class HOMPCMultiRobot(HOMPC):
                 A_dyn[i:i+n_s, self._get_idx_input_k(c, j, 0)] = - B_0
                 i += n_s
                     
-                # Formulate the task for the remaining timesteps.
+                # Formulate the task for the remaining timesteps:
                 for k in range(1, n_c + n_p):
                     A_dyn[i:i+n_s, self._get_idx_state_kp1(c, j, k)] = np.eye(n_s)
                     [A_k, B_k, _] = self._linearize_model(c, self._state_bar[c][j][k], self._input_bar[c][j][k])
@@ -348,10 +355,12 @@ class HOMPCMultiRobot(HOMPC):
         Args:
             name (str): task name
             prio (int): task priority
-            eq_task_ls (ca.SX, optional): _description_.
-            eq_task_coeff (list[np.ndarray], optional): _description_.
-            ineq_task_ls (ca.SX, optional): _description_.
-            ineq_task_coeff (list[np.ndarray], optional): _description_.
+            eq_task_ls (ca.SX, optional): left side of the equality task.
+            eq_task_coeff (list[np.ndarray], optional): coefficients on the right
+                                                        side of the equality task.
+            ineq_task_ls (ca.SX, optional): left side of the inequality task.
+            ineq_task_coeff (list[np.ndarray], optional): coefficients on the right.
+                                                          side of the in equality task.
         """
         
         if eq_task_ls is None:
@@ -360,18 +369,6 @@ class HOMPCMultiRobot(HOMPC):
         if ineq_task_ls is None:
             ineq_task_ls = [ca.SX.sym("ineq", 0)] * len(self.n_robots)
                 
-        if eq_task_coeff is None:
-            eq_task_coeff = [
-                [self.InfList([np.zeros((eq_task_ls[c].size1(),1))]) for j in range(self.n_robots[c])]
-                for c in range(len(self.n_robots))
-            ]
-            
-        if ineq_task_coeff is None:
-            ineq_task_coeff = [
-                [self.InfList([np.zeros((ineq_task_ls[c].size1(),1))]) for j in range(self.n_robots[c])]
-                for c in range(len(self.n_robots))
-            ]
-        
         self._tasks.append(self.Task(
             name = name,
             prio = prio,
@@ -379,19 +376,71 @@ class HOMPCMultiRobot(HOMPC):
             eq_task_ls = eq_task_ls,
             eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
-            eq_coeff = [
+            eq_coeff = None if eq_task_coeff is None else [
                 [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
-            ineq_coeff = [
+            ineq_coeff = None if ineq_task_coeff is None else [
                 [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             time_index = time_index,
         ))
+                
+    def update_task(
+        self,
+        name: str,
+        prio: int = None,
+        type: TaskType = None,
+        eq_task_ls: list[ca.SX] = None,
+        eq_task_coeff: list[list[list[np.ndarray]]] = None,
+        ineq_task_ls: list[ca.SX] = None,
+        ineq_task_coeff: list[list[list[np.ndarray]]] = None,
+        time_index: TaskIndexes = None
+    ):
+        for i, t in enumerate(self._tasks):
+            if t.name == name:
+                id = i
+                break
+                
+        if prio is None:
+            prio = self._tasks[id].prio
+        if type is None:
+            type = self._tasks[id].type
+        if eq_task_ls is None:
+            eq_task_ls = self._tasks[id].eq_task_ls
+        if eq_task_coeff is None:
+            eq_task_coeff = self._tasks[id].eq_coeff
+        if ineq_task_ls is None:
+            ineq_task_ls = self._tasks[id].ineq_task_ls
+        if ineq_task_coeff is None:
+            ineq_task_coeff = self._tasks[id].ineq_coeff
+        if time_index is None:
+            time_index = self._tasks[id].time_index
+            
+        self._tasks[i] = self.Task(
+            name = name,
+            prio = prio,
+            type = type,
+            eq_task_ls = eq_task_ls,
+            eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
+            eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
+            eq_coeff = None if eq_task_coeff is None else [
+                [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ],
+            ineq_task_ls = ineq_task_ls,
+            ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
+            ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
+            ineq_coeff = None if ineq_task_coeff is None else [
+                [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                for c in range(len(self.n_robots))
+            ],
+            time_index = time_index,
+        )
         
     # ======================================================================== #
     
@@ -408,6 +457,22 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_coeff: list[np.ndarray] = None,
         time_index: TaskIndexes = TaskIndexes.All
     ):
+        """
+        Create a HOMPC.Task of type TaskType.Bi.
+
+        Args:
+            name (str): _description_
+            prio (int): _description_
+            type (TaskType): _description_
+            aux (ca.SX): _description_
+            mapping (list[ca.SX], optional): _description_. Defaults to None.
+            eq_task_ls (ca.SX, optional): _description_. Defaults to None.
+            eq_task_coeff (list[np.ndarray], optional): _description_. Defaults to None.
+            ineq_task_ls (ca.SX, optional): _description_. Defaults to None.
+            ineq_task_coeff (list[np.ndarray], optional): _description_. Defaults to None.
+            time_index (TaskIndexes, optional): _description_. Defaults to TaskIndexes.All.
+        """
+        
         if eq_task_ls is None:
             eq_task_ls = ca.SX.sym("eq", 0)
         if ineq_task_ls is None:
@@ -450,7 +515,7 @@ class HOMPCMultiRobot(HOMPC):
         if t.type == TaskType.Same:
             timesteps = list(range(n_c + n_p)) if t.time_index == TaskIndexes.All \
                 else [n_c + n_p] if t.time_index == TaskIndexes.Last \
-                else [n_c + n_p]
+                else t.time_index
             
             ne = sum(np.multiply(
                 [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
@@ -483,10 +548,10 @@ class HOMPCMultiRobot(HOMPC):
                             C[ii:ii+ni, self._get_idx_input_k(c, j, k)],
                             d[ii:ii+ni],
                         ] = self._helper_create_task_i_matrices(t, c, j, k)
-                        
+                                                
                         ie += ne
                         ii += ni
-                        
+                                    
         # ==================================================================== #
         
         elif t.type == TaskType.Sum:
@@ -565,8 +630,10 @@ class HOMPCMultiRobot(HOMPC):
                             ki = self.n_control - 1
                         else:
                             ki = k
+                            
+                        eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
                         
-                        b[ie:ie+ne] = t.eq_coeff[c][j][k] - subs(
+                        b[ie:ie+ne] = eq_coeff - subs(
                             [t.eq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -576,7 +643,9 @@ class HOMPCMultiRobot(HOMPC):
                             [self._state_bar[c][j][k], self._input_bar[c][j][ki-1]],
                         )
                         
-                        d[ii:ii+ni] = t.ineq_coeff[c][j][k] - subs(
+                        ineq_coeff = 0 if t.ineq_coeff is None else t.ineq_coeff[c][j][k]
+                        
+                        d[ii:ii+ni] = ineq_coeff - subs(
                             [t.ineq_task_ls[c]],
                             [self._states[c], self._inputs[c]],
                             [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -720,6 +789,9 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
         
+        eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
+        ineq_coeff = 0 if t.ineq_coeff is None else t.ineq_coeff[c][j][k]
+                
         return [
             subs(
                 [t.eq_J_T_s[c]],
@@ -731,7 +803,7 @@ class HOMPCMultiRobot(HOMPC):
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
             ),
-            t.eq_coeff[c][j][k] - subs(
+            eq_coeff - subs(
                 [t.eq_task_ls[c]],
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
@@ -746,7 +818,7 @@ class HOMPCMultiRobot(HOMPC):
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],
             ),
-            t.ineq_coeff[c][j][k] - subs(
+            ineq_coeff - subs(
                 [t.ineq_task_ls[c]],
                 [self._states[c], self._inputs[c]],
                 [self._state_bar[c][j][k+1], self._input_bar[c][j][ki]],

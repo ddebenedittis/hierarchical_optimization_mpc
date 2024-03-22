@@ -4,6 +4,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
+from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
+
 
 
 def gen_arrow_head_marker(rot):
@@ -52,6 +54,7 @@ class MultiRobotScatter:
     unicycles: ...
     omnidir: ...
     centroid: ...
+    voronoi: ...
 
 class Animation():
     def __init__(self, scat: MultiRobotScatter, data) -> None:
@@ -100,5 +103,17 @@ class Animation():
         self.scat.centroid.set_offsets(
             sum([np.nan_to_num(np.mean(x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]) / sum(self.n_robots)
         )
+         
+        towers = np.array(
+            [e[0:2] for e in state[0]]
+        )
+        bounding_box = np.array([-20, 20, -20, 20])
+        vor = BoundedVoronoi(towers, bounding_box)
+        for i in range(len(self.scat.voronoi)):
+            try:
+                self.scat.voronoi[i].pop(0).remove()
+            except:
+                pass
+        self.scat.voronoi = vor.plot()
         
-        return self.scat
+        return self.scat    

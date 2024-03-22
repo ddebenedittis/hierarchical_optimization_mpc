@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 
 import matplotlib as mpl
+from matplotlib.animation import FuncAnimation, FFMpegWriter
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -55,6 +57,8 @@ class MultiRobotScatter:
     omnidir: ...
     centroid: ...
     voronoi: ...
+
+# ================================= Animation ================================ #
 
 class Animation():
     def __init__(self, scat: MultiRobotScatter, data) -> None:
@@ -117,3 +121,55 @@ class Animation():
         self.scat.voronoi = vor.plot()
         
         return self.scat    
+
+# ============================= Display_animation ============================ #
+
+def display_animation(n_robots, s_history):
+    fig, ax = plt.subplots()
+    
+    x = [np.zeros(n_r) for n_r in n_robots]
+    y = [np.zeros(n_r) for n_r in n_robots]
+    for c, n_r in enumerate(n_robots):
+        for j in range(n_r):
+            state = s_history[0][c][j]
+            x[c][j] = state[0]
+            y[c][j] = state[1]
+    
+    scat = MultiRobotScatter
+    scat.unicycles = [None] * n_robots[0]
+    scat.omnidir = [None] * n_robots[1]
+        
+    for i in range(n_robots[0]):
+        scat.unicycles[i] = ax.scatter(x[0], y[0], 25, 'C0')
+    for i in range(n_robots[1]):
+        scat.omnidir[i] = ax.scatter(x[1], y[1], 25, 'C1')
+        
+    scat.centroid = ax.scatter(
+        (np.mean(x[0])*n_robots[0] + np.mean(x[1])*n_robots[1]) / sum(n_robots),
+        (np.mean(y[0])*n_robots[0] + np.mean(y[1])*n_robots[1]) / sum(n_robots),
+        25, 'C2')
+    
+    scat.voronoi = [None]
+    
+    ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
+    
+    marker, scale = gen_arrow_head_marker(0)
+    legend_elements = [
+        Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
+        Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
+        Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
+    ]
+    
+    ax.legend(handles=legend_elements)
+    
+    ax.axis('equal')
+    
+    anim = Animation(scat, s_history)
+    
+    n_steps = len(s_history)
+    ani = FuncAnimation(fig=fig, func=anim.update, frames=range(n_steps), interval=30)
+    plt.show()
+    
+    # writervideo = FFMpegWriter(fps=60)
+    # ani.save('output.mp4', writer=writervideo)
+    # plt.close()

@@ -946,6 +946,8 @@ class HOMPCMultiRobot(HOMPC):
         
         A[0], b[0] = self._task_dynamics_consistency()
         
+        self._tasks = sorted(self._tasks, key=lambda x: x.prio)
+        
         for k in range(n_tasks):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)

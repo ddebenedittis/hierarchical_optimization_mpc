@@ -89,6 +89,7 @@ def main():
     tasks_creator = TasksCreatorHOMPCMultiRobot(
         s, u, s_kp1, dt, n_robots,
     )
+    tasks_creator.bounding_box = np.array([-20, 20, -20, 20])
     
     task_input_limits = tasks_creator.get_task_input_limits()
     
@@ -102,6 +103,10 @@ def main():
     
     task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_pos_ref(
         [[np.random.rand(2) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
+    )
+    
+    task_charge, task_charge_coeff = tasks_creator.get_task_pos_ref(
+        [[np.array([19, 19]) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
     )
     
     # aux, mapping, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
@@ -175,6 +180,14 @@ def main():
         eq_task_ls = task_input_min,
     )
     
+    hompc.create_task(
+        name = "charge", prio = 6,
+        type = TaskType.Same,
+        eq_task_ls = task_charge,
+        eq_task_coeff = task_charge_coeff,
+        time_index = [0, 1, 2, 3],
+    )
+    
     # ======================================================================== #
     
     s = [
@@ -186,32 +199,26 @@ def main():
     
     print(s)
     
-    n_steps = 50
+    n_steps = 200
     
     s_history = [None] * n_steps
             
     for k in range(n_steps):
         print(k)
         
-        towers = np.array(
-            [e[0:2] for e in s[0]]
-        )
-        bounding_box = np.array([-20, 20, -20, 20])
-        b_vor = BoundedVoronoi(towers, bounding_box)
-        centroids = b_vor.compute_centroids()
-        pos_ref = [[np.array([0, 0]) for _ in range(n_robots[0])]]
-        for i in range(len(pos_ref[0])):
-            pos_ref[0][i] = centroids[i,:]
-            
-        task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_pos_ref(
-            pos_ref
-        )
+        tasks_creator.states_bar = s
+        task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_coverage()
         
         hompc.update_task(
             name = "pos_ref",
             eq_task_ls = task_pos_ref,
             eq_task_coeff = task_pos_ref_coeff,
         )
+        
+        if k == 100:
+            hompc.update_task(
+                name = "charge", prio = 3,
+            )
         
         u_star = hompc(copy.deepcopy(s))
         

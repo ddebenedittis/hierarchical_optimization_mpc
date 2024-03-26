@@ -2,6 +2,7 @@ import casadi as ca
 import numpy as np
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import TaskBiCoeff
+from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 
 
@@ -37,6 +38,8 @@ class TasksCreatorHOMPCMultiRobot():
         self.v_min = -5
         self.omega_max = 1
         self.omega_min = -1
+        
+        self.bounding_box = None
         
     # ========================= Get_task_input_limits ======================== #
         
@@ -143,6 +146,25 @@ class TasksCreatorHOMPCMultiRobot():
         ]
         
         return task_pos_ref, task_pos_ref_coeff
+    
+    # =========================== Get_task_coverage ========================== #
+    
+    def get_task_coverage(self):
+        towers = np.array(
+            [e[0:2] for e in self.states_bar[0]]
+        )
+
+        vor_task = VoronoiTask(towers, self.bounding_box)
+        
+        pos_ref = [[np.array([0, 0]) for _ in range(self.n_robots[0])]]
+        for i in range(len(pos_ref[0])):
+            pos_ref[0][i] = vor_task.centroids[i,:]
+            
+        task_cov, task_cov_coeff = self.get_task_pos_ref(
+            pos_ref
+        )
+        
+        return task_cov, task_cov_coeff
     
     # ========================== Get_task_input_min ========================== #
     

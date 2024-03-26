@@ -68,6 +68,12 @@ class BoundedVoronoi(Voronoi):
             
         return vor_plot
 
+
+class VoronoiTask(BoundedVoronoi):
+    def __init__(self, towers, bounding_box):
+        super().__init__(towers, bounding_box)
+    
+
 # ============================================================================ #
 
 def main():

@@ -186,7 +186,7 @@ def main():
     
     print(s)
     
-    n_steps = 200
+    n_steps = 50
     
     s_history = [None] * n_steps
             
@@ -198,7 +198,7 @@ def main():
         )
         bounding_box = np.array([-20, 20, -20, 20])
         b_vor = BoundedVoronoi(towers, bounding_box)
-        centroids = b_vor.get_centroids_2()
+        centroids = b_vor.compute_centroids()
         pos_ref = [[np.array([0, 0]) for _ in range(n_robots[0])]]
         for i in range(len(pos_ref[0])):
             pos_ref[0][i] = centroids[i,:]

@@ -10,7 +10,6 @@ import numpy as np
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.disp_het_multi_rob import display_animation
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
 
 
 np.set_printoptions(
@@ -51,7 +50,7 @@ def evolve(s, u_star, dt):
 def main():
     time_start = time.time()
     
-    np.random.seed(3)
+    np.random.seed(0)
     
     # ======================== Define The System Model ======================= #
     
@@ -101,7 +100,7 @@ def main():
     #     [3, 1]
     # )
     
-    task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_pos_ref(
+    task_coverage, task_coverage_coeff = tasks_creator.get_task_pos_ref(
         [[np.random.rand(2) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
     )
     
@@ -167,10 +166,10 @@ def main():
     # )
     
     hompc.create_task(
-        name = "pos_ref", prio = 4,
+        name = "coverage", prio = 4,
         type = TaskType.Same,
-        eq_task_ls = task_pos_ref,
-        eq_task_coeff = task_pos_ref_coeff,
+        eq_task_ls = task_coverage,
+        eq_task_coeff = task_coverage_coeff,
         time_index = [0, 1, 2, 3],
     )
     
@@ -186,6 +185,7 @@ def main():
         eq_task_ls = task_charge,
         eq_task_coeff = task_charge_coeff,
         time_index = [0, 1, 2, 3],
+        # robot_index = [[0, 4, 5, 1],[]],
     )
     
     # ======================================================================== #
@@ -207,23 +207,27 @@ def main():
         print(k)
         
         tasks_creator.states_bar = s
-        task_pos_ref, task_pos_ref_coeff = tasks_creator.get_task_coverage()
-        
-        hompc.update_task(
-            name = "pos_ref",
-            eq_task_ls = task_pos_ref,
-            eq_task_coeff = task_pos_ref_coeff,
+        cov_rob_idx = [[0, 1, 2, 3, 4, 5],[]]
+        task_coverage, task_coverage_coeff = tasks_creator.get_task_coverage(
+            # cov_rob_idx
         )
         
-        if k == 100:
+        hompc.update_task(
+            name = "coverage",
+            eq_task_ls = task_coverage,
+            eq_task_coeff = task_coverage_coeff,
+            # robot_index = cov_rob_idx,
+        )
+        
+        if k == 200:
             hompc.update_task(
                 name = "charge", prio = 3,
             )
         
         u_star = hompc(copy.deepcopy(s))
         
-        print(s)
-        print(u_star)
+        print(f"s: {s}")
+        print(f"u_star: {u_star}")
         print()
         
         s = evolve(s, u_star, dt)
@@ -238,5 +242,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except:
-        pass
+    except Exception as e:
+        print("An error occurred:", e)

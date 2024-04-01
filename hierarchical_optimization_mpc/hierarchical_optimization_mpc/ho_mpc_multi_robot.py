@@ -67,6 +67,7 @@ class HOMPCMultiRobot(HOMPC):
         mapping: list[ca.SX] = None
         
         time_index: TaskIndexes = TaskIndexes.All
+        robot_index: list[list[int]] = None
         
     class ConstraintType(Enum):
         Both = auto()
@@ -347,7 +348,8 @@ class HOMPCMultiRobot(HOMPC):
         eq_task_coeff: list[list[list[np.ndarray]]] = None,
         ineq_task_ls: list[ca.SX] = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] = None,
-        time_index: TaskIndexes = TaskIndexes.All
+        time_index: TaskIndexes = TaskIndexes.All,
+        robot_index: list[list[int]] = None,
     ):
         """
         Create a HOMPC.Task
@@ -368,6 +370,32 @@ class HOMPCMultiRobot(HOMPC):
             
         if ineq_task_ls is None:
             ineq_task_ls = [ca.SX.sym("ineq", 0)] * len(self.n_robots)
+            
+        if robot_index is not None:
+            if eq_task_coeff is not None:
+                eq_coeff = [
+                    [None for j in range(self.n_robots[c])]
+                    for c in range(len(self.n_robots))
+                ]
+                
+                for c in range(len(robot_index)):
+                    for idx, j in enumerate(robot_index[c]):
+                        eq_coeff[c][j] = self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][idx]])
+                
+                eq_task_coeff = eq_coeff
+                        
+            if ineq_task_coeff is not None:
+                ineq_coeff = [
+                    [None for j in range(self.n_robots[c])]
+                    for c in range(len(self.n_robots))
+                ]
+                
+                for c in range(len(robot_index)):
+                    for idx, j in enumerate(robot_index[c]):
+                        ineq_coeff[c][j] = self.InfList([i.reshape((-1, 1)) for i in ineq_task_coeff[c][idx]])
+                        
+                ineq_task_coeff = ineq_coeff
+                
                 
         self._tasks.append(self.Task(
             name = name,
@@ -377,19 +405,28 @@ class HOMPCMultiRobot(HOMPC):
             eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
             eq_coeff = None if eq_task_coeff is None else [
-                [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                [self.InfList(
+                    [e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]
+                    if eq_task_coeff[c][j] is not None else [None]
+                ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
             ineq_coeff = None if ineq_task_coeff is None else [
-                [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                [self.InfList(
+                    [e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]
+                    if ineq_task_coeff[c][j] is not None else [None]
+                ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             time_index = time_index,
+            robot_index = robot_index,
         ))
-                
+        
+    # ============================== Update_task ============================= #
+    
     def update_task(
         self,
         name: str,
@@ -399,12 +436,38 @@ class HOMPCMultiRobot(HOMPC):
         eq_task_coeff: list[list[list[np.ndarray]]] = None,
         ineq_task_ls: list[ca.SX] = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] = None,
-        time_index: TaskIndexes = None
+        time_index: TaskIndexes = None,
+        robot_index: TaskIndexes = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
                 id = i
                 break
+            
+        if robot_index is not None:
+            if eq_task_coeff is not None:
+                eq_coeff = [
+                    [[None] for j in range(self.n_robots[c])]
+                    for c in range(len(self.n_robots))
+                ]
+                
+                for c in range(len(robot_index)):
+                    for idx, j in enumerate(robot_index[c]):
+                        eq_coeff[c][j] = self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][idx]])
+                        
+                eq_task_coeff = eq_coeff
+                        
+            if ineq_task_coeff is not None:
+                ineq_coeff = [
+                    [[None] for j in range(self.n_robots[c])]
+                    for c in range(len(self.n_robots))
+                ]
+                
+                for c in range(len(robot_index)):
+                    for idx, j in enumerate(robot_index[c]):
+                        ineq_coeff[c][j] = self.InfList([i.reshape((-1, 1)) for i in ineq_task_coeff[c][idx]])
+                        
+                ineq_task_coeff = ineq_coeff
                 
         if prio is None:
             prio = self._tasks[id].prio
@@ -420,6 +483,8 @@ class HOMPCMultiRobot(HOMPC):
             ineq_task_coeff = self._tasks[id].ineq_coeff
         if time_index is None:
             time_index = self._tasks[id].time_index
+        if robot_index is None:
+            robot_index = self._tasks[id].robot_index
             
         self._tasks[i] = self.Task(
             name = name,
@@ -429,17 +494,24 @@ class HOMPCMultiRobot(HOMPC):
             eq_J_T_s = [ca.jacobian(eq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             eq_J_T_u = [ca.jacobian(eq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
             eq_coeff = None if eq_task_coeff is None else [
-                [self.InfList([e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                [self.InfList(
+                    [e.reshape((-1, 1)) for e in eq_task_coeff[c][j]]
+                    if eq_task_coeff[c][j][0] is not None else [None]
+                ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
             ineq_coeff = None if ineq_task_coeff is None else [
-                [self.InfList([e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]) for j in range(self.n_robots[c])]
+                [self.InfList(
+                    [e.reshape((-1, 1)) for e in ineq_task_coeff[c][j]]
+                    if ineq_task_coeff[c][j][0] is not None else [None]
+                ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
             time_index = time_index,
+            robot_index = robot_index,
         )
         
     # ======================================================================== #
@@ -517,15 +589,26 @@ class HOMPCMultiRobot(HOMPC):
                 else [n_c + n_p] if t.time_index == TaskIndexes.Last \
                 else t.time_index
             
-            ne = sum(np.multiply(
-                [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
-                self.n_robots,
-            )) * len(timesteps)
-            
-            ni = sum(np.multiply(
-                [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
-                self.n_robots,
-            )) * len(timesteps)
+            if t.robot_index is None:
+                ne = sum(np.multiply(
+                    [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                    self.n_robots,
+                )) * len(timesteps)
+                
+                ni = sum(np.multiply(
+                    [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                    self.n_robots,
+                )) * len(timesteps)
+            else:
+                ne = sum(np.multiply(
+                    [t.eq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                    [len(t.robot_index[c]) for c in range(len(t.robot_index))],
+                )) * len(timesteps)
+                
+                ni = sum(np.multiply(
+                    [t.ineq_J_T_s[c].shape[0] for c in range(len(self.n_robots))],
+                    [len(t.robot_index[c]) for c in range(len(t.robot_index))],
+                )) * len(timesteps)
             
             A = np.zeros((ne, self._get_n_x_opt()))
             b = np.zeros((ne, 1))
@@ -535,7 +618,8 @@ class HOMPCMultiRobot(HOMPC):
             ie = 0
             ii = 0
             for c, n_r in enumerate(self.n_robots):
-                for j in range(n_r):
+                j_list = range(n_r) if t.robot_index is None else t.robot_index[c]
+                for j in j_list:
                     for k in timesteps:
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]

@@ -154,7 +154,8 @@ class Animation():
         )
          
         towers = np.array(
-            [e[0:2] for e in state[0]]
+            [e[0:2] for e in state[0]] + 
+            [e[0:2] for e in state[1]]
         )
         bounding_box = np.array([-20, 20, -20, 20])
         vor = BoundedVoronoi(towers, bounding_box)
@@ -178,6 +179,6 @@ def display_animation(s_history, dt):
     
     plt.show()
     
-    # writervideo = FFMpegWriter(fps=60)
-    # ani.save('output.mp4', writer=writervideo)
+    # writervideo = FFMpegWriter(fps=int(1 / dt))
+    # ani.save('video.mp4', writer=writervideo)
     # plt.close()

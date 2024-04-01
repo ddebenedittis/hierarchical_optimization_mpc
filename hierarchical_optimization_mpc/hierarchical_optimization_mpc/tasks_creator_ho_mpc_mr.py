@@ -127,7 +127,7 @@ class TasksCreatorHOMPCMultiRobot():
     
     # =========================== Get_task_pos_ref =========================== #
 
-    def get_task_pos_ref(self, pos_ref):
+    def get_task_pos_ref(self, pos_ref, robot_idx: list[list[int]] = None):
         task_pos_ref = [
             ca.vertcat(
                 self.s_kp1[0][0],
@@ -139,31 +139,48 @@ class TasksCreatorHOMPCMultiRobot():
             ),
         ]
         
-        task_pos_ref_coeff = [
-            [
-                [(pos_ref[c][j][0:2]).flatten()] for j in range(self.n_robots[c])
-            ] for c in range(len(self.n_robots))
-        ]
+        if robot_idx is None:
+            task_pos_ref_coeff = [
+                [
+                    [(pos_ref[c][j][0:2]).flatten()] for j in range(self.n_robots[c])
+                ] for c in range(len(self.n_robots))
+            ]
+        else:
+            task_pos_ref_coeff = [
+                [
+                    [(pos_ref[c][j][0:2]).flatten()] for j in robot_idx[c]
+                ] for c in range(len(robot_idx))
+            ]
         
         return task_pos_ref, task_pos_ref_coeff
     
     # =========================== Get_task_coverage ========================== #
     
-    def get_task_coverage(self):
-        towers = np.array(
-            [e[0:2] for e in self.states_bar[0]]
-        )
+    def get_task_coverage(self, robot_idx: list[list[int]] = None):        
+        if robot_idx is None:
+            towers = np.array(
+                [e[0:2] for e in self.states_bar[0]] +
+                [e[0:2] for e in self.states_bar[1]]
+            )
+            n_cov = self.n_robots
+        else:
+            towers = np.array(
+                [self.states_bar[0][j][0:2] for j in robot_idx[0]] +
+                [self.states_bar[0][j][0:2] for j in robot_idx[1]]
+            )
+            n_cov = [len(robot_idx[0]), len(robot_idx[1])]
 
         vor_task = VoronoiTask(towers, self.bounding_box)
         
-        pos_ref = [[np.array([0, 0]) for _ in range(self.n_robots[0])]]
-        for i in range(len(pos_ref[0])):
-            pos_ref[0][i] = vor_task.centroids[i,:]
+        pos_ref = [[np.array([0, 0]) for _ in range(n_cov[c])] for c in range(len(n_cov))]
+        for c in range(len(n_cov)):
+            for i in range(len(pos_ref[c])):
+                pos_ref[c][i] = vor_task.centroids[i + sum(n_cov[0:c]), :]
             
         task_cov, task_cov_coeff = self.get_task_pos_ref(
-            pos_ref
+            pos_ref, robot_idx
         )
-        
+                
         return task_cov, task_cov_coeff
     
     # ========================== Get_task_input_min ========================== #

@@ -169,7 +169,7 @@ class Animation():
 
 # ============================= Display_animation ============================ #
 
-def display_animation(s_history, dt):
+def display_animation(s_history, dt, method = 'plot'):
     fig, ax = plt.subplots()
     
     anim = Animation(s_history, ax, dt)
@@ -177,8 +177,11 @@ def display_animation(s_history, dt):
     n_steps = len(s_history)
     ani = FuncAnimation(fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps), interval=dt*1000)
     
-    plt.show()
-    
-    # writervideo = FFMpegWriter(fps=int(1 / dt))
-    # ani.save('video.mp4', writer=writervideo)
-    # plt.close()
+    if method == 'plot':
+        plt.show()
+    elif method == 'save':
+        writervideo = FFMpegWriter(fps=int(1 / dt))
+        ani.save('video.mp4', writer=writervideo)
+    else:
+        raise ValueError('The input method is {method}. Acceptable values are ' +
+                         'plot, save, and none.')

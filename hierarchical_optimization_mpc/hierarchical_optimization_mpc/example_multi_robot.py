@@ -47,9 +47,13 @@ def evolve(s, u_star, dt):
 #                                     MAIN                                     #
 # ============================================================================ #
 
-def main():
-    time_start = time.time()
+def main(
+    n_robots = [5, 0], solver = QPSolver.quadprog, visual_method = 'plot'
+):
+    # ============================== Parameters ============================== #
     
+    time_start = time.time()
+        
     np.random.seed(0)
     
     # ======================== Define The System Model ======================= #
@@ -66,8 +70,8 @@ def main():
     
     # state_{k+1} = s_kpi(state_k, input_k)
     s_kp1.append(ca.vertcat(
-        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 0/2*dt * u[0][1]),
-        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 0/2*dt * u[0][1]),
+        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 1/2*dt * u[0][1]),
+        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 1/2*dt * u[0][1]),
         s[0][2] + dt * u[0][1]
     ))
     
@@ -80,8 +84,6 @@ def main():
         s[1][0] + dt * u[1][0],
         s[1][1] + dt * u[1][1],
     ))
-    
-    n_robots = [6, 0]
     
     # =========================== Define The Tasks =========================== #
     
@@ -114,7 +116,7 @@ def main():
     
     # ============================ Create The MPC ============================ #
     
-    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = QPSolver.quadprog)
+    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = solver)
     hompc.n_control = 4
     hompc.n_pred = 0
     
@@ -234,13 +236,31 @@ def main():
         
         s_history[k] = copy.deepcopy(s)
         
-    print(f"The time elapsed is {time.time() - time_start} seconds")
+    time_elapsed = time.time() - time_start
+    print(f"The time elapsed is {time_elapsed} seconds")
     
-    display_animation(s_history, dt)
+    if visual_method is not None and visual_method != 'none':
+        display_animation(s_history, dt, visual_method)
+        
+    return time_elapsed
     
     
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Description')
+    parser.add_argument('--n_robots', metavar='list[int]',
+                        default='[6,0]', required=False, help='')
+    parser.add_argument('--solver', metavar="[clarabel, osqp, quadprog]",
+                        default='quadprog', required=False, help='')
+    parser.add_argument('--visual_method', metavar="[plot, save, none]",
+                        default='plot', required=False, help='')
+    args = parser.parse_args()
+    
     try:
-        main()
+        main(
+            n_robots = [int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
+            solver=args.solver,
+            visual_method=args.visual_method,
+        )
     except Exception as e:
         print("An error occurred:", e)

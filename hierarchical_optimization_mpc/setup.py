@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'example_single_robot = hierarchical_optimization_mpc.example_single_robot:main',
             'example_multi_robot = hierarchical_optimization_mpc.example_multi_robot:main',
+            'test_solve_times = hierarchical_optimization_mpc.test_solve_times:main',
         ],
     },
 )

@@ -4,11 +4,15 @@ ROS 2 packages to imlpement generic controllers based on Hierarchical Optimizati
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Known Bugs](#known-bugs)
-- [Author](#author)
+- [Hierarchical Optimization Model Predictive Control](#hierarchical-optimization-model-predictive-control)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Installation](#installation)
+    - [Dependencies](#dependencies)
+  - [Usage](#usage)
+    - [Scripts](#scripts)
+  - [Known Bugs](#known-bugs)
+  - [Author](#author)
 
 ## Overview
 
@@ -25,10 +29,13 @@ Ubuntu packages:
 
 Python 3 packages:
 - `casadi`
+- `clarabel`
 - `matplotlib`
 - `numpy`
 - `osqp`
+- `pandas`
 - `quadprog`
+- `qpsolvers`
 - `scipy`
 - `torch`
 - `torchaudio`
@@ -57,6 +64,18 @@ colcon build --symlink-install
 Source the workspace with (you have to add it to the `~/.bashrc` or do it on every newly opened terminal)
 ```shell
 source install/setup.base
+```
+
+### Scripts
+
+Single robot example
+```shell
+ros2 run hierarchical_optimization_mpc example_single_robot
+```
+
+Multi robot example
+```shell
+ros2 run hierarchical_optimization_mpc example_multi_robot
 ```
 
 ## Known Bugs

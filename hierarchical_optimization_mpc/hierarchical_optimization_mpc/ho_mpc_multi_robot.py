@@ -78,7 +78,8 @@ class HOMPCMultiRobot(HOMPC):
     
     def __init__(
         self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int],
-        solver: QPSolver = QPSolver.quadprog
+        solver: QPSolver = QPSolver.quadprog,
+        hierarchical = True,
     ) -> None:
         """
         Initialize the instance.
@@ -109,6 +110,8 @@ class HOMPCMultiRobot(HOMPC):
         self.regularization = 1e-6  # regularization factor
         
         self.solver = self._preprocess_solver(solver)
+        
+        self.hierarchical = hierarchical
         
         # ==================================================================== #
         
@@ -1049,9 +1052,8 @@ class HOMPCMultiRobot(HOMPC):
         for k in range(n_tasks):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
-                                    
-        hqp = HierarchicalQP(solver=self.solver)
-        
+            
+        hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         x_star = hqp(A, b, C, d)
         
         n_c = self._n_control

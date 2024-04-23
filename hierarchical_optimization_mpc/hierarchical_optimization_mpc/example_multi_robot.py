@@ -7,6 +7,7 @@ import sys
 import casadi as ca
 import numpy as np
 
+from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.disp_het_multi_rob import display_animation
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
@@ -48,7 +49,8 @@ def evolve(s, u_star, dt):
 # ============================================================================ #
 
 def main(
-    n_robots = [5, 0], solver = QPSolver.quadprog, visual_method = 'plot'
+    hierarchical = True, n_robots = [5, 0],
+    solver = QPSolver.quadprog, visual_method = 'plot'
 ):
     # ============================== Parameters ============================== #
     
@@ -116,7 +118,7 @@ def main(
     
     # ============================ Create The MPC ============================ #
     
-    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = solver)
+    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = solver, hierarchical=hierarchical)
     hompc.n_control = 4
     hompc.n_pred = 0
     
@@ -248,6 +250,8 @@ def main(
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Description')
+    parser.add_argument('--hierarchical', type=str2bool, metavar='bool',
+                        default=True, required=False, help='')
     parser.add_argument('--n_robots', metavar='list[int]',
                         default='[6,0]', required=False, help='')
     parser.add_argument('--solver', metavar="[clarabel, osqp, quadprog]",
@@ -258,7 +262,8 @@ if __name__ == '__main__':
     
     try:
         main(
-            n_robots = [int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
+            hierarchical=args.hierarchical,
+            n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
             solver=args.solver,
             visual_method=args.visual_method,
         )

@@ -109,7 +109,7 @@ class HOMPCMultiRobot(HOMPC):
         
         self.regularization = 1e-6  # regularization factor
         
-        self.solver = self._preprocess_solver(solver)
+        self.solver = QPSolver.get_enum(solver)
         
         self.hierarchical = hierarchical
         
@@ -192,20 +192,6 @@ class HOMPCMultiRobot(HOMPC):
                 [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
                 for i in range(len(self.n_robots))
             ]
-            
-    @staticmethod
-    def _preprocess_solver(solver):
-        if type(solver) == QPSolver:
-            return solver
-        if solver == 'quadprog':
-            return QPSolver.quadprog
-        if solver == 'osqp':
-            return QPSolver.osqp
-        if solver == 'clarabel':
-            return QPSolver.clarabel
-        
-        raise ValueError('The input solver is {solver}. Acceptable values are ' +
-                         'clarabel, osqp, and quadprog.')
         
     # ============================== Initialize ============================== #
         

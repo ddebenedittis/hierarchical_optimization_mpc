@@ -34,6 +34,7 @@ Python 3 packages:
 - `numpy`
 - `osqp`
 - `pandas`
+- `proxsuite`
 - `quadprog`
 - `qpsolvers`
 - `scipy`

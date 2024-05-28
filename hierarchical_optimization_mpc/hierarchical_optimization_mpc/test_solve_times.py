@@ -23,6 +23,7 @@ solvers = [
     'clarabel',
     'osqp',
     'proxqp',
+    'reluqp',
     'quadprog',
 ]
 

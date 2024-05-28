@@ -62,6 +62,7 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
 RUN pip3 install \
     casadi \
     clarabel \
+    cvxpy \
     matplotlib \
     numpy \
     osqp \
@@ -69,6 +70,7 @@ RUN pip3 install \
     proxsuite \
     quadprog \
     qpsolvers \
+    git+https://github.com/RoboticExplorationLab/ReLUQP-py \
     scipy \
     torch \
     torchaudio \

@@ -254,7 +254,7 @@ if __name__ == '__main__':
                         default=True, required=False, help='')
     parser.add_argument('--n_robots', metavar='list[int]',
                         default='[6,0]', required=False, help='')
-    parser.add_argument('--solver', metavar="[clarabel, osqp, quadprog]",
+    parser.add_argument('--solver', metavar="[clarabel, osqp, proxqp, quadprog, reluqp]",
                         default='quadprog', required=False, help='')
     parser.add_argument('--visual_method', metavar="[plot, save, none]",
                         default='plot', required=False, help='')

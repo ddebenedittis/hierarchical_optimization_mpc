@@ -1,6 +1,6 @@
 # Hierarchical Optimization Model Predictive Control
 
-ROS 2 packages to imlpement generic controllers based on Hierarchical Optimization (HO) and Model Predictive Control (MPC).
+ROS 2 packages to implement generic controllers based on Hierarchical Optimization (HO) and Model Predictive Control (MPC).
 
 ## Table of Contents
 
@@ -30,6 +30,7 @@ Ubuntu packages:
 Python 3 packages:
 - `casadi`
 - `clarabel`
+- `cvxpy`
 - `matplotlib`
 - `numpy`
 - `osqp`
@@ -38,11 +39,12 @@ Python 3 packages:
 - `quadprog`
 - `qpsolvers`
 - `scipy`
+- `reluqp`
 - `torch`
 - `torchaudio`
 - `torchvision`
 
-`Torch`, `torchaudio`, and `torchvision` are necessary for the neural network approximator.
+`Torch`, `torchaudio`, and `torchvision` are necessary for the neural network approximator and ReLuQP.
 
 ## Usage
 

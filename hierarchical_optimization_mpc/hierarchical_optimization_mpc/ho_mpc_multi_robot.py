@@ -5,9 +5,10 @@ import itertools
 
 import casadi as ca
 import numpy as np
-from hierarchical_qp.hierarchical_qp import HierarchicalQP, QPSolver
-from hierarchical_optimization_mpc.ho_mpc import subs, HOMPC
 from scipy.special import binom
+
+from hierarchical_qp.hierarchical_qp import HierarchicalQP, QPSolver
+from hierarchical_optimization_mpc.ho_mpc import HOMPC, subs
 
 
 
@@ -113,6 +114,8 @@ class HOMPCMultiRobot(HOMPC):
         
         self.hierarchical = hierarchical
         
+        self.hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        
         # ==================================================================== #
         
         self._states = states   # state variable
@@ -163,7 +166,7 @@ class HOMPCMultiRobot(HOMPC):
     @n_control.setter
     def n_control(self, value):
         if value < 1:
-            ValueError('"n_control" must be equal or greater than 1.')
+            raise ValueError('"n_control" must be equal or greater than 1.')
         else:
             self._n_control = value
             
@@ -173,8 +176,8 @@ class HOMPCMultiRobot(HOMPC):
                 for i in range(len(self.n_robots))
             ]
             self._input_bar = [
-                [[np.zeros(self._n_inputs[i]) for _ in range(self.n_control)] for _ in range(self.n_robots[i])]
-                for i in range(len(self.n_robots))
+                [[np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
+                for _ in range(self.n_robots[i])] for i in range(len(self.n_robots))
             ]
     @property
     def n_pred(self):
@@ -183,7 +186,7 @@ class HOMPCMultiRobot(HOMPC):
     @n_pred.setter
     def n_pred(self, value):
         if value < 0:
-            ValueError('"n_pred" must be equal or greater than 0.')
+            raise ValueError('"n_pred" must be equal or greater than 0.')
         else:
             self._n_pred = value
             
@@ -339,6 +342,32 @@ class HOMPCMultiRobot(HOMPC):
                     i += n_s
             
         return A_dyn, b_dyn
+    
+    def add_robots(self, n_robots: list[int], states_meas: list[list[np.ndarray]]):
+        """
+        Modify the n_robots, _state_bar, and _input_bar attributes when adding robots.
+
+        Args:
+            n_robots (list[int]): number of robots to be added for each class
+            states_meas (list[list][np.ndarray]): measured state of the added robots.
+
+        Raises:
+            ValueError: _description_
+        """
+        
+        for c, n_r in enumerate(self.n_robots):
+            if n_robots[c] < 0:
+                raise ValueError(f'The {c}-th class of robots has a negative number of robots.')
+            n_r += n_robots[c]
+            
+            state_bar_c = [np.zeros(0) for _ in range(n_r)]
+            for j, state_bar_c_j in enumerate(state_bar_c):
+                state_bar_c_j = [states_meas[c][j] for k in range(self.n_control+self.n_pred)]
+            self._state_bar[c][j] += state_bar_c
+            
+            inputs_bar_c = [np.zeros(self._n_inputs[c]) for j in range(n_r)]
+            self._input_bar[c] += inputs_bar_c
+        
             
     # ============================== Create_task ============================= #
             
@@ -1039,8 +1068,8 @@ class HOMPCMultiRobot(HOMPC):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
             
-        hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
-        x_star = hqp(A, b, C, d)
+        # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        x_star = self.hqp(A, b, C, d)
         
         n_c = self._n_control
         

@@ -78,6 +78,8 @@ class Animation():
     def init(self):
         self.ax.clear()
         
+        self.ax.set_aspect('equal', 'box')
+        
         self.artists = MultiRobotArtists
         self.artists.unicycles = [None] * self.n_robots[0]
         self.artists.omnidir = [None] * self.n_robots[1]
@@ -105,7 +107,7 @@ class Animation():
             Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
         ]
         
-        self.ax.legend(handles=legend_elements)
+        self.ax.legend(handles=legend_elements, loc='upper right')
         
         self.fr_number = self.ax.annotate(
             "0",
@@ -180,8 +182,8 @@ class Animation():
         )
         bounding_box = np.array([-20, 20, -20, 20])
         vor = BoundedVoronoi(towers, bounding_box)
-        for vor in self.artists.voronoi:
-            vor.pop(0).remove()
+        for v in self.artists.voronoi:
+            v.pop(0).remove()
         self.artists.voronoi = vor.plot()
         
         for e in self.artists.past_trajectory:

@@ -16,12 +16,17 @@ Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-nati
 
 ## Usage
 
-Build the docker image (use the `-r` option to update the underlying images):
+Build the docker image with
 ```shell
-./build.bash [-r]
+./build.bash [-a] [-f] [-h] [-r]
 ```
+With the following optinal arguments:
+- `-a-`, `--all`: build the image with all the dependencies
+- `-f`, `--ffmpeg`: build the image with ffmpeg (for saving videos)
+- `h`, `--help`: show the help message
+- `-r`, `--rebuild`: rebuild the image
 
-Run the container:
+Run the container with
 ```shell
 ./run.bash
 ```
@@ -29,6 +34,11 @@ Run the container:
 This repo also supports VS Code devcontainers.
 
 
+## Hierarchical Optimization Model Predictive Control
+
+See the [README.md](src/README.md).
+
+
 ## Author
 
-Davide De Benedittis
+[Davide De Benedittis](https://github.com/ddebenedittis)

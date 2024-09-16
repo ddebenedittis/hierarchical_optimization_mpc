@@ -11,6 +11,8 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
     - [Dependencies](#dependencies)
   - [Usage](#usage)
     - [Scripts](#scripts)
+      - [With ROS](#with-ros)
+      - [With Python](#with-python)
   - [Known Bugs](#known-bugs)
   - [Author](#author)
 
@@ -46,6 +48,8 @@ Python 3 packages:
 
 `Torch`, `torchaudio`, and `torchvision` are necessary for the neural network approximator and ReLuQP.
 
+`ffmepg` is required for saving the videos in .mp4 format.
+
 ## Usage
 
 When I write `<some_text>`, you have to change the value in the <>.
@@ -71,6 +75,8 @@ source install/setup.base
 
 ### Scripts
 
+#### With ROS
+
 Single robot example
 ```shell
 ros2 run hierarchical_optimization_mpc example_single_robot
@@ -79,6 +85,16 @@ ros2 run hierarchical_optimization_mpc example_single_robot
 Multi robot example
 ```shell
 ros2 run hierarchical_optimization_mpc example_multi_robot
+```
+<img src="https://raw.githubusercontent.com/ddebenedittis/media/main/hierarchical_optimization_mpc/coverage_9.gif" width="500">
+
+#### With Python
+
+Python is more verbose that ROS, but you can pass options
+
+Multi robot exmaple
+```shell
+python3 src/hierarchical_optimization_mpc/hierarchical_optimization_mpc/example_multi_robot.py [--hierarchical {True, False}] [--n_robots [int,int]] [--solver {clarabel, osqp, proxqp, quadprog, reluqp}] [--visual_method {plot, save, none}]
 ```
 
 ## Known Bugs

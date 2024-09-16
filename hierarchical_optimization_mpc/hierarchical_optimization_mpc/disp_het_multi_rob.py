@@ -57,16 +57,21 @@ class MultiRobotArtists:
     omnidir: ...
     centroid: ...
     voronoi: ...
+    past_trajectory: ...
 
 # ================================= Animation ================================ #
 
 class Animation():
     def __init__(self, data, ax, dt) -> None:
+        self.n_history = 50
+        
         self.data = data
         self.ax = ax
         self.dt = dt
         
         self.n_robots = [len(data_i) for data_i in data[0]]
+        
+        self.artists = None
     
     # ================================= Init ================================= #
         
@@ -87,6 +92,9 @@ class Animation():
         self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
         
         self.artists.voronoi = [self.ax.plot([],[])]
+        
+        self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots))]
+        self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
         self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
         
@@ -121,12 +129,25 @@ class Animation():
             np.zeros((self.n_robots[1], 2)),
         ]
         
-        for c in range(len(state)):
-            for j, s_c_j in enumerate(state[c]):
+        for c, state_c in enumerate(state):
+            for j, s_c_j in enumerate(state_c):
                 x[c][j, 0] = s_c_j[0]
                 x[c][j, 1] = s_c_j[1]
                 if c == 0:
                     x[c][j, 2] = s_c_j[2]
+                    
+        n_history = min(self.n_history, frame)
+        x_history = [
+            np.zeros((self.n_robots[0], n_history, 3)),
+            np.zeros((self.n_robots[1], n_history, 2)),
+        ]
+        for k in range(n_history):
+            for c in range(len(self.data[frame - k])):
+                for j, s_c_j in enumerate(self.data[frame - k][c]):
+                    x_history[c][j, k, 0] = s_c_j[0]
+                    x_history[c][j, k, 1] = s_c_j[1]
+                    if c == 0:
+                        x_history[c][j, k, 2] = s_c_j[2]        
                 
         for i in range(self.n_robots[0]):
             self.artists.unicycles[i].remove()
@@ -159,9 +180,22 @@ class Animation():
         )
         bounding_box = np.array([-20, 20, -20, 20])
         vor = BoundedVoronoi(towers, bounding_box)
-        for i in range(len(self.artists.voronoi)):
-            self.artists.voronoi[i].pop(0).remove()
+        for vor in self.artists.voronoi:
+            vor.pop(0).remove()
         self.artists.voronoi = vor.plot()
+        
+        for e in self.artists.past_trajectory:
+            e.remove()
+        cnt = 0
+        for c in range(len(self.data[frame])):
+            for j, s_c_j in enumerate(state[c]):
+                self.artists.past_trajectory[cnt] = plt.plot(
+                    x_history[c][j,:,0], x_history[c][j,:,1],
+                    color = 'k',
+                    linestyle = '--',
+                    alpha = 0.5,
+                )[0]
+                cnt += 1
         
         self.fr_number.set_text(f"t: {frame*self.dt:.2f} s")
         
@@ -175,7 +209,10 @@ def display_animation(s_history, dt, method = 'plot'):
     anim = Animation(s_history, ax, dt)
     
     n_steps = len(s_history)
-    ani = FuncAnimation(fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps), interval=dt*1000)
+    ani = FuncAnimation(
+        fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps),
+        interval=dt*1000
+    )
     
     if method == 'plot':
         plt.show()

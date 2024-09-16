@@ -5,7 +5,7 @@ def str2bool(b):
         return b
     if b.lower() in ('yes', 'true', 't', 'y', '1'):
         return True
-    elif b.lower() in ('no', 'false', 'f', 'n', '0'):
+    if b.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+    
+    raise argparse.ArgumentTypeError('Boolean value expected.')

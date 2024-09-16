@@ -2,6 +2,7 @@ import copy
 from dataclasses import dataclass, field
 from enum import auto, Enum
 import itertools
+import time
 
 import casadi as ca
 import numpy as np
@@ -32,6 +33,11 @@ class TaskBiCoeff:
         self.coeff = coeff
         
     def get(self):
+        """
+        Return the task coefficients:
+            c0, j0, c1, j1, k, coeff
+        """
+        
         return self.c0, self.j0, self.c1, self.j1, self.k, self.coeff
 
 # ============================================================================ #
@@ -156,6 +162,11 @@ class HOMPCMultiRobot(HOMPC):
         ]
         
         self._tasks: list[self.Task] = []
+        
+        self.solve_times = {
+            'Create Problem': 0,
+            'Solve Problem': 0,
+        }
                 
     # =========================== Class Properties =========================== #
     
@@ -167,18 +178,18 @@ class HOMPCMultiRobot(HOMPC):
     def n_control(self, value):
         if value < 1:
             raise ValueError('"n_control" must be equal or greater than 1.')
-        else:
-            self._n_control = value
-            
-            # Adapt the sizes of the state and input linearization points.
-            self._state_bar = [
-                [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
-                for i in range(len(self.n_robots))
-            ]
-            self._input_bar = [
-                [[np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
-                for _ in range(self.n_robots[i])] for i in range(len(self.n_robots))
-            ]
+        
+        self._n_control = value
+        
+        # Adapt the sizes of the state and input linearization points.
+        self._state_bar = [
+            [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
+            for i in range(len(self.n_robots))
+        ]
+        self._input_bar = [
+            [[np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
+            for _ in range(self.n_robots[i])] for i in range(len(self.n_robots))
+        ]
     @property
     def n_pred(self):
         return self._n_pred
@@ -187,21 +198,49 @@ class HOMPCMultiRobot(HOMPC):
     def n_pred(self, value):
         if value < 0:
             raise ValueError('"n_pred" must be equal or greater than 0.')
-        else:
-            self._n_pred = value
+
+        self._n_pred = value
+        
+        # Adapt the size of the state linearization points.
+        self._state_bar = [
+            [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
+            for i in range(len(self.n_robots))
+        ]
             
-            # Adapt the size of the state linearization points.
-            self._state_bar = [
-                [[None] * (self.n_control + self.n_pred)] * self.n_robots[i]
-                for i in range(len(self.n_robots))
-            ]
+    # ======================================================================== #
+    
+    def remove_robots(self, idx_robots: dict[list[int]]):
+        """
+        Remove robots from the optimization problem.
+
+        Args:
+            idx_robots (dict[list[int]]): dictionary of the indices of the robots to be removed.
+        """
+        
+        for c, js in idx_robots.items():
+            self.n_robots[c] -= len(js)
+            
+            for j in js.reverse():
+                
+                self._state_bar[c].pop(j)
+                self._input_bar[c].pop(j)
+                
+    def add_robots(self, n_robots_add: list[int], states_meas: list[list[np.ndarray]]):
+        """
+        Add new robots to the optimization problem.
+
+        Args:
+            n_robots_add (list[int]): number of robots to be added for each class
+        """
+        
+        
         
     # ============================== Initialize ============================== #
         
     def _initialize(
         self,
-        states_meas: list[list[np.ndarray]] = None,
-        inputs: list[list[list[np.ndarray]]] = None):
+        states_meas: list[list[np.ndarray]] | None = None,
+        inputs: list[list[list[np.ndarray]]] | None = None):
         """
         Update the linearization points (x_bar_k, u_bar_k) from the current
         position and the history of optimal inputs.
@@ -376,15 +415,15 @@ class HOMPCMultiRobot(HOMPC):
         name: str,
         prio: int,
         type: TaskType,
-        eq_task_ls: list[ca.SX] = None,
-        eq_task_coeff: list[list[list[np.ndarray]]] = None,
-        ineq_task_ls: list[ca.SX] = None,
-        ineq_task_coeff: list[list[list[np.ndarray]]] = None,
+        eq_task_ls: list[ca.SX] | None = None,
+        eq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        ineq_task_ls: list[ca.SX] | None = None,
+        ineq_task_coeff: list[list[list[np.ndarray]]] | None = None,
         time_index: TaskIndexes = TaskIndexes.All,
-        robot_index: list[list[int]] = None,
+        robot_index: list[list[int]] | None = None,
     ):
         """
-        Create a HOMPC.Task
+        Create a HOMPC.Task.
 
         Args:
             name (str): task name
@@ -462,14 +501,14 @@ class HOMPCMultiRobot(HOMPC):
     def update_task(
         self,
         name: str,
-        prio: int = None,
-        type: TaskType = None,
-        eq_task_ls: list[ca.SX] = None,
-        eq_task_coeff: list[list[list[np.ndarray]]] = None,
-        ineq_task_ls: list[ca.SX] = None,
-        ineq_task_coeff: list[list[list[np.ndarray]]] = None,
-        time_index: TaskIndexes = None,
-        robot_index: TaskIndexes = None
+        prio: int| None = None,
+        type: TaskType| None = None,
+        eq_task_ls: list[ca.SX]| None = None,
+        eq_task_coeff: list[list[list[np.ndarray]]]| None = None,
+        ineq_task_ls: list[ca.SX]| None = None,
+        ineq_task_coeff: list[list[list[np.ndarray]]]| None = None,
+        time_index: TaskIndexes| None = None,
+        robot_index: TaskIndexes| None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
@@ -554,11 +593,11 @@ class HOMPCMultiRobot(HOMPC):
         prio: int,
         type: TaskType,
         aux: ca.SX,
-        mapping: list[ca.SX] = None,
-        eq_task_ls: ca.SX = None,
-        eq_task_coeff: list[np.ndarray] = None,
-        ineq_task_ls: ca.SX = None,
-        ineq_task_coeff: list[np.ndarray] = None,
+        mapping: list[ca.SX] | None = None,
+        eq_task_ls: ca.SX | None = None,
+        eq_task_coeff: list[np.ndarray] | None = None,
+        ineq_task_ls: ca.SX | None = None,
+        ineq_task_coeff: list[np.ndarray] | None = None,
         time_index: TaskIndexes = TaskIndexes.All
     ):
         """
@@ -869,12 +908,11 @@ class HOMPCMultiRobot(HOMPC):
     
     # ==================== _helper_create_task_i_matrices ==================== #
     
-    # Auxiliary function to create the matrices A, b, C, d
     def _helper_create_task_i_matrices(
         self, t: Task, c: int, j: int, k: int
     ):
         """
-        _summary_
+        Auxiliary function to create the matrices A, b, C, d.
 
         Args:
             t (Task): task
@@ -943,7 +981,6 @@ class HOMPCMultiRobot(HOMPC):
         
     # ======================================================================== #
     
-    # Auxiliary matrix to create the matrices A, b, C, d
     def _helper_create_task_bi_i_matrices(
         self, t: Task,
         c0: int, j0: int,
@@ -952,7 +989,7 @@ class HOMPCMultiRobot(HOMPC):
         constr_type: ConstraintType = ConstraintType.Both
     ):
         """
-        _summary_
+        Auxiliary matrix to create the matrices A, b, C, d
 
         Args:
             t (Task): task
@@ -1051,6 +1088,7 @@ class HOMPCMultiRobot(HOMPC):
     # ======================================================================== #
     
     def __call__(self, state_meas: np.ndarray = None, inputs: list[np.ndarray] = None) -> np.ndarray:
+        start_time = time.time()
         self._initialize(state_meas, inputs)
         
         n_tasks = len(self._tasks)
@@ -1062,14 +1100,20 @@ class HOMPCMultiRobot(HOMPC):
         
         A[0], b[0] = self._task_dynamics_consistency()
         
+        self.solve_times["Create Problem"] += time.time() - start_time
+        
         self._tasks = sorted(self._tasks, key=lambda x: x.prio)
         
         for k in range(n_tasks):
             kp = k + 1
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
             
+        # self.solve_times["Create Problem"] += time.time() - start_time
+            
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        start_time = time.time()
         x_star = self.hqp(A, b, C, d)
+        self.solve_times["Solve Problem"] += time.time() - start_time
         
         n_c = self._n_control
         

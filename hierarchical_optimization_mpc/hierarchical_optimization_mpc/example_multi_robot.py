@@ -11,7 +11,7 @@ from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, save_snapshots
 
 
 np.set_printoptions(
@@ -228,20 +228,31 @@ def main(
     if visual_method is not None and visual_method != 'none':
         display_animation(s_history, dt, visual_method)
         
+    if visual_method == 'save':
+        save_snapshots(s_history, dt, [0, 5], 'snapshot')
+        
     return time_elapsed
     
     
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Description')
-    parser.add_argument('--hierarchical', type=str2bool, metavar='bool',
-                        default=True, required=False, help='')
-    parser.add_argument('--n_robots', metavar='list[int]',
-                        default='[6,0]', required=False, help='')
-    parser.add_argument('--solver', metavar="[clarabel, osqp, proxqp, quadprog, reluqp]",
-                        default='quadprog', required=False, help='')
-    parser.add_argument('--visual_method', metavar="[plot, save, none]",
-                        default='plot', required=False, help='')
+    parser.add_argument('--hierarchical',
+        type=str2bool, metavar='bool', default=True, required=False,
+        help='If True, uses the hierarchical approach'
+    )
+    parser.add_argument('--n_robots',
+        metavar='list[int]', default='[6,0]', required=False,
+        help='Number of unicycles and omnidirectional robots (default [6,0])'
+    )
+    parser.add_argument('--solver',
+        metavar="{clarabel, osqp, proxqp, quadprog, reluqp}", default='quadprog', required=False,
+        help='QP solver to use'
+    )
+    parser.add_argument('--visual_method',
+        metavar="{plot, save, none}", default='plot', required=False,
+        help='How to display the results'
+    )
     args = parser.parse_args()
     
     # try:

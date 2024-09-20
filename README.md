@@ -96,6 +96,11 @@ Multi robot exmaple
 ```shell
 python3 src/hierarchical_optimization_mpc/hierarchical_optimization_mpc/example_multi_robot.py [--hierarchical {True, False}] [--n_robots [int,int]] [--solver {clarabel, osqp, proxqp, quadprog, reluqp}] [--visual_method {plot, save, none}]
 ```
+Parameters:
+- `--hierarchical bool`: if True, uses the hierarchical approach.
+- `--n_robots list[int]`: Number of unicycles and omnidirectional robots (default `[6,0]`).
+- `--solver {clarabel, osqp, proxqp, quadprog, reluqp}`: QP solver to use.
+- `--visual_method {plot, save, none}`: how to display the results.
 
 ## Known Bugs
 

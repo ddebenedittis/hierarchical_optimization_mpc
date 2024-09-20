@@ -224,3 +224,21 @@ def display_animation(s_history, dt, method = 'plot'):
     else:
         raise ValueError('The input method is {method}. Acceptable values are ' +
                          'plot, save, and none.')
+        
+def save_snapshots(s_history, dt, times: int | list[int], filename):
+    fig, ax = plt.subplots()
+    
+    anim = Animation(s_history, ax, dt)
+    
+    if isinstance(times, int):
+        times = [times]
+    
+    for time in times:
+        frame = int(time / dt)
+    
+        anim.init()
+        anim.update(frame)
+        
+        plt.savefig(f"{filename}_{time}.svg", bbox_inches='tight', format='svg')
+        
+        plt.close()

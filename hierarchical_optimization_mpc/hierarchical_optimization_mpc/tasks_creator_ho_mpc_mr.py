@@ -7,6 +7,11 @@ from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 
 class TasksCreatorHOMPCMultiRobot():
+    """
+    Helper class to create tasks for the HOMPCMultiRobot class when using
+    unicycles and omnidirectional robots.
+    """
+    
     def __init__(
         self, states: list[ca.SX], inputs: list[ca.SX],
         fs: list[ca.SX], dt: float,

@@ -7,10 +7,11 @@ import sys
 import casadi as ca
 import numpy as np
 
+from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
-from hierarchical_optimization_mpc.disp_het_multi_rob import display_animation
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
 
 
 np.set_printoptions(
@@ -19,29 +20,6 @@ np.set_printoptions(
     suppress=True,
     threshold=sys.maxsize,
 )
-
-
-def evolve(s, u_star, dt):
-    n_intervals = 10
-    
-    for c in range(len(s)):
-        for j in range(len(s[c])):
-            if c == 0:
-                for _ in range(n_intervals):
-                    s[c][j] = s[c][j] + dt / n_intervals * np.array([
-                        u_star[c][j][0] * np.cos(s[c][j][2]),
-                        u_star[c][j][0] * np.sin(s[c][j][2]),
-                        u_star[c][j][1],
-                    ])
-            
-            if c == 1:
-                for _ in range(n_intervals):
-                    s[c][j] = s[c][j] + dt / n_intervals * np.array([
-                        u_star[c][j][0],
-                        u_star[c][j][1],
-                    ])
-                    
-    return s
 
 
 # ============================================================================ #
@@ -241,6 +219,12 @@ def main(
     time_elapsed = time.time() - time_start
     print(f"The time elapsed is {time_elapsed} seconds")
     
+    print( "The time was used in the following phases:")
+    max_key_len = max(map(len, hompc.solve_times.keys()))
+    for key, value in hompc.solve_times.items():
+        key_len = len(key)
+        print(f"{key}: {' '*(max_key_len-key_len)}{value}")
+    
     if visual_method is not None and visual_method != 'none':
         display_animation(s_history, dt, visual_method)
         
@@ -260,12 +244,12 @@ if __name__ == '__main__':
                         default='plot', required=False, help='')
     args = parser.parse_args()
     
-    try:
-        main(
-            hierarchical=args.hierarchical,
-            n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
-            solver=args.solver,
-            visual_method=args.visual_method,
+    # try:
+    main(
+        hierarchical=args.hierarchical,
+        n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
+        solver=args.solver,
+        visual_method=args.visual_method,
         )
-    except Exception as e:
-        print("An error occurred:", e)
+    # except Exception as e:
+        # print("An error occurred:", e)

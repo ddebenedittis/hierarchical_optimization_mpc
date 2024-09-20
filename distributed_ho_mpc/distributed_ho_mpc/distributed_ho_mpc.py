@@ -25,5 +25,10 @@ class DistributedHOMPC():
         """
         
         self.n_robots = n_robots
+        self.states = states
+        self.inputs = inputs
+        self.fs = fs
+        self.solver = solver
+        self.hierarchical = hierarchical
         
         self.MPCs = []

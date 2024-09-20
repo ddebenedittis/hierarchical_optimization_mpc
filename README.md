@@ -90,7 +90,7 @@ ros2 run hierarchical_optimization_mpc example_multi_robot
 
 #### With Python
 
-Python is more verbose that ROS, but you can pass options
+Python is more verbose than ROS, but you can pass options
 
 Multi robot exmaple
 ```shell

@@ -67,6 +67,7 @@ RUN pip3 install \
     numpy \
     osqp \
     pandas \
+    progressbar2 \
     proxsuite \
     quadprog \
     qpsolvers \

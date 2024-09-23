@@ -70,6 +70,9 @@ class HOMPCMultiRobot(HOMPC):
         ineq_J_T_s: list[ca.SX] = field(repr=False) # jacobian(ineq_task_ls, state)
         ineq_J_T_u: list[ca.SX] = field(repr=False) # jacobian(ineq_task_ls, input)
         
+        eq_weight: float = 1.0
+        ineq_weight: float = 1.0
+        
         aux_var: ca.SX = None
         mapping: list[ca.SX] = None
         
@@ -86,7 +89,8 @@ class HOMPCMultiRobot(HOMPC):
     def __init__(
         self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int],
         solver: QPSolver = QPSolver.quadprog,
-        hierarchical = True,
+        hierarchical: bool = True,
+        decay_rate: float = 1.0,
     ) -> None:
         """
         Initialize the instance.
@@ -96,7 +100,9 @@ class HOMPCMultiRobot(HOMPC):
             inputs (list[ca.SX]): list of input symbolic variable for each robot class
             fs (list[ca.SX]):     list of discrete-time system equations for each robot class:
                                   state_{k+1} = f(state_k, input_k)
-            n_robots(list[int]):  list of the number of robots for each robot class
+            n_robots (list[int]): list of the number of robots for each robot class
+            hierarchical (bool):  flag to enable hierarchical optimization
+            decay_rate (float, optional): tasks decay rate for weighted approach (hierarchical == False). Between 0.0 and 1.0.
         """
         
         if len(states) != len(inputs) \
@@ -119,6 +125,8 @@ class HOMPCMultiRobot(HOMPC):
         self.solver = QPSolver.get_enum(solver)
         
         self.hierarchical = hierarchical
+        
+        self.decay_rate = decay_rate
         
         self.hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         
@@ -224,14 +232,6 @@ class HOMPCMultiRobot(HOMPC):
                 
                 self._state_bar[c].pop(j)
                 self._input_bar[c].pop(j)
-                
-    def add_robots(self, n_robots_add: list[int], states_meas: list[list[np.ndarray]]):
-        """
-        Add new robots to the optimization problem.
-
-        Args:
-            n_robots_add (list[int]): number of robots to be added for each class
-        """
         
         
         
@@ -417,8 +417,10 @@ class HOMPCMultiRobot(HOMPC):
         type: TaskType,
         eq_task_ls: list[ca.SX] | None = None,
         eq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        eq_weight: float = 1.0,
         ineq_task_ls: list[ca.SX] | None = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        ineq_weight: float = 1.0,
         time_index: TaskIndexes = TaskIndexes.All,
         robot_index: list[list[int]] | None = None,
     ):
@@ -482,6 +484,7 @@ class HOMPCMultiRobot(HOMPC):
                 ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
+            eq_weight=eq_weight,
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = [ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))],
             ineq_J_T_u = [ca.jacobian(ineq_task_ls[c], self._inputs[c]) for c in range(len(self.n_robots))],
@@ -492,6 +495,7 @@ class HOMPCMultiRobot(HOMPC):
                 ) for j in range(self.n_robots[c])]
                 for c in range(len(self.n_robots))
             ],
+            ineq_weight=ineq_weight,
             time_index = time_index,
             robot_index = robot_index,
         ))
@@ -596,8 +600,10 @@ class HOMPCMultiRobot(HOMPC):
         mapping: list[ca.SX] | None = None,
         eq_task_ls: ca.SX | None = None,
         eq_task_coeff: list[np.ndarray] | None = None,
+        eq_weight: float = 1.0,
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
+        ineq_weight: float = 1.0,
         time_index: TaskIndexes = TaskIndexes.All
     ):
         """
@@ -629,10 +635,12 @@ class HOMPCMultiRobot(HOMPC):
             eq_J_T_s = None,
             eq_J_T_u = None,
             eq_coeff = eq_task_coeff,
+            eq_weight=eq_weight,
             ineq_task_ls = ineq_task_ls,
             ineq_J_T_s = None,
             ineq_J_T_u = None,
             ineq_coeff = ineq_task_coeff,
+            ineq_weight=ineq_weight,
             aux_var = aux,
             mapping = mapping,
             time_index = time_index
@@ -1112,7 +1120,12 @@ class HOMPCMultiRobot(HOMPC):
             
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
-        x_star = self.hqp(A, b, C, d)
+        if self.hierarchical:
+            x_star = self.hqp(A, b, C, d)
+        else:
+            we = [np.inf] + [t.eq_weight for t in self._tasks]
+            wi = [np.inf] + [t.ineq_weight for t in self._tasks]
+            x_star = self.hqp(A, b, C, d, we, wi)
         self.solve_times["Solve Problem"] += time.time() - start_time
         
         n_c = self._n_control

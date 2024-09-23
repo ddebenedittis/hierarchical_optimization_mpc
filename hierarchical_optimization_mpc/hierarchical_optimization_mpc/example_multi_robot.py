@@ -226,10 +226,10 @@ def main(
         print(f"{key}: {' '*(max_key_len-key_len)}{value}")
     
     if visual_method is not None and visual_method != 'none':
-        display_animation(s_history, dt, visual_method)
+        display_animation(s_history, None, dt, visual_method)
         
     if visual_method == 'save':
-        save_snapshots(s_history, dt, [0, 5], 'snapshot')
+        save_snapshots(s_history, None, dt, [0, 5], 'snapshot')
         
     return time_elapsed
     

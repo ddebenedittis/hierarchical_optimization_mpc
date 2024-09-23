@@ -58,14 +58,16 @@ class MultiRobotArtists:
     centroid: ...
     voronoi: ...
     past_trajectory: ...
+    goals: ...
 
 # ================================= Animation ================================ #
 
 class Animation():
-    def __init__(self, data, ax, dt) -> None:
-        self.n_history = 50
+    def __init__(self, data, goals, ax, dt) -> None:
+        self.n_history = np.inf
         
         self.data = data
+        self.goals = goals
         self.ax = ax
         self.dt = dt
         
@@ -79,6 +81,8 @@ class Animation():
         self.ax.clear()
         
         self.ax.set_aspect('equal', 'box')
+        
+        # ====================== Initialize The Artists ====================== #
         
         self.artists = MultiRobotArtists
         self.artists.unicycles = [None] * self.n_robots[0]
@@ -100,14 +104,25 @@ class Animation():
         
         self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
         
+        self.artists.goals = self.ax.scatter(
+            [g[0] for g in self.goals] if self.goals is not None else [],
+            [g[1] for g in self.goals] if self.goals is not None else [],
+            25, 'k', 'x'
+        )
+        
+        # ============================== Legend ============================== #
+        
         marker, scale = gen_arrow_head_marker(0)
         legend_elements = [
             Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
             Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
             Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
+            Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal'),
         ]
         
         self.ax.legend(handles=legend_elements, loc='upper right')
+        
+        # =========================== Time On Plot =========================== #
         
         self.fr_number = self.ax.annotate(
             "0",
@@ -118,12 +133,14 @@ class Animation():
             ha="left",
             va="top",
         )
-        
-        # self.ax.axis('equal')
     
     # ================================ Update ================================ #
     
     def update(self, frame):
+        
+        # ========================= Extract The State ======================== #
+        
+        # Current (frame) state.
         state = self.data[frame]
         
         x = [
@@ -138,6 +155,7 @@ class Animation():
                 if c == 0:
                     x[c][j, 2] = s_c_j[2]
                     
+        # State history.
         n_history = min(self.n_history, frame)
         x_history = [
             np.zeros((self.n_robots[0], n_history, 3)),
@@ -150,12 +168,17 @@ class Animation():
                     x_history[c][j, k, 1] = s_c_j[1]
                     if c == 0:
                         x_history[c][j, k, 2] = s_c_j[2]        
-                
+                        
+        # ========================= Clean Old Artists ======================== #
+        
         for i in range(self.n_robots[0]):
             self.artists.unicycles[i].remove()
 
         self.artists.omnidir.remove()
-                
+        
+        # ====================== Display Updated Artists ===================== #
+        
+        # Unicycles.
         for i in range(self.n_robots[0]):
             deg = x[0][i,2] * 180 / np.pi
             marker, scale = gen_arrow_head_marker(deg)
@@ -166,16 +189,21 @@ class Animation():
                 marker = marker,
             )
             
+        # Omnidirectional robot.
         self.artists.omnidir = plt.scatter(
             x = x[1][:,0], y = x[1][:,1],
             s = 25, c = 'C1',
             marker = 'o',
         )
-                
+        
+        # Fleet centroid.
         self.artists.centroid.set_offsets(
-            sum([np.nan_to_num(np.mean(x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]) / sum(self.n_robots)
+            sum([np.nan_to_num(np.mean(
+                x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
+            ) / sum(self.n_robots)
         )
-         
+        
+        # Voronoi.
         towers = np.array(
             [e[0:2] for e in state[0]] + 
             [e[0:2] for e in state[1]]
@@ -186,6 +214,7 @@ class Animation():
             v.pop(0).remove()
         self.artists.voronoi = vor.plot()
         
+        # Past trajectory.
         for e in self.artists.past_trajectory:
             e.remove()
         cnt = 0
@@ -199,16 +228,17 @@ class Animation():
                 )[0]
                 cnt += 1
         
+        # Time on plot.
         self.fr_number.set_text(f"t: {frame*self.dt:.2f} s")
         
         return self.artists
 
 # ============================= Display_animation ============================ #
 
-def display_animation(s_history, dt, method = 'plot'):
+def display_animation(s_history, goals, dt: float, method: str = 'plot'):
     fig, ax = plt.subplots()
     
-    anim = Animation(s_history, ax, dt)
+    anim = Animation(s_history, goals, ax, dt)
     
     n_steps = len(s_history)
     ani = FuncAnimation(
@@ -224,11 +254,13 @@ def display_animation(s_history, dt, method = 'plot'):
     else:
         raise ValueError('The input method is {method}. Acceptable values are ' +
                          'plot, save, and none.')
-        
-def save_snapshots(s_history, dt, times: int | list[int], filename):
+    
+# ============================== Save_snapshots ============================== #
+
+def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename: str):
     fig, ax = plt.subplots()
     
-    anim = Animation(s_history, ax, dt)
+    anim = Animation(s_history, goals, ax, dt)
     
     if isinstance(times, int):
         times = [times]

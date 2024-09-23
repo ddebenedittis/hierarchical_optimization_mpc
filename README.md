@@ -88,6 +88,11 @@ ros2 run hierarchical_optimization_mpc example_multi_robot
 ```
 <img src="https://raw.githubusercontent.com/ddebenedittis/media/main/hierarchical_optimization_mpc/coverage_9.gif" width="500">
 
+Toy problem 1 (multiple conflicting tasks to one robot)
+```shell
+ros2 run hierarchical_optimization_mpc toy_problem_1
+```
+
 #### With Python
 
 Python is more verbose than ROS, but you can pass options

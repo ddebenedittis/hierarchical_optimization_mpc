@@ -13,8 +13,8 @@ def get_unicycle_model(dt: float):
         state, input, next_state
     """
     
-    s = ca.SX.sym(('s_unicycle', 3))
-    u = ca.SX.sym(('u_unicycle', 2))
+    s = ca.SX.sym('s_unicycle', 3)
+    u = ca.SX.sym('u_unicycle', 2)
     
     x = s[0]
     y = s[1]
@@ -42,8 +42,8 @@ def get_omnidirectional_model(dt: float):
         state, input, next_state
     """
     
-    s = ca.SX.sym(('s_omni', 2))
-    u = ca.SX.sym(('u_omni', 2))
+    s = ca.SX.sym('s_omni', 2)
+    u = ca.SX.sym('u_omni', 2)
     
     x = s[0]
     y = s[1]

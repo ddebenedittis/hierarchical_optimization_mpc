@@ -209,10 +209,8 @@ if __name__ == '__main__':
     
     n_rob = [1,0]
     initial_state = [
-        [np.multiply(np.random.random((3)), np.array([10, 10, 2*np.pi])) + np.array([-5, -5, 0])
-            for _ in range(n_rob[0])],
-        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
-            for _ in range(n_rob[1])],
+        [np.array([0, 0, 0])],
+        [],
     ]
     
     exp(

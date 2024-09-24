@@ -138,8 +138,13 @@ def exp(
         s = evolve(s, u_star, dt)
         
         if time_to_goal is None:
-            if np.linalg.norm(s[0][0][0:2] - goals[0]) < 1.:
-                time_to_goal = k * dt
+            threshold = 1.
+            if np.linalg.norm(s[0][0][0:2] - goals[0]) < threshold:
+                d_prev = np.linalg.norm(s_history[k-1][0][0][0:2] - goals[0])
+                d_now = np.linalg.norm(s[0][0][0:2] - goals[0])
+                temp = (d_prev - threshold) / (d_prev - d_now)
+                
+                time_to_goal = (k-1) * dt + temp * dt
         
         s_history[k] = copy.deepcopy(s)
         

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from cycler import cycler
 import matplotlib as mpl
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
@@ -63,6 +64,23 @@ class MultiRobotArtists:
 # ================================= Animation ================================ #
 
 class Animation():
+    default_cycler = (
+        cycler(color=['#0072BD', '#D95319', '#EDB120', '#7E2F8E']) +
+        cycler('linestyle', ['-', '--', '-', '--'])
+    )
+    
+    textsize = 16
+    labelsize = 18
+    
+    plt.rc('font', family='serif', serif='Times')
+    plt.rcParams["text.usetex"] = True
+    plt.rc('xtick', labelsize=textsize)
+    plt.rc('ytick', labelsize=textsize)
+    plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
+    plt.rc('legend', fontsize=textsize)
+    
+    plt.rcParams['figure.constrained_layout.use'] = True
+    
     def __init__(self, data, goals, ax, dt) -> None:
         self.n_history = np.inf
         
@@ -102,7 +120,7 @@ class Animation():
         self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots))]
         self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
-        self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='x [m]', ylabel='y [m]')
+        self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
         
         self.artists.goals = self.ax.scatter(
             [g[0] for g in self.goals] if self.goals is not None else [],
@@ -113,22 +131,35 @@ class Animation():
         # ============================== Legend ============================== #
         
         marker, scale = gen_arrow_head_marker(0)
-        legend_elements = [
-            Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycles'),
-            Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional Robot'),
-            Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet Centroid'),
-            Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal'),
-        ]
+        legend_elements = []
+        if self.n_robots[0] > 0:
+            legend_elements.append(
+                Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycle')
+            )
+        if self.n_robots[1] > 0:
+            legend_elements.append(
+                Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot')
+            )
+        if sum(self.n_robots) > 1:
+            legend_elements.append(
+                Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
+            )
+        if self.goals is not None:
+            if len(self.goals) > 0:
+                legend_elements.append(
+                    Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal')
+                )
         
         self.ax.legend(handles=legend_elements, loc='upper right')
         
         # =========================== Time On Plot =========================== #
         
         self.fr_number = self.ax.annotate(
-            "0",
+            "$t = 0.00 \, s$",
             (0, 1),
             xycoords="axes fraction",
             xytext=(10, -10),
+            fontsize=self.textsize,
             textcoords="offset points",
             ha="left",
             va="top",
@@ -196,12 +227,13 @@ class Animation():
             marker = 'o',
         )
         
-        # Fleet centroid.
-        self.artists.centroid.set_offsets(
-            sum([np.nan_to_num(np.mean(
-                x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
-            ) / sum(self.n_robots)
-        )
+        # Fleet centroid. Plotted only if more than one robot.
+        if sum(self.n_robots) > 1:
+            self.artists.centroid.set_offsets(
+                sum([np.nan_to_num(np.mean(
+                    x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
+                ) / sum(self.n_robots)
+            )
         
         # Voronoi.
         towers = np.array(
@@ -229,7 +261,7 @@ class Animation():
                 cnt += 1
         
         # Time on plot.
-        self.fr_number.set_text(f"t: {frame*self.dt:.2f} s")
+        self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")
         
         return self.artists
 
@@ -257,16 +289,15 @@ def display_animation(s_history, goals, dt: float, method: str = 'plot'):
     
 # ============================== Save_snapshots ============================== #
 
-def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename: str):
-    fig, ax = plt.subplots()
-    
-    anim = Animation(s_history, goals, ax, dt)
-    
+def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename: str):    
     if isinstance(times, int):
         times = [times]
     
     for time in times:
         frame = int(time / dt)
+        
+        fig, ax = plt.subplots()
+        anim = Animation(s_history, goals, ax, dt)
     
         anim.init()
         anim.update(frame)

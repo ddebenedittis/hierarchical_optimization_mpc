@@ -56,7 +56,7 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
     git \
     python3-pip \
     ros-${ROS_DISTRO}-pinocchio \
-    sudo
+    sudo 
 
 # Install the python packages.
 RUN pip3 install \
@@ -83,6 +83,17 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
     if [ "${FFMPEG}" = "1" ] ; then \
         apt-get update && apt-get install --no-install-recommends -qqy \
         ffmpeg ; \
+    fi
+
+# Install Latex
+ARG LATEX=0
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    if [ "${LATEX}" = "1" ] ; then \
+        apt-get update && apt-get install --no-install-recommends -qqy \
+        dvipng \
+        texlive-latex-extra \
+        texlive-fonts-recommended \
+        cm-super ; \
     fi
 
 # Create the same user as the host itself. (By default Docker creates the container as root, which is not recommended.)

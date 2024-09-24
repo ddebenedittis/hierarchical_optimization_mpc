@@ -25,10 +25,11 @@ mkdir -p ~/.vscode ~/.vscode-server ~/.config/Code
 helpFunction()
 {
     echo ""
-    echo "Usage: $0 [-r]"
+    echo "Usage: $0 [-a] [-f] [-l] [-r]"
     echo -e "\t-a   --all       Install everything."
     echo -e "\t-f   --ffmpeg    Install ffmpeg to save videos."
     echo -e "\t-h   --help      Print the help."
+    echo -e "\t-l   --latex     Install latex for nicer images with Matplotlib."
     echo -e "\t-r   --rebuild   Rebuild the image."
     exit 1 # Exit script after printing help
 }
@@ -45,7 +46,7 @@ needs_arg() { if [ -z "$OPTARG" ]; then die "No arg for --$OPT option"; fi; }
 no_arg() { if [ -n "$OPTARG" ]; then die "No arg allowed for --$OPT option"; fi; }
 
 # Get the script options. This accepts both single dash (e.g. -a) and double dash options (e.g. --all)
-while getopts ahr-: OPT; do
+while getopts afhlr-: OPT; do
     # support long options: https://stackoverflow.com/a/28466267/519360
     if [ "$OPT" = "-" ]; then     # long option: reformulate OPT and OPTARG
         OPT="${OPTARG%%=*}"       # extract long option name
@@ -53,9 +54,10 @@ while getopts ahr-: OPT; do
         OPTARG="${OPTARG#=}"      # if long option argument, remove assigning `=`
     fi
     case "$OPT" in
-        a | all )       no_arg; FFMPEG=1 ;;
+        a | all )       no_arg; FFMPEG=1 LATEX=1 ;;
         f | ffmpeg )    no_arg; FFMPEG=1 ;;
         h | help )      no_arg; helpFunction ;;
+        l | latex )     no_arg; LATEX=1 ;;
         r | rebuild )   no_arg; REBUILD=1 ;;
         ??* )           die "Illegal option --$OPT" ;;  # bad long option
         ? )             exit 2 ;;  # bad short option (error reported via getopts)
@@ -86,4 +88,5 @@ docker build \
     --build-arg USER=${USER} \
     --build-arg "PWDR=$PWD" \
     --build-arg FFMPEG=$FFMPEG \
+    --build-arg LATEX=$LATEX \
     -t $IMAGE_NAME .

@@ -79,6 +79,8 @@ class Animation():
     plt.rc('ytick', labelsize=textsize)
     plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
     plt.rc('legend', fontsize=textsize)
+    plt.rc('grid', linestyle='-.', alpha=0.5)
+    plt.rc('axes', grid=True)
     
     plt.rcParams['figure.constrained_layout.use'] = True
     

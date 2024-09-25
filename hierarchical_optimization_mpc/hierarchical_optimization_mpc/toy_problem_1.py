@@ -12,7 +12,7 @@ from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional
 
 
 np.set_printoptions(
-    precision=3,
+    precision=4,
     linewidth=300,
     suppress=True,
     threshold=sys.maxsize,
@@ -170,22 +170,22 @@ def main():
         [np.array([0, 0, 0])],
         [],
     ]
-    visual_method = 'none'
+    visual_method = 'save'
     
-    exp(initial_state=initial_state, hierarchical=True,
-        visual_method=visual_method)
+    # exp(initial_state=initial_state, hierarchical=True,
+    #     visual_method=visual_method)
     
-    weights = [100.0, 100.0, 1.0, 0.1, 0.1]
+    weights = [np.inf, np.inf, 1.0, 0.1, 0.1]
     exp(initial_state=initial_state, hierarchical=False,
        visual_method=visual_method, weights=weights)
     
-    weights = [100.0, 100.0, 1.0, 0.01, 0.01]
-    exp(initial_state=initial_state, hierarchical=False,
-       visual_method=visual_method, weights=weights)
+    # weights = [100.0, 100.0, 1.0, 0.01, 0.01]
+    # exp(initial_state=initial_state, hierarchical=False,
+    #    visual_method=visual_method, weights=weights)
     
-    weights = [100.0, 100.0, 1.0, 0.001, 0.001]
-    exp(initial_state=initial_state, hierarchical=False,
-       visual_method=visual_method, weights=weights)
+    # weights = [100.0, 100.0, 1.0, 0.001, 0.001]
+    # exp(initial_state=initial_state, hierarchical=False,
+    #    visual_method=visual_method, weights=weights)
             
     
 if __name__ == '__main__':

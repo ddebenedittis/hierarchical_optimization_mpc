@@ -74,7 +74,6 @@ class Animation():
     
     plt.rc('font', family='serif', serif='Times')
     plt.rcParams["text.usetex"] = True
-    plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{amsfonts} \DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}')
     plt.rc('xtick', labelsize=textsize)
     plt.rc('ytick', labelsize=textsize)
     plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
@@ -85,12 +84,14 @@ class Animation():
     def __init__(self, data, goals, ax, dt) -> None:
         self.n_history = np.inf
         
-        self.data = data
+        self.data = data[0]
+        self.data1 = data[1]
+        self.data2 = data[2]
         self.goals = goals
         self.ax = ax
         self.dt = dt
         
-        self.n_robots = [len(data_i) for data_i in data[0]]
+        self.n_robots = [len(data_i) for data_i in data[0][0]]
         
         self.artists = None
     
@@ -123,22 +124,11 @@ class Animation():
         
         self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
         
-        self.artists.goals = [None for _ in range(2)]
-        self.artists.goals[0] = self.ax.scatter(
+        self.artists.goals = self.ax.scatter(
             [g[0] for g in self.goals] if self.goals is not None else [],
             [g[1] for g in self.goals] if self.goals is not None else [],
             25, 'k', 'x'
         )
-        
-        self.artists.goals[1] = []
-        if self.goals is not None:
-            for i, g_i in enumerate(self.goals):
-                self.artists.goals[1].append(
-                    self.ax.annotate(
-                        "$\mathcal{T}_{" + str(i) + "}$",
-                        (g_i[0], g_i[1]+1),
-                    )
-                )
         
         # ============================== Legend ============================== #
         
@@ -161,8 +151,17 @@ class Animation():
                 legend_elements.append(
                     Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal')
                 )
+        legend_elements.append(
+            Line2D([0,1], [0,0], color= 'k', linestyle='--', alpha = 0.5, label='Trajectory -- prioritized')
+        )
+        legend_elements.append(
+            Line2D([0,1], [0,0], color= 'b', linestyle='--', alpha = 0.5, label='Trajectory -- weighted $\kappa=5$')
+        )
+        legend_elements.append(
+            Line2D([0,1], [0,0], color= 'r', linestyle='--', alpha = 0.5, label='Trajectory -- weighted $\kappa=100$')
+        )
         
-        self.ax.legend(handles=legend_elements, loc='upper right')
+        self.ax.legend(handles=legend_elements, loc='lower left')
         
         # =========================== Time On Plot =========================== #
         
@@ -210,7 +209,31 @@ class Animation():
                     x_history[c][j, k, 0] = s_c_j[0]
                     x_history[c][j, k, 1] = s_c_j[1]
                     if c == 0:
-                        x_history[c][j, k, 2] = s_c_j[2]        
+                        x_history[c][j, k, 2] = s_c_j[2]
+                        
+        x_history_1 = [
+            np.zeros((self.n_robots[0], n_history, 3)),
+            np.zeros((self.n_robots[1], n_history, 2)),
+        ]
+        for k in range(n_history):
+            for c in range(len(self.data1[frame - k])):
+                for j, s_c_j in enumerate(self.data1[frame - k][c]):
+                    x_history_1[c][j, k, 0] = s_c_j[0]
+                    x_history_1[c][j, k, 1] = s_c_j[1]
+                    if c == 0:
+                        x_history_1[c][j, k, 2] = s_c_j[2]
+                        
+        x_history_2 = [
+            np.zeros((self.n_robots[0], n_history, 3)),
+            np.zeros((self.n_robots[1], n_history, 2)),
+        ]
+        for k in range(n_history):
+            for c in range(len(self.data2[frame - k])):
+                for j, s_c_j in enumerate(self.data2[frame - k][c]):
+                    x_history_2[c][j, k, 0] = s_c_j[0]
+                    x_history_2[c][j, k, 1] = s_c_j[1]
+                    if c == 0:
+                        x_history_2[c][j, k, 2] = s_c_j[2]
                         
         # ========================= Clean Old Artists ======================== #
         
@@ -271,6 +294,24 @@ class Animation():
                     alpha = 0.5,
                 )[0]
                 cnt += 1
+                
+        for c in range(len(self.data1[frame])):
+            for j, s_c_j in enumerate(state[c]):
+                plt.plot(
+                    x_history_1[c][j,:,0], x_history_1[c][j,:,1],
+                    color = 'b',
+                    linestyle = '--',
+                    alpha = 0.5,
+                )
+                
+        for c in range(len(self.data2[frame])):
+            for j, s_c_j in enumerate(state[c]):
+                plt.plot(
+                    x_history_2[c][j,:,0], x_history_2[c][j,:,1],
+                    color = 'r',
+                    linestyle = '--',
+                    alpha = 0.5,
+                )
         
         # Time on plot.
         self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")
@@ -301,7 +342,7 @@ def display_animation(s_history, goals, dt: float, method: str = 'plot'):
     
 # ============================== Save_snapshots ============================== #
 
-def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename: str):    
+def save_snapshots(s_histories, goals, dt: float, times: int | list[int], filename: str):    
     if isinstance(times, int):
         times = [times]
     
@@ -309,7 +350,7 @@ def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, ax, dt)
+        anim = Animation(s_histories, goals, ax, dt)
     
         anim.init()
         anim.update(frame)

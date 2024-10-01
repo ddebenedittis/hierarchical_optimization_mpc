@@ -59,8 +59,8 @@ class TasksCreatorHOMPCMultiRobot():
             ca.vertcat(
                   self.u[1][0] - self.v_max,
                 - self.u[1][0] + self.v_min,
-                  self.u[1][1] - self.omega_max,
-                - self.u[1][1] + self.omega_min
+                  self.u[1][1] - self.v_max,
+                - self.u[1][1] + self.v_min
             ),
         ]
         

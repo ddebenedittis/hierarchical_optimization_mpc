@@ -12,6 +12,7 @@ from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, save_snapshots
+from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, get_unicycle_model
 
 
 np.set_printoptions(
@@ -23,47 +24,32 @@ np.set_printoptions(
 
 
 # ============================================================================ #
-#                                     MAIN                                     #
+#                                 MAIN COVERAGE                                #
 # ============================================================================ #
 
-def main(
+def main_coverage(
     hierarchical = True, n_robots = [5, 0],
-    solver = QPSolver.quadprog, visual_method = 'plot'
+    solver = QPSolver.quadprog,
+    visual_method = 'plot'
 ):
     # ============================== Parameters ============================== #
     
     time_start = time.time()
         
-    np.random.seed(0)
+    np.random.seed(1)
     
     # ======================== Define The System Model ======================= #
     
     # Define the state and input variables, and the discrete-time dynamics model.
     
-    s = []
-    u = []
-    dt = 0.1           # timestep size
-    s_kp1 = []
+    dt = 0.1       # timestep size
     
-    s.append(ca.SX.sym('x', 3))     # state
-    u.append(ca.SX.sym('u', 2))     # input
+    s = [None for _ in range(2)]
+    u = [None for _ in range(2)]
+    s_kp1 = [None for _ in range(2)]
     
-    # state_{k+1} = s_kpi(state_k, input_k)
-    s_kp1.append(ca.vertcat(
-        s[0][0] + dt * u[0][0] * ca.cos(s[0][2] + 1/2*dt * u[0][1]),
-        s[0][1] + dt * u[0][0] * ca.sin(s[0][2] + 1/2*dt * u[0][1]),
-        s[0][2] + dt * u[0][1]
-    ))
-    
-    
-    s.append(ca.SX.sym('x2', 2))     # state
-    u.append(ca.SX.sym('u2', 2))     # input
-    
-    # state_{k+1} = s_kpi(state_k, input_k)
-    s_kp1.append(ca.vertcat(
-        s[1][0] + dt * u[1][0],
-        s[1][1] + dt * u[1][1],
-    ))
+    s[0], u[0], s_kp1[0] = get_unicycle_model(dt)
+    s[1], u[1], s_kp1[1] = get_omnidirectional_model(dt)
     
     # =========================== Define The Tasks =========================== #
     
@@ -76,12 +62,6 @@ def main(
     
     task_input_smooth, task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
     
-    # task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([3, 1])
-    
-    # task_vel_ref, task_vel_ref_coeff = tasks_creator.get_task_vel_ref(
-    #     [3, 1]
-    # )
-    
     task_coverage, task_coverage_coeff = tasks_creator.get_task_pos_ref(
         [[np.random.rand(2) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
     )
@@ -89,8 +69,6 @@ def main(
     task_charge, task_charge_coeff = tasks_creator.get_task_pos_ref(
         [[np.array([19, 19]) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
     )
-    
-    # aux, mapping, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
     
     task_input_min = tasks_creator.get_task_input_min()
     
@@ -104,7 +82,6 @@ def main(
         name = "input_limits", prio = 1,
         type = TaskType.Same,
         ineq_task_ls = task_input_limits,
-        # ineq_task_coeff = task_input_limits_coeffs,
     )
     
     hompc.create_task(
@@ -113,39 +90,6 @@ def main(
         ineq_task_ls = task_input_smooth,
         ineq_task_coeff = task_input_smooth_coeffs,
     )
-    
-    # hompc.create_task_bi(
-    #     name = "collision_avoidance", prio = 3,
-    #     type = TaskType.Bi,
-    #     aux = aux,
-    #     mapping = mapping,
-    #     eq_task_ls = task_avoid_collision,
-    #     eq_task_coeff = task_avoid_collision_coeff,
-    # )
-    
-    # hompc.create_task_bi(
-    #     name = "formation", prio = 3,
-    #     type = TaskType.Bi,
-    #     aux = aux,
-    #     mapping = mapping,
-    #     eq_task_ls = task_formation,
-    #     eq_task_coeff = task_formation_coeff,
-    # )
-    
-    # hompc.create_task(
-    #     name = "centroid_vel_ref", prio = 4,
-    #     type = TaskType.Sum,
-    #     eq_task_ls = task_centroid_vel_ref,
-    #     time_index = TaskIndexes.Last,
-    # )
-    
-    # hompc.create_task(
-    #     name = "vel_ref", prio = 4,
-    #     type = TaskType.Same,
-    #     eq_task_ls = task_vel_ref,
-    #     eq_task_coeff = task_vel_ref_coeff,
-    #     time_index = [0],
-    # )
     
     hompc.create_task(
         name = "coverage", prio = 4,
@@ -167,7 +111,191 @@ def main(
         eq_task_ls = task_charge,
         eq_task_coeff = task_charge_coeff,
         time_index = [0, 1, 2, 3],
-        # robot_index = [[0, 4, 5, 1],[]],
+        robot_index = [[0, 1],[]],
+    )
+    
+    # ======================================================================== #
+    
+    s = [
+        [np.multiply(np.random.random((3)), np.array([10, 10, 2*np.pi])) + np.array([-5, -5, 0])
+         for _ in range(n_robots[0])],
+        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
+         for _ in range(n_robots[1])],
+    ]
+    
+    print(s)
+    
+    n_steps = 250
+    
+    s_history = [None] * n_steps
+            
+    for k in range(n_steps):
+        print(k)
+        
+        tasks_creator.states_bar = s
+        cov_rob_idx = [[0, 1, 2, 3, 4, 5],[]]
+        task_coverage, task_coverage_coeff = tasks_creator.get_task_coverage(
+            # cov_rob_idx
+        )
+        
+        hompc.update_task(
+            name = "coverage",
+            eq_task_ls = task_coverage,
+            eq_task_coeff = task_coverage_coeff,
+            # robot_index = cov_rob_idx,
+        )
+        
+        if k == 150:
+            hompc.update_task(
+                name = "charge", prio = 3,
+            )
+        
+        u_star = hompc(copy.deepcopy(s))
+        
+        print(f"s: {s}")
+        print(f"u_star: {u_star}")
+        print()
+        
+        s = evolve(s, u_star, dt)
+        
+        s_history[k] = copy.deepcopy(s)
+        
+    # =========================== Print Time Usage =========================== #
+    
+    time_elapsed = time.time() - time_start
+    print(f"The time elapsed is {time_elapsed} seconds")
+    
+    print( "The time was used in the following phases:")
+    max_key_len = max(map(len, hompc.solve_times.keys()))
+    for key, value in hompc.solve_times.items():
+        key_len = len(key)
+        print(f"{key}: {' '*(max_key_len-key_len)}{value}")
+    
+    # ========================= Visualization Options ======================== #
+    
+    if visual_method is not None and visual_method != 'none':
+        display_animation(
+            s_history, None, None, dt, visual_method,
+            show_trajectory=True, show_voronoi=True,
+        )
+        
+    if visual_method == 'save':
+        save_snapshots(
+            s_history, None, None, dt, [0, 5], 'snapshot',
+            show_trajectory=True, show_voronoi=True,
+        )
+        
+    return time_elapsed
+
+
+# ============================================================================ #
+#                                MAIN_FORMATION                                #
+# ============================================================================ #
+
+def main_formation(
+    hierarchical = True, n_robots = [5, 0],
+    solver = QPSolver.quadprog,
+    visual_method = 'plot'
+):
+    # ============================== Parameters ============================== #
+    
+    time_start = time.time()
+        
+    np.random.seed(0)
+    
+    # ======================== Define The System Model ======================= #
+    
+    # Define the state and input variables, and the discrete-time dynamics model.
+    
+    dt = 0.1       # timestep size
+    
+    s = [None for _ in range(2)]
+    u = [None for _ in range(2)]
+    s_kp1 = [None for _ in range(2)]
+    
+    s[0], u[0], s_kp1[0] = get_unicycle_model(dt)
+    s[1], u[1], s_kp1[1] = get_omnidirectional_model(dt)
+    
+    # =========================== Define The Tasks =========================== #
+    
+    tasks_creator = TasksCreatorHOMPCMultiRobot(
+        s, u, s_kp1, dt, n_robots,
+    )
+    tasks_creator.bounding_box = np.array([-20, 20, -20, 20])
+    
+    task_input_limits = tasks_creator.get_task_input_limits()
+    
+    task_input_smooth, task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
+    
+    obstacle_pos = np.array([10, -2])
+    obstacle_size = 3
+    task_obs_avoidance = tasks_creator.get_task_obs_avoidance(
+        obstacle_pos, obstacle_size
+    )
+    
+    task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([1, 0])
+    
+    # task_vel_ref, task_vel_ref_coeff = tasks_creator.get_task_vel_ref(
+    #     [3, 1]
+    # )
+    
+    aux, mapping, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
+    
+    task_input_min = tasks_creator.get_task_input_min()
+    
+    # ============================ Create The MPC ============================ #
+    
+    hompc = HOMPCMultiRobot(s, u, s_kp1, n_robots, solver = solver, hierarchical=hierarchical)
+    hompc.n_control = 4
+    hompc.n_pred = 0
+    
+    hompc.create_task(
+        name = "input_limits", prio = 1,
+        type = TaskType.Same,
+        ineq_task_ls = task_input_limits,
+    )
+    
+    hompc.create_task(
+        name = "input_smooth", prio = 2,
+        type = TaskType.SameTimeDiff,
+        ineq_task_ls = task_input_smooth,
+        ineq_task_coeff = task_input_smooth_coeffs,
+    )
+    
+    hompc.create_task(
+        name = "obstacle_avoidance", prio = 3,
+        type = TaskType.Same,
+        ineq_task_ls = task_obs_avoidance,
+    )
+    
+    hompc.create_task_bi(
+        name = "formation", prio = 4,
+        type = TaskType.Bi,
+        aux = aux,
+        mapping = mapping,
+        eq_task_ls = task_formation,
+        eq_task_coeff = task_formation_coeff,
+    )
+    
+    hompc.create_task(
+        name = "centroid_vel_ref", prio = 5,
+        type = TaskType.Sum,
+        eq_task_ls = task_centroid_vel_ref,
+        time_index = TaskIndexes.Last,
+    )
+    
+    # hompc.create_task(
+    #     name = "vel_ref", prio = 5,
+    #     type = TaskType.Same,
+    #     eq_task_ls = task_vel_ref,
+    #     eq_task_coeff = task_vel_ref_coeff,
+    #     time_index = [0],
+    # )
+    
+    hompc.create_task(
+        name = "input_minimization", prio = 6,
+        type = TaskType.Same,
+        eq_task_ls = task_input_min,
     )
     
     # ======================================================================== #
@@ -188,24 +316,6 @@ def main(
     for k in range(n_steps):
         print(k)
         
-        tasks_creator.states_bar = s
-        cov_rob_idx = [[0, 1, 2, 3, 4, 5],[]]
-        task_coverage, task_coverage_coeff = tasks_creator.get_task_coverage(
-            # cov_rob_idx
-        )
-        
-        hompc.update_task(
-            name = "coverage",
-            eq_task_ls = task_coverage,
-            eq_task_coeff = task_coverage_coeff,
-            # robot_index = cov_rob_idx,
-        )
-        
-        if k == 200:
-            hompc.update_task(
-                name = "charge", prio = 3,
-            )
-        
         u_star = hompc(copy.deepcopy(s))
         
         print(f"s: {s}")
@@ -216,6 +326,8 @@ def main(
         
         s_history[k] = copy.deepcopy(s)
         
+    # =========================== Print Time Usage =========================== #
+    
     time_elapsed = time.time() - time_start
     print(f"The time elapsed is {time_elapsed} seconds")
     
@@ -225,11 +337,22 @@ def main(
         key_len = len(key)
         print(f"{key}: {' '*(max_key_len-key_len)}{value}")
     
+    # ========================= Visualization Options ======================== #
+    
+    obstacles = np.concatenate((obstacle_pos, [obstacle_size]))
     if visual_method is not None and visual_method != 'none':
-        display_animation(s_history, None, dt, visual_method)
+        display_animation(
+            s_history, None, obstacles,
+            dt, visual_method,
+            show_trajectory=True, show_voronoi=False,
+        )
         
     if visual_method == 'save':
-        save_snapshots(s_history, None, dt, [0, 5], 'snapshot')
+        save_snapshots(
+            s_history, None, obstacles,
+            dt, [0, 18], 'snapshot',
+            show_trajectory=True, show_voronoi=False,
+        )
         
     return time_elapsed
     
@@ -249,18 +372,27 @@ if __name__ == '__main__':
         metavar="{clarabel, osqp, proxqp, quadprog, reluqp}", default='quadprog', required=False,
         help='QP solver to use'
     )
+    parser.add_argument('--task',
+        metavar="{coverage, com_ref_formation}", default='coverage', required=False,
+        help='Type of task to solve'
+    )
     parser.add_argument('--visual_method',
         metavar="{plot, save, none}", default='plot', required=False,
         help='How to display the results'
     )
     args = parser.parse_args()
     
-    # try:
-    main(
-        hierarchical=args.hierarchical,
-        n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
-        solver=args.solver,
-        visual_method=args.visual_method,
+    if args.task == 'coverage':
+        main_coverage(
+            hierarchical=args.hierarchical,
+            n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
+            solver=args.solver,
+            visual_method=args.visual_method,
         )
-    # except Exception as e:
-        # print("An error occurred:", e)
+    elif args.task == 'com_ref_formation':
+        main_formation(
+            hierarchical=args.hierarchical,
+            n_robots=[int(x) for x in args.n_robots.strip('[]').split(',') if x.strip().isdigit()],
+            solver=args.solver,
+            visual_method=args.visual_method,
+        )

@@ -210,7 +210,7 @@ def exp(
     #     print(f"{key}: {' '*(max_key_len-key_len)}{value}")
     
     # if visual_method is not None and visual_method != 'none':
-    #     display_animation(s_history, goals, dt, visual_method)
+    #     display_animation(s_history, goals, None, dt, visual_method)
         
     if visual_method == 'save':
         

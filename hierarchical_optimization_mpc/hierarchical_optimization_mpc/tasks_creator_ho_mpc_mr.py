@@ -83,8 +83,8 @@ class TasksCreatorHOMPCMultiRobot():
         ]
         
         task_input_smooth_coeffs = [
-            [[np.array([0.9, 0.9, 0.8, 0.8])] for j in range(self.n_robots[0])],
-            [[np.array([0.9, 0.9, 0.8, 0.8])] for j in range(self.n_robots[1])],
+            [[np.array([0.95, 0.95, 0.9, 0.9])] for j in range(self.n_robots[0])],
+            [[np.array([0.95, 0.95, 0.9, 0.9])] for j in range(self.n_robots[1])],
         ]
         
         return task_input_smooth, task_input_smooth_coeffs
@@ -204,6 +204,18 @@ class TasksCreatorHOMPCMultiRobot():
             ),
         ]
         
+    # ======================== Get_task_obs_avoidance ======================== #
+        
+    def get_task_obs_avoidance(self, obstacle_pos: np.ndarray, threshold: float = 1.):
+        if len(obstacle_pos) != 2:
+            raise ValueError("The obstacle position must be a vector of size 2.")
+        
+        return [
+            ca.vertcat(- (self.s[0][0] - obstacle_pos[0])**2 - (self.s[0][1] - obstacle_pos[1])**2 + threshold**2),
+            ca.vertcat(- (self.s[1][0] - obstacle_pos[0])**2 - (self.s[1][1] - obstacle_pos[1])**2 + threshold**2),
+        ]
+        
+        
     # ======================= Get_task_avoid_collision ======================= #
     
     def get_task_avoid_collision(self, threshold: float = 0.1):
@@ -257,9 +269,17 @@ class TasksCreatorHOMPCMultiRobot():
         )
         
         task_formation_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 1, 10),
-            TaskBiCoeff(0, 0, 0, 2, 1, 10),
-            TaskBiCoeff(0, 1, 0, 2, 1, 10),
+            TaskBiCoeff(1, 0, 1, 1, 3, 3**2),
+            TaskBiCoeff(1, 1, 1, 2, 3, 3**2),
+            TaskBiCoeff(1, 2, 1, 3, 3, 3**2),
+            TaskBiCoeff(1, 3, 1, 0, 3, 3**2),
+            TaskBiCoeff(1, 1, 1, 3, 3, 2*3**2),
+            TaskBiCoeff(1, 0, 1, 2, 3, 2*3**2),
+            # TaskBiCoeff(0, 1, 1, 0, 3, 2*3**2),
+            TaskBiCoeff(1, 4, 1, 0, 3, 3**2/2),
+            TaskBiCoeff(1, 4, 1, 1, 3, 3**2/2),
+            TaskBiCoeff(1, 4, 1, 2, 3, 3**2/2),
+            TaskBiCoeff(1, 4, 1, 3, 3, 3**2/2),
         ]
         
         return aux, mapping, task_formation, task_formation_coeff

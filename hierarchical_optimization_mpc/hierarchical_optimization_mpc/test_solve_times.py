@@ -5,7 +5,7 @@ import os
 
 import pandas as pd
 
-from hierarchical_optimization_mpc.example_multi_robot import main as ex_multi_robot_main
+from hierarchical_optimization_mpc.example_multi_robot import main_formation as ex_multi_robot_main
 # from hierarchical_optimization_mpc.ho_mpc_multi_robot import QPSolver
 
 n_robots_list = [

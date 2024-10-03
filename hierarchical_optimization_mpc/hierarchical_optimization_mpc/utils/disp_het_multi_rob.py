@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import itertools
 
 from cycler import cycler
 import matplotlib as mpl
@@ -60,14 +61,21 @@ class MultiRobotArtists:
     voronoi: ...
     past_trajectory: ...
     goals: ...
+    obstacles: ...
 
 # ================================= Animation ================================ #
 
 class Animation():
     default_cycler = (
-        cycler(color=['#0072BD', '#D95319', '#EDB120', '#7E2F8E']) +
-        cycler('linestyle', ['-', '--', '-', '--'])
-    )
+    cycler(color=[
+        '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30',
+        '#4DBEEE', '#A2142F', '#FF6F00', '#8DFF33', '#33FFF7',
+    ]) +
+    cycler('linestyle', [
+        '-', '--', '-.', ':', '-',
+        '--', '-.', ':', '-', '--'
+    ])
+)
     
     textsize = 16
     labelsize = 18
@@ -84,17 +92,22 @@ class Animation():
     
     plt.rcParams['figure.constrained_layout.use'] = True
     
-    def __init__(self, data, goals, ax, dt) -> None:
+    def __init__(self, data, goals, obstacles, ax, dt) -> None:
         self.n_history = np.inf
         
         self.data = data
         self.goals = goals
+        self.obstacles = obstacles
         self.ax = ax
         self.dt = dt
         
         self.n_robots = [len(data_i) for data_i in data[0]]
         
         self.artists = None
+        
+        self.show_trajectory = True
+        self.show_voronoi = True
+        
     
     # ================================= Init ================================= #
         
@@ -120,8 +133,9 @@ class Animation():
         
         self.artists.voronoi = [self.ax.plot([],[])]
         
-        self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots))]
-        self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
+        if self.show_trajectory:
+            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots))]
+            self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
         self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
         
@@ -132,15 +146,19 @@ class Animation():
             25, 'k', 'x'
         )
         
-        self.artists.goals[1] = []
-        if self.goals is not None:
-            for i, g_i in enumerate(self.goals):
-                self.artists.goals[1].append(
-                    self.ax.annotate(
-                        "$\mathcal{T}_{" + str(i) + "}$",
-                        (g_i[0], g_i[1]+1),
-                    )
-                )
+        # self.artists.goals[1] = []
+        # if self.goals is not None:
+        #     for i, g_i in enumerate(self.goals):
+        #         self.artists.goals[1].append(
+        #             self.ax.annotate(
+        #                 "$\mathcal{T}_{" + str(i) + "}$",
+        #                 (g_i[0], g_i[1]+1),
+        #             )
+        #         )
+        
+        if self.obstacles is not None:
+            self.artists.obstacles = plt.Circle(self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5)
+            self.ax.add_patch(self.artists.obstacles)
         
         # ============================== Legend ============================== #
         
@@ -163,6 +181,10 @@ class Animation():
                 legend_elements.append(
                     Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal')
                 )
+        if self.obstacles is not None:
+            legend_elements.append(
+                plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
+            )
         
         self.ax.legend(handles=legend_elements, loc='upper right')
         
@@ -250,29 +272,32 @@ class Animation():
             )
         
         # Voronoi.
-        towers = np.array(
-            [e[0:2] for e in state[0]] + 
-            [e[0:2] for e in state[1]]
-        )
-        bounding_box = np.array([-20, 20, -20, 20])
-        vor = BoundedVoronoi(towers, bounding_box)
-        for v in self.artists.voronoi:
-            v.pop(0).remove()
-        self.artists.voronoi = vor.plot()
+        if self.show_voronoi:
+            towers = np.array(
+                [e[0:2] for e in state[0]] + 
+                [e[0:2] for e in state[1]]
+            )
+            bounding_box = np.array([-20, 20, -20, 20])
+            vor = BoundedVoronoi(towers, bounding_box)
+            for v in self.artists.voronoi:
+                v.pop(0).remove()
+            self.artists.voronoi = vor.plot()
         
         # Past trajectory.
-        for e in self.artists.past_trajectory:
-            e.remove()
-        cnt = 0
-        for c in range(len(self.data[frame])):
-            for j, s_c_j in enumerate(state[c]):
-                self.artists.past_trajectory[cnt] = plt.plot(
-                    x_history[c][j,:,0], x_history[c][j,:,1],
-                    color = 'k',
-                    linestyle = '--',
-                    alpha = 0.5,
-                )[0]
-                cnt += 1
+        if self.show_trajectory:
+            for e in self.artists.past_trajectory:
+                e.remove()
+            
+            cnt = 0
+            for c in range(len(self.data[frame])):
+                for j, s_c_j in enumerate(state[c]):
+                    self.artists.past_trajectory[cnt] = plt.plot(
+                        x_history[c][j,:,0], x_history[c][j,:,1],
+                        color = 'k',
+                        linestyle = '--',
+                        alpha = 0.5,
+                    )[0]
+                    cnt += 1
         
         # Time on plot.
         self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")
@@ -281,10 +306,16 @@ class Animation():
 
 # ============================= Display_animation ============================ #
 
-def display_animation(s_history, goals, dt: float, method: str = 'plot'):
+def display_animation(
+    s_history, goals, obstacles,
+    dt: float, method: str = 'plot',
+    show_trajectory: bool = True, show_voronoi: bool = True,
+):
     fig, ax = plt.subplots()
     
-    anim = Animation(s_history, goals, ax, dt)
+    anim = Animation(s_history, goals, obstacles, ax, dt)
+    anim.show_trajectory = show_trajectory
+    anim.show_voronoi = show_voronoi
     
     n_steps = len(s_history)
     ani = FuncAnimation(
@@ -303,7 +334,11 @@ def display_animation(s_history, goals, dt: float, method: str = 'plot'):
     
 # ============================== Save_snapshots ============================== #
 
-def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename: str):    
+def save_snapshots(
+    s_history, goals, obstacles,
+    dt: float, times: int | list[int], filename: str,
+    show_trajectory: bool = True, show_voronoi: bool = True,
+):
     if isinstance(times, int):
         times = [times]
     
@@ -311,7 +346,9 @@ def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, ax, dt)
+        anim = Animation(s_history, goals, obstacles, ax, dt)
+        anim.show_trajectory = show_trajectory
+        anim.show_voronoi = show_voronoi
     
         anim.init()
         anim.update(frame)
@@ -319,3 +356,31 @@ def save_snapshots(s_history, goals, dt: float, times: int | list[int], filename
         plt.savefig(f"{filename}_{time}.pdf", bbox_inches='tight', format='pdf')
         
         plt.close()
+        
+# ============================== Plot_distances ============================== #
+
+def plot_distances(s_history, dt: float):
+    n_k = len(s_history)
+    n_c = len(s_history[0])
+    n_j = [len(s_history[0][c]) for c in range(n_c)]
+    n_coord = 2
+    
+    x_hist = np.zeros([n_k, sum(n_j), n_coord])
+    
+    for k, c in np.ndindex(n_k, n_c):
+        for j in range(n_j[c]):
+            x_hist[k, sum(n_j[:c]) + j] = s_history[k][c][j][:n_coord]
+            
+    fig = plt.figure()
+    ax = plt.gca()
+    
+    for i, j in itertools.combinations(range(sum(n_j)), 2):
+        plt.plot(
+            np.arange(0, n_k*dt, dt),
+            np.linalg.norm(x_hist[:,i] - x_hist[:,j], axis=1),
+        )
+        
+    plt.xlabel('Time [$s$]')
+    plt.ylabel('Distance [$m$]')
+    
+    plt.savefig("distances.pdf", bbox_inches='tight', format='pdf')

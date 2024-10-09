@@ -86,7 +86,7 @@ Multi robot example
 ```shell
 ros2 run hierarchical_optimization_mpc example_multi_robot
 ```
-<img src="https://raw.githubusercontent.com/ddebenedittis/media/main/hierarchical_optimization_mpc/coverage_9.gif" width="500">
+<img src="https://raw.githubusercontent.com/ddebenedittis/media/main/hierarchical_optimization_mpc/coverage_9.webp" width="500">
 
 Toy problem 1 (multiple conflicting tasks to one robot)
 ```shell

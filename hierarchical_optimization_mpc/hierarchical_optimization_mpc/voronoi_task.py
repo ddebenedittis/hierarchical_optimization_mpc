@@ -4,7 +4,7 @@ from scipy.spatial import Voronoi
 
 
 class BoundedVoronoi(Voronoi):
-    def __init__(self, towers, bounding_box):
+    def __init__(self, towers, bounding_box, show_centroids=False):
         # Select towers inside the bounding box
         i = self.in_box(towers, bounding_box)
         
@@ -27,6 +27,8 @@ class BoundedVoronoi(Voronoi):
         
         # Compute the Voronoi cells centroids
         self.centroids = self.compute_centroids()
+        
+        self.show_centroids = show_centroids
         
     @staticmethod
     def in_box(towers, bounding_box):
@@ -63,8 +65,12 @@ class BoundedVoronoi(Voronoi):
             vertices = self.vertices[region + [region[0]], :]
             vor_plot[i] = plt.plot(vertices[:, 0], vertices[:, 1], 'k-')
             
-        # # Compute and plot centroids
-        # vor_plot.append(plt.scatter(self.centroids[:,0], self.centroids[:,1]))
+        if self.show_centroids:
+            # Compute and plot centroids
+            vor_plot.append(plt.scatter(
+                self.centroids[:,0], self.centroids[:,1],
+                c='red', marker='x'
+            ))
             
         return vor_plot
 

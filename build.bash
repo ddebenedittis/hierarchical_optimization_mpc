@@ -37,6 +37,7 @@ helpFunction()
 # =============================== Build Options ============================== #
 
 # Initialie the build options
+LATEX=0
 FFMPEG=0
 REBUILD=0
 

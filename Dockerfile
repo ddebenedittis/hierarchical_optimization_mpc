@@ -1,6 +1,20 @@
+# ================================== Latex ================================== #
+
 # Change ROS version in build.sh, not here!
 ARG BASE_IMAGE=osrf/ros
 ARG BASE_TAG=noetic-desktop
+
+ARG LATEX=false
+
+FROM kjarosh/latex:2024.4 as latex_1
+
+FROM alpine as latex_0
+
+RUN mkdir -p /opt/texlive /usr/bin/tex
+
+FROM latex_${LATEX} as latex_cond
+
+# =========================================================================== #
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
 
@@ -85,17 +99,6 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
         ffmpeg ; \
     fi
 
-# Install Latex
-ARG LATEX=0
-RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
-    if [ "${LATEX}" = "1" ] ; then \
-        apt-get update && apt-get install --no-install-recommends -qqy \
-        dvipng \
-        texlive-latex-extra \
-        texlive-fonts-recommended \
-        cm-super ; \
-    fi
-
 # Create the same user as the host itself. (By default Docker creates the container as root, which is not recommended.)
 ARG UID=1000
 ARG GID=1000
@@ -138,6 +141,15 @@ RUN sudo chmod +x /ros_entrypoint.sh ; sudo chown ${USER} /ros_entrypoint.sh \
  && cat /ros_entrypoint.sh
 
 ENV MPLCONFIGDIR /home/${USER}/.matplotlib
+
+COPY --from=latex_cond --chown=${USER} /opt/texlive /opt/texlive
+COPY --from=latex_cond --chown=${USER} /usr/bin/tex* /usr/bin/
+
+ENV PATH="${PATH}:/opt/texlive/bin/x86_64-linuxmusl"
+
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    sudo apt-get update && sudo apt-get install --no-install-recommends -qqy \
+    musl
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]

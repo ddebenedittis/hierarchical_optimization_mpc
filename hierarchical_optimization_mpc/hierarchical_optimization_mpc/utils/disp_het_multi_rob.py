@@ -6,6 +6,8 @@ import matplotlib as mpl
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
+import mpl_toolkits.axes_grid1
+import matplotlib.widgets
 import numpy as np
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
@@ -62,27 +64,104 @@ class MultiRobotArtists:
     past_trajectory: ...
     goals: ...
     obstacles: ...
+    
+# =========================================================================== #
+
+class Player(FuncAnimation):
+    def __init__(self, fig, func, frames=None, init_func=None, fargs=None,
+                 save_count=None, mini=0, maxi=100, pos=(0.4, 0.15), **kwargs):
+        self.i = 0
+        self.min=mini
+        self.max=maxi
+        self.runs = True
+        self.forwards = True
+        self.fig = fig
+        self.func = func
+        self.setup(pos)
+        FuncAnimation.__init__(self,self.fig, self.func, frames=self.play(), 
+                                           init_func=init_func, fargs=fargs,
+                                           save_count=save_count, **kwargs )    
+
+    def play(self):
+        while self.runs:
+            self.i = self.i+self.forwards-(not self.forwards)
+            if self.i > self.min and self.i < self.max:
+                yield self.i
+            else:
+                self.stop()
+                yield self.i
+
+    def start(self):
+        self.runs=True
+        self.event_source.start()
+
+    def stop(self, event=None):
+        self.runs = False
+        self.event_source.stop()
+
+    def forward(self, event=None):
+        self.forwards = True
+        self.start()
+    def backward(self, event=None):
+        self.forwards = False
+        self.start()
+    def oneforward(self, event=None):
+        self.forwards = True
+        self.onestep()
+    def onebackward(self, event=None):
+        self.forwards = False
+        self.onestep()
+
+    def onestep(self):
+        if self.i > self.min and self.i < self.max:
+            self.i = self.i+self.forwards-(not self.forwards)
+        elif self.i == self.min and self.forwards:
+            self.i+=1
+        elif self.i == self.max and not self.forwards:
+            self.i-=1
+        self.func(self.i)
+        self.fig.canvas.draw_idle()
+
+    def setup(self, pos):
+        button_font = {'family': 'sans-serif', 'size': 12}
+        
+        playerax = self.fig.add_axes([pos[0],pos[1], 0.22, 0.04])
+        divider = mpl_toolkits.axes_grid1.make_axes_locatable(playerax)
+        bax = divider.append_axes("right", size="80%", pad=0.05)
+        sax = divider.append_axes("right", size="80%", pad=0.05)
+        fax = divider.append_axes("right", size="80%", pad=0.05)
+        ofax = divider.append_axes("right", size="100%", pad=0.05)
+        self.button_oneback = matplotlib.widgets.Button(playerax, label=r'\faStepBackward')
+        self.button_back = matplotlib.widgets.Button(bax, label=r'\faStepBackward')
+        self.button_stop = matplotlib.widgets.Button(sax, label=r'\faPause')
+        self.button_forward = matplotlib.widgets.Button(fax, label=r"\faPlay")
+        self.button_oneforward = matplotlib.widgets.Button(ofax, label=r'\faStepForward')
+        self.button_oneback.on_clicked(self.onebackward)
+        self.button_back.on_clicked(self.backward)
+        self.button_stop.on_clicked(self.stop)
+        self.button_forward.on_clicked(self.forward)
+        self.button_oneforward.on_clicked(self.oneforward)
 
 # ================================= Animation ================================ #
 
 class Animation():
     default_cycler = (
-    cycler(color=[
-        '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30',
-        '#4DBEEE', '#A2142F', '#FF6F00', '#8DFF33', '#33FFF7',
-    ]) +
-    cycler('linestyle', [
-        '-', '--', '-.', ':', '-',
-        '--', '-.', ':', '-', '--'
-    ])
-)
+        cycler(color=[
+            '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30',
+            '#4DBEEE', '#A2142F', '#FF6F00', '#8DFF33', '#33FFF7',
+        ]) +
+        cycler('linestyle', [
+            '-', '--', '-.', ':', '-',
+            '--', '-.', ':', '-', '--'
+        ])
+    )
     
     textsize = 16
     labelsize = 18
     
     plt.rc('font', family='serif', serif='Times')
     plt.rcParams["text.usetex"] = True
-    plt.rc('text.latex', preamble=r'\usepackage{amsmath} \usepackage{amsfonts} \DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}')
+    plt.rc('text.latex', preamble=r'\usepackage[utf8]{inputenc} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{fontawesome} \DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}')
     plt.rc('xtick', labelsize=textsize)
     plt.rc('ytick', labelsize=textsize)
     plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
@@ -100,6 +179,9 @@ class Animation():
         self.obstacles = obstacles
         self.ax = ax
         self.dt = dt
+        
+        self.x_lim = [-20., 20.]
+        self.y_lim = [-20., 20.]
         
         self.n_robots = [len(data_i) for data_i in data[0]]
         
@@ -134,10 +216,10 @@ class Animation():
         self.artists.voronoi = [self.ax.plot([],[])]
         
         if self.show_trajectory:
-            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots))]
+            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots)+1)]
             self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
-        self.ax.set(xlim=[-20., 20.], ylim=[-20., 20.], xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
+        self.ax.set(xlim=self.x_lim, ylim=self.y_lim, xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
         
         self.artists.goals = [None for _ in range(2)]
         self.artists.goals[0] = self.ax.scatter(
@@ -146,15 +228,41 @@ class Animation():
             25, 'k', 'x'
         )
         
-        # self.artists.goals[1] = []
-        # if self.goals is not None:
-        #     for i, g_i in enumerate(self.goals):
-        #         self.artists.goals[1].append(
-        #             self.ax.annotate(
-        #                 "$\mathcal{T}_{" + str(i) + "}$",
-        #                 (g_i[0], g_i[1]+1),
-        #             )
-        #         )
+        self.artists.goals[1] = []
+        if self.goals is not None:
+            for i, g_i in enumerate(self.goals):
+                self.artists.goals[1].append(
+                    self.ax.annotate(
+                        "$\mathcal{T}_{" + str(i+1) + "}$",
+                        (g_i[0], g_i[1]+1),
+                    )
+                )
+                
+        # state = self.data[0]
+        
+        # x = [
+        #     np.zeros((self.n_robots[0], 3)),
+        #     np.zeros((self.n_robots[1], 2)),
+        # ]
+        
+        # for c, state_c in enumerate(state):
+        #     for j, s_c_j in enumerate(state_c):
+        #         x[c][j, 0] = s_c_j[0]
+        #         x[c][j, 1] = s_c_j[1]
+        #         if c == 0:
+        #             x[c][j, 2] = s_c_j[2]
+        
+        # # Unicycles.
+        # for i in range(self.n_robots[0]):
+        #     deg = x[0][i,2] * 180 / np.pi
+        #     marker, scale = gen_arrow_head_marker(deg)
+            
+        #     plt.scatter(
+        #         x = x[0][i,0], y = x[0][i,1],
+        #         s = 250 * scale**2, c = 'C0',
+        #         alpha=0.25,
+        #         marker = marker,
+        #     )
         
         if self.obstacles is not None:
             self.artists.obstacles = plt.Circle(self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5)
@@ -200,10 +308,15 @@ class Animation():
             ha="left",
             va="top",
         )
+        
+        # =================================================================== #
+        
+        self.ax.set_navigate_mode('pan')
     
     # ================================ Update ================================ #
     
     def update(self, frame):
+        self.ax.figure.sca(self.ax)
         
         # ========================= Extract The State ======================== #
         
@@ -280,7 +393,10 @@ class Animation():
             bounding_box = np.array([-20, 20, -20, 20])
             vor = BoundedVoronoi(towers, bounding_box)
             for v in self.artists.voronoi:
-                v.pop(0).remove()
+                try:
+                    v.pop(0).remove()
+                except:
+                    v.remove()
             self.artists.voronoi = vor.plot()
         
         # Past trajectory.
@@ -298,6 +414,15 @@ class Animation():
                         alpha = 0.5,
                     )[0]
                     cnt += 1
+                    
+            # Sum of x_history along c and j indices
+            x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
+            self.artists.past_trajectory[cnt] = plt.plot(
+                x_centroid_hist[:,0], x_centroid_hist[:,1],
+                color = 'C2',
+                linestyle = '--',
+                alpha = 0.75,
+            )[0]
         
         # Time on plot.
         self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")
@@ -310,18 +435,28 @@ def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
     show_trajectory: bool = True, show_voronoi: bool = True,
+    x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     fig, ax = plt.subplots()
     
     anim = Animation(s_history, goals, obstacles, ax, dt)
     anim.show_trajectory = show_trajectory
     anim.show_voronoi = show_voronoi
+    anim.x_lim = x_lim
+    anim.y_lim = y_lim
     
     n_steps = len(s_history)
-    ani = FuncAnimation(
-        fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps),
-        interval=dt*1000
-    )
+    
+    if method == 'plot':    
+        ani = Player(
+            fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps),
+            maxi=n_steps-1, interval=dt*1000
+        )
+    elif method == 'save':
+        ani = FuncAnimation(
+            fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps),
+            interval=dt*1000
+        )
     
     if method == 'plot':
         plt.show()
@@ -338,6 +473,7 @@ def save_snapshots(
     s_history, goals, obstacles,
     dt: float, times: int | list[int], filename: str,
     show_trajectory: bool = True, show_voronoi: bool = True,
+    x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     if isinstance(times, int):
         times = [times]
@@ -349,6 +485,8 @@ def save_snapshots(
         anim = Animation(s_history, goals, obstacles, ax, dt)
         anim.show_trajectory = show_trajectory
         anim.show_voronoi = show_voronoi
+        anim.x_lim = x_lim
+        anim.y_lim = y_lim
     
         anim.init()
         anim.update(frame)
@@ -360,6 +498,8 @@ def save_snapshots(
 # ============================== Plot_distances ============================== #
 
 def plot_distances(s_history, dt: float):
+    [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
+    
     n_k = len(s_history)
     n_c = len(s_history[0])
     n_j = [len(s_history[0][c]) for c in range(n_c)]
@@ -371,16 +511,17 @@ def plot_distances(s_history, dt: float):
         for j in range(n_j[c]):
             x_hist[k, sum(n_j[:c]) + j] = s_history[k][c][j][:n_coord]
             
-    fig = plt.figure()
+    fig = plt.figure(figsize=(x_size_def, y_size_def/2))
     ax = plt.gca()
     
     for i, j in itertools.combinations(range(sum(n_j)), 2):
-        plt.plot(
+        ax.plot(
             np.arange(0, n_k*dt, dt),
-            np.linalg.norm(x_hist[:,i] - x_hist[:,j], axis=1),
+            np.maximum(np.linalg.norm(x_hist[:,i] - x_hist[:,j], axis=1), 0.1),
         )
         
-    plt.xlabel('Time [$s$]')
-    plt.ylabel('Distance [$m$]')
+    ax.set(xlim=[0., 20.], ylim=[0., 4.5])
+    ax.set_xlabel('Time [$s$]')
+    ax.set_ylabel('Inter-robot dist. [$m$]')
     
     plt.savefig("distances.pdf", bbox_inches='tight', format='pdf')

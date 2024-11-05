@@ -151,7 +151,7 @@ class Animation():
         if self.goals is not None:
             if len(self.goals) > 0:
                 legend_elements.append(
-                    Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal')
+                    Line2D([], [], marker='x', color= 'k', linestyle='None', label='Optimal position')
                 )
         legend_elements.append(
             Line2D([0,1], [0,0], color= 'k', linestyle='--', alpha = 0.5, label='Trajectory -- prioritized')

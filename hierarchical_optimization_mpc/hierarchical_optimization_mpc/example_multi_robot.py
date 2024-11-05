@@ -11,7 +11,7 @@ from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, save_snapshots
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, plot_distances, save_snapshots
 from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, get_unicycle_model
 
 
@@ -36,7 +36,7 @@ def main_coverage(
     
     time_start = time.time()
         
-    np.random.seed(1)
+    np.random.seed(0)
     
     # ======================== Define The System Model ======================= #
     
@@ -66,9 +66,14 @@ def main_coverage(
         [[np.random.rand(2) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
     )
     
-    task_charge, task_charge_coeff = tasks_creator.get_task_pos_ref(
-        [[np.array([19, 19]) for n_j in range(n_robots[c])] for c in range(len(n_robots))]
-    )
+    charging_stations = [
+        [np.array(
+            [(2 * ((n_j // 2) % 2) - 1) * 19, (2 * (n_j % 2) - 1
+        ) * 19]
+        ) for n_j in range(n_robots[c])]
+        for c in range(len(n_robots))
+    ]
+    task_charge, task_charge_coeff = tasks_creator.get_task_pos_ref(charging_stations)
     
     task_input_min = tasks_creator.get_task_input_min()
     
@@ -132,7 +137,7 @@ def main_coverage(
     for k in range(n_steps):
         print(k)
         
-        tasks_creator.states_bar = s
+        tasks_creator.states_bar = copy.deepcopy(s)
         cov_rob_idx = [[0, 1, 2, 3, 4, 5],[]]
         task_coverage, task_coverage_coeff = tasks_creator.get_task_coverage(
             # cov_rob_idx
@@ -175,13 +180,13 @@ def main_coverage(
     
     if visual_method is not None and visual_method != 'none':
         display_animation(
-            s_history, None, None, dt, visual_method,
+            s_history, charging_stations[0], None, dt, visual_method,
             show_trajectory=True, show_voronoi=True,
         )
         
     if visual_method == 'save':
         save_snapshots(
-            s_history, None, None, dt, [0, 5], 'snapshot',
+            s_history, charging_stations[0], None, dt, [0, 10, 25], 'snapshot',
             show_trajectory=True, show_voronoi=True,
         )
         
@@ -227,11 +232,13 @@ def main_formation(
     
     task_input_smooth, task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
     
-    obstacle_pos = np.array([10, -2])
+    obstacle_pos = np.array([10, 0.5])
     obstacle_size = 3
     task_obs_avoidance = tasks_creator.get_task_obs_avoidance(
         obstacle_pos, obstacle_size
     )
+    
+    aux, mapping, task_avoid_collision, task_avoid_collision_coeff = tasks_creator.get_task_avoid_collision(0.1)
     
     task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([1, 0])
     
@@ -268,6 +275,15 @@ def main_formation(
         ineq_task_ls = task_obs_avoidance,
     )
     
+    # hompc.create_task_bi(
+    #     name = "collision_avoidance", prio = 4,
+    #     type = TaskType.Bi,
+    #     aux = aux,
+    #     mapping = mapping,
+    #     ineq_task_ls=task_avoid_collision,
+    #     ineq_task_coeff=task_avoid_collision_coeff,
+    # )
+    
     hompc.create_task_bi(
         name = "formation", prio = 4,
         type = TaskType.Bi,
@@ -303,7 +319,7 @@ def main_formation(
     s = [
         [np.multiply(np.random.random((3)), np.array([10, 10, 2*np.pi])) + np.array([-5, -5, 0])
          for _ in range(n_robots[0])],
-        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
+        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, 1.5])
          for _ in range(n_robots[1])],
     ]
     
@@ -345,6 +361,7 @@ def main_formation(
             s_history, None, obstacles,
             dt, visual_method,
             show_trajectory=True, show_voronoi=False,
+            x_lim=[-5, 20], y_lim=[-5, 15],
         )
         
     if visual_method == 'save':
@@ -352,6 +369,11 @@ def main_formation(
             s_history, None, obstacles,
             dt, [0, 18], 'snapshot',
             show_trajectory=True, show_voronoi=False,
+            x_lim=[-5, 20], y_lim=[-5, 15],
+        )
+        
+        plot_distances(
+            s_history, dt,
         )
         
     return time_elapsed

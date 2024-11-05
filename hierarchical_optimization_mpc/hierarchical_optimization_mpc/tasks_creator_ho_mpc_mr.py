@@ -233,13 +233,20 @@ class TasksCreatorHOMPCMultiRobot():
         ]
         
         task_avoid_collision = ca.vertcat(
-            (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - threshold**2,
+            - (aux[0,0] - aux[1,0])**2 - (aux[0,1] - aux[1,1])**2 + threshold**2,
         )
         
         task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 1, 0),
-            TaskBiCoeff(0, 0, 0, 2, 1, 0),
-            TaskBiCoeff(0, 1, 0, 2, 1, 0),
+            TaskBiCoeff(1, 0, 1, 1, 0, - threshold**2),
+            TaskBiCoeff(1, 0, 1, 2, 0, - threshold**2),
+            TaskBiCoeff(1, 0, 1, 3, 0, - threshold**2),
+            TaskBiCoeff(1, 0, 1, 4, 0, - threshold**2),
+            TaskBiCoeff(1, 1, 1, 2, 0, - threshold**2),
+            TaskBiCoeff(1, 1, 1, 3, 0, - threshold**2),
+            TaskBiCoeff(1, 1, 1, 4, 0, - threshold**2),
+            TaskBiCoeff(1, 2, 1, 3, 0, - threshold**2),
+            TaskBiCoeff(1, 2, 1, 4, 0, - threshold**2),
+            TaskBiCoeff(1, 3, 1, 4, 0, - threshold**2),
         ]
         
         return aux, mapping, task_avoid_collision, task_avoid_collision_coeff

@@ -203,17 +203,16 @@ def exp(
     else:
         print("The goal was not reached.")
     
-    # print( "The time was used in the following phases:")
-    # max_key_len = max(map(len, hompc.solve_times.keys()))
-    # for key, value in hompc.solve_times.items():
-    #     key_len = len(key)
-    #     print(f"{key}: {' '*(max_key_len-key_len)}{value}")
+    print( "The time was used in the following phases:")
+    max_key_len = max(map(len, hompc.solve_times.keys()))
+    for key, value in hompc.solve_times.items():
+        key_len = len(key)
+        print(f"{key}: {' '*(max_key_len-key_len)}{value}")
     
     # if visual_method is not None and visual_method != 'none':
     #     display_animation(s_history, goals, None, dt, visual_method)
         
     if visual_method == 'save':
-        
         save_snapshots(s_histories + [s_history], goals, dt, [0, 10], 'snapshot')
         
     return s_history
@@ -260,16 +259,35 @@ if __name__ == '__main__':
         [],
     ]
     
+    print("Hierarchical\n")
     exp(
         initial_state=initial_state,
         hierarchical=True,
         solver=args.solver,
         visual_method=args.visual_method,
     )
+    print("\n")
     
+    print("Weighted - kappa = 5\n")
+    kappa = 3**-1
+    weights = [100.0, 100.0] + [kappa**i for i in range(6)]
     exp(
         initial_state=initial_state,
         hierarchical=False,
         solver=args.solver,
         visual_method=args.visual_method,
+        weights=weights,
     )
+    print("\n")
+    
+    print("Weighted - kappa = 100\n")
+    kappa = 10**-2
+    weights = [100.0, 100.0] + [kappa**i for i in range(6)]
+    exp(
+        initial_state=initial_state,
+        hierarchical=False,
+        solver=args.solver,
+        visual_method=args.visual_method,
+        weights=weights,
+    )
+    print("\n")

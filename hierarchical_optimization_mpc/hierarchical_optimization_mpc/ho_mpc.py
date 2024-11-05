@@ -132,7 +132,7 @@ class HOMPC:
     def n_pred(self):
         return self._n_pred
     
-    @n_control.setter
+    @n_pred.setter
     def n_pred(self, value):
         if value < 0:
             ValueError('"n_pred" must be equal or greater than 0.')

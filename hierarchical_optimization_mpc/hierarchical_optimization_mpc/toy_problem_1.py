@@ -152,11 +152,11 @@ def exp(
     else:
         print("The goal was not reached.")
     
-    # print( "The time was used in the following phases:")
-    # max_key_len = max(map(len, hompc.solve_times.keys()))
-    # for key, value in hompc.solve_times.items():
-    #     key_len = len(key)
-    #     print(f"{key}: {' '*(max_key_len-key_len)}{value}")
+    print( "The time was used in the following phases:")
+    max_key_len = max(map(len, hompc.solve_times.keys()))
+    for key, value in hompc.solve_times.items():
+        key_len = len(key)
+        print(f"{key}: {' '*(max_key_len-key_len)}{value}")
     
     if visual_method is not None and visual_method != 'none':
         display_animation(s_history, goals, None, dt, visual_method)
@@ -172,20 +172,28 @@ def main():
     ]
     visual_method = 'save'
     
-    # exp(initial_state=initial_state, hierarchical=True,
-    #     visual_method=visual_method)
+    print("Hierarchical\n")
+    exp(initial_state=initial_state, hierarchical=True,
+        visual_method=visual_method)
+    print("\n")
     
+    print("Weighted - kappa = 10\n")
     weights = [np.inf, np.inf, 1.0, 0.1, 0.1]
     exp(initial_state=initial_state, hierarchical=False,
        visual_method=visual_method, weights=weights)
+    print("\n")
     
-    # weights = [100.0, 100.0, 1.0, 0.01, 0.01]
-    # exp(initial_state=initial_state, hierarchical=False,
-    #    visual_method=visual_method, weights=weights)
+    print("Weighted - kappa = 100\n")
+    weights = [100.0, 100.0, 1.0, 0.01, 0.01]
+    exp(initial_state=initial_state, hierarchical=False,
+       visual_method=visual_method, weights=weights)
+    print("\n")
     
-    # weights = [100.0, 100.0, 1.0, 0.001, 0.001]
-    # exp(initial_state=initial_state, hierarchical=False,
-    #    visual_method=visual_method, weights=weights)
+    print("Weighted - kappa = 1000\n")
+    weights = [100.0, 100.0, 1.0, 0.001, 0.001]
+    exp(initial_state=initial_state, hierarchical=False,
+       visual_method=visual_method, weights=weights)
+    print("\n")
             
     
 if __name__ == '__main__':
@@ -206,16 +214,44 @@ if __name__ == '__main__':
         [],
     ]
     
+    print("Hierarchical\n")
     exp(
         initial_state=initial_state,
         hierarchical=True,
         solver=args.solver,
         visual_method=args.visual_method,
     )
+    print("\n")
     
-    exp(
-        initial_state=initial_state,
-        hierarchical=False,
-        solver=args.solver,
-        visual_method=args.visual_method,
-    )
+    # print("Weighted - kappa = 10\n")
+    # weights = [np.inf, np.inf, 1.0, 0.1, 0.1]
+    # exp(
+    #     initial_state=initial_state,
+    #     hierarchical=False,
+    #     solver=args.solver,
+    #     visual_method=args.visual_method,
+    #     weights=weights,
+    # )
+    # print("\n")
+    
+    # print("Weighted - kappa = 100\n")
+    # weights = [np.inf, np.inf, 1.0, 0.01, 0.01]
+    # exp(
+    #     initial_state=initial_state,
+    #     hierarchical=False,
+    #     solver=args.solver,
+    #     visual_method=args.visual_method,
+    #     weights=weights,
+    # )
+    # print("\n")
+    
+    # print("Weighted - kappa = 1000\n")
+    # weights = [np.inf, np.inf, 1.0, 0.001, 0.001]
+    # exp(
+    #     initial_state=initial_state,
+    #     hierarchical=False,
+    #     solver=args.solver,
+    #     visual_method=args.visual_method,
+    #     weights=weights,
+    # )
+    # print("\n")

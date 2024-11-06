@@ -93,7 +93,6 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
         dvipng \
         texlive-latex-extra \
         texlive-fonts-recommended \
-        texlive-fonts-extra \
         cm-super ; \
     fi
 

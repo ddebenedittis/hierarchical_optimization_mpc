@@ -71,12 +71,17 @@ RUN pip3 install \
     proxsuite \
     quadprog \
     qpsolvers \
-    git+https://github.com/RoboticExplorationLab/ReLUQP-py \
     scipy \
-    torch \
-    torchaudio \
-    torchvision \
     --upgrade
+
+ARG TORCH=0
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
+    if [ "${TORCH}" = "1" ] ; then \
+        apt-get update && apt-get install --no-install-recommends -qqy \
+        python3-torch \
+        python3-torchaudio \
+        python3-torchvision ; \
+    fi
 
 ARG FFMPEG=0
 RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt \
@@ -93,6 +98,7 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
         dvipng \
         texlive-latex-extra \
         texlive-fonts-recommended \
+        texlive-fonts-extra \
         cm-super ; \
     fi
 

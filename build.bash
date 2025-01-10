@@ -31,6 +31,7 @@ helpFunction()
     echo -e "\t-h   --help      Print the help."
     echo -e "\t-l   --latex     Install latex for nicer images with Matplotlib."
     echo -e "\t-r   --rebuild   Rebuild the image."
+    echo -e "\t-t   --torch     Install PyTorch and related packages."
     exit 1 # Exit script after printing help
 }
 
@@ -60,6 +61,7 @@ while getopts afhlr-: OPT; do
         h | help )      no_arg; helpFunction ;;
         l | latex )     no_arg; LATEX=1 ;;
         r | rebuild )   no_arg; REBUILD=1 ;;
+        t | torch )     no_arg; TORCH=1 ;;
         ??* )           die "Illegal option --$OPT" ;;  # bad long option
         ? )             exit 2 ;;  # bad short option (error reported via getopts)
     esac
@@ -90,4 +92,5 @@ docker build \
     --build-arg "PWDR=$PWD" \
     --build-arg FFMPEG=$FFMPEG \
     --build-arg LATEX=$LATEX \
+    --build-arg TORCH=$TORCH \
     -t $IMAGE_NAME .

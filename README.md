@@ -1,4 +1,4 @@
-# Docker Hierarchical Optimization Model Predictive Control
+# Hierarchical Optimization Model Predictive Control
 
 ## Overview
 
@@ -9,7 +9,13 @@ The `build.bash` and the `run.bash` files are used to automatically build and ru
 
 ## Preliminaries
 
-Install [Docker Community Edition](https://docs.docker.com/engine/install/ubuntu/) (ex Docker Engine) with post-installation steps for Linux.
+Install [Docker Community Edition](https://docs.docker.com/engine/install/ubuntu/) (ex Docker Engine).
+You can follow the installation method through `apt`.
+Note that it makes you verify the installation by running `sudo docker run hello-world`.
+It is better to avoid running this command with `sudo` and instead follow the post installation steps first and then run the command without `sudo`.
+
+Follow with the [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/) for Linux.
+This will allow you to run Docker without `sudo`.
 
 Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#setting-up-nvidia-container-toolkit) (nvidia-docker2).
 
@@ -20,11 +26,12 @@ Build the docker image with
 ```shell
 ./build.bash [-a] [-f] [-h] [-r]
 ```
-With the following optinal arguments:
-- `-a-`, `--all`: build the image with all the dependencies
-- `-f`, `--ffmpeg`: build the image with ffmpeg (for saving videos)
-- `h`, `--help`: show the help message
-- `-r`, `--rebuild`: rebuild the image
+Where the optional arguments represent:
+- `-a` or `--all`: build the image with all the dependencies
+- `-f` or `--ffmpeg`: build the image with ffmpeg (for saving videos)
+- `-h` or `--help`: show the help message
+- `-r` or `--rebuild`: rebuild the image
+- `-t` or `--torch`: build the image with PyTorch
 
 Run the container with
 ```shell
@@ -36,9 +43,13 @@ This repo also supports VS Code devcontainers.
 
 ## Hierarchical Optimization Model Predictive Control
 
-See the [README.md](src/README.md).
+Either see the local [`README.md`](src/README.md) (if the repo has been downloaded) or the [repo](https://github.com/ddebenedittis/hierarchical_optimization_mpc).
 
 
 ## Author
 
 [Davide De Benedittis](https://github.com/ddebenedittis)
+
+## References
+
+- [`docker_ros_nvidia`](https://github.com/ddebenedittis/docker_ros_nvidia): base repo for this Docker container.

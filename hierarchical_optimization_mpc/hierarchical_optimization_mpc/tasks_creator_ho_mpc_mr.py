@@ -133,6 +133,17 @@ class TasksCreatorHOMPCMultiRobot():
     # =========================== Get_task_pos_ref =========================== #
 
     def get_task_pos_ref(self, pos_ref, robot_idx: list[list[int]] = None):
+        """
+        Get the task that eonforces the robots to reach a certain position.
+
+        Args:
+            pos_ref (_type_): _description_
+            robot_idx (list[list[int]], optional): _description_. Defaults to None.
+
+        Returns:
+            
+        """
+        
         task_pos_ref = [
             ca.vertcat(
                 self.s_kp1[0][0],
@@ -205,7 +216,7 @@ class TasksCreatorHOMPCMultiRobot():
         ]
         
     # ======================== Get_task_obs_avoidance ======================== #
-        
+    
     def get_task_obs_avoidance(self, obstacle_pos: np.ndarray, threshold: float = 1.):
         if len(obstacle_pos) != 2:
             raise ValueError("The obstacle position must be a vector of size 2.")

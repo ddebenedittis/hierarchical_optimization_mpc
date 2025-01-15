@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'centralized_example = distributed_ho_mpc.centralized_example:main',
         ],
     },
 )

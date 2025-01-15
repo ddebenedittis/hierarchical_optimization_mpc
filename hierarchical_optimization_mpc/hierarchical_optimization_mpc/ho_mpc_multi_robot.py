@@ -469,7 +469,7 @@ class HOMPCMultiRobot(HOMPC):
                         
                 ineq_task_coeff = ineq_coeff
                 
-                
+        
         self._tasks.append(self.Task(
             name = name,
             prio = prio,

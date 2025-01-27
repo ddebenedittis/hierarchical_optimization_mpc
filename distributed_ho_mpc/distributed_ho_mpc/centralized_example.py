@@ -1,7 +1,5 @@
 import copy
-from dataclasses import dataclass, fields
 import time
-from typing import Any
 
 import casadi as ca
 import numpy as np
@@ -9,7 +7,7 @@ import numpy as np
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from distributed_ho_mpc.utils.disp_het_multi_rob import display_animation, plot_distances, save_snapshots
-from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model
+from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, RobCont
 
 
 def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
@@ -27,16 +25,8 @@ def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
 
 
 def main():
-    @dataclass
-    class RobCont:
-        omni: Any
-        
-        def tolist(self) -> list:
-            return [self.omni]
-        
-    # ======================================================================= #
     
-    np.random.seed(0)
+    np.random.seed(1)
     
     time_start = time.time()
     
@@ -69,8 +59,8 @@ def main():
     # ======================================================================= #
     
     task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_1_coeff = RobCont(omni=
-        [np.array([10, 5]) for _ in range(1)]
+    task_pos_ref_1_coeff = RobCont(
+        omni=[[np.array([-10, 5])] for _ in range(n_robots.omni)],
     )
     
     # ======================================================================= #
@@ -81,22 +71,22 @@ def main():
         (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 0,
     )
     task_formation_coeff = [
-        TaskBiCoeff(0, 0, 0, 1, 3, 5**2),
-        TaskBiCoeff(0, 2, 0, 3, 3, 5**2),
+        TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+        TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
     ]
     
     # ======================================================================= #
     
     task_pos_ref_2 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_2_coeff = RobCont(omni=
-        [np.array([-10, 5]) for _ in range(n_robots.omni)]
+    task_pos_ref_2_coeff = RobCont(
+        omni=[[np.array([-10, 5])] for _ in range(n_robots.omni)]
     )
     
     # ======================================================================= #
     
     task_pos_ref_3 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_3_coeff = RobCont(omni=
-        [np.array([10, -5]) for _ in range(n_robots.omni)]
+    task_pos_ref_3_coeff = RobCont(
+        omni=[[np.array([10, -5])] for _ in range(n_robots.omni)]
     )
     
     # ======================================================================= #
@@ -124,7 +114,7 @@ def main():
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_1.tolist(),
         eq_task_coeff=task_pos_ref_1_coeff.tolist(),
-        robot_index=[[0]]
+        robot_index=[[0]],
     )
     hompc.create_task_bi(
         name="formation", prio=3,
@@ -161,7 +151,7 @@ def main():
          for _ in range(n_robots.omni)],
     )
     
-    n_steps = 200
+    n_steps = 100
     
     s_history = [None for _ in range(n_steps)]
     

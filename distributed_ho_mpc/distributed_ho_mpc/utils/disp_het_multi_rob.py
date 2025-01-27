@@ -1,58 +1,18 @@
 from dataclasses import dataclass
 import itertools
 
-from cycler import cycler
-import matplotlib as mpl
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
-import mpl_toolkits.axes_grid1
-import matplotlib.widgets
 import numpy as np
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    gen_arrow_head_marker,
+    init_matplotlib,
+    Player,
+)
 
-
-def gen_arrow_head_marker(rot):
-    """generate a marker to plot with matplotlib scatter, plot, ...
-
-    https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
-
-    rot=0: positive x direction
-    Parameters
-    ----------
-    rot : float
-        rotation in degree
-        0 is positive x direction
-
-    Returns
-    -------
-    arrow_head_marker : Path
-        use this path for marker argument of plt.scatter
-    scale : float
-        multiply a argument of plt.scatter with this factor got get markers
-        with the same size independent of their rotation.
-        Paths are autoscaled to a box of size -1 <= x, y <= 1 by plt.scatter
-    """
-    
-    arr = np.array([[.1, .3], [.1, -.3], [1, 0], [.1, .3]])  # arrow shape
-    angle = rot / 180 * np.pi
-    rot_mat = np.array([
-        [np.cos(angle), np.sin(angle)],
-        [-np.sin(angle), np.cos(angle)]
-        ])
-    arr = np.matmul(arr, rot_mat)  # rotates the arrow
-
-    # scale
-    x0 = np.amin(arr[:, 0])
-    x1 = np.amax(arr[:, 0])
-    y0 = np.amin(arr[:, 1])
-    y1 = np.amax(arr[:, 1])
-    scale = np.amax(np.abs([x0, x1, y0, y1]))
-    codes = [mpl.path.Path.MOVETO, mpl.path.Path.LINETO,mpl.path.Path.LINETO, mpl.path.Path.CLOSEPOLY]
-    arrow_head_marker = mpl.path.Path(arr, codes)
-    
-    return arrow_head_marker, scale
 
 @dataclass
 class MultiRobotArtists:
@@ -63,117 +23,13 @@ class MultiRobotArtists:
     past_trajectory: ...
     goals: ...
     obstacles: ...
-    
-# =========================================================================== #
-
-class Player(FuncAnimation):
-    def __init__(self, fig, func, frames=None, init_func=None, fargs=None,
-                 save_count=None, mini=0, maxi=100, pos=(0.4, 0.15), **kwargs):
-        self.i = 0
-        self.min=mini
-        self.max=maxi
-        self.runs = True
-        self.forwards = True
-        self.fig = fig
-        self.func = func
-        self.setup(pos)
-        FuncAnimation.__init__(
-            self,
-            self.fig, self.func, frames=self.play(), 
-            init_func=init_func, fargs=fargs,
-            save_count=save_count, **kwargs
-        )
-
-    def play(self):
-        while self.runs:
-            self.i = self.i+self.forwards-(not self.forwards)
-            if self.i > self.min and self.i < self.max:
-                yield self.i
-            else:
-                self.stop()
-                yield self.i
-
-    def start(self):
-        self.runs=True
-        self.event_source.start()
-
-    def stop(self, event=None):
-        self.runs = False
-        self.event_source.stop()
-
-    def forward(self, event=None):
-        self.forwards = True
-        self.start()
-    def backward(self, event=None):
-        self.forwards = False
-        self.start()
-    def oneforward(self, event=None):
-        self.forwards = True
-        self.onestep()
-    def onebackward(self, event=None):
-        self.forwards = False
-        self.onestep()
-
-    def onestep(self):
-        if self.i > self.min and self.i < self.max:
-            self.i = self.i+self.forwards-(not self.forwards)
-        elif self.i == self.min and self.forwards:
-            self.i+=1
-        elif self.i == self.max and not self.forwards:
-            self.i-=1
-        self.func(self.i)
-        self.fig.canvas.draw_idle()
-
-    def setup(self, pos):
-        button_font = {'family': 'sans-serif', 'size': 12}
-        
-        playerax = self.fig.add_axes([pos[0],pos[1], 0.22, 0.04])
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(playerax)
-        bax = divider.append_axes("right", size="80%", pad=0.05)
-        sax = divider.append_axes("right", size="80%", pad=0.05)
-        fax = divider.append_axes("right", size="80%", pad=0.05)
-        ofax = divider.append_axes("right", size="100%", pad=0.05)
-        self.button_oneback = matplotlib.widgets.Button(playerax, label=r'\faStepBackward')
-        self.button_back = matplotlib.widgets.Button(bax, label=r'\faStepBackward')
-        self.button_stop = matplotlib.widgets.Button(sax, label=r'\faPause')
-        self.button_forward = matplotlib.widgets.Button(fax, label=r"\faPlay")
-        self.button_oneforward = matplotlib.widgets.Button(ofax, label=r'\faStepForward')
-        self.button_oneback.on_clicked(self.onebackward)
-        self.button_back.on_clicked(self.backward)
-        self.button_stop.on_clicked(self.stop)
-        self.button_forward.on_clicked(self.forward)
-        self.button_oneforward.on_clicked(self.oneforward)
 
 # ================================= Animation ================================ #
 
-class Animation():
-    default_cycler = (
-        cycler(color=[
-            '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30',
-            '#4DBEEE', '#A2142F', '#FF6F00', '#8DFF33', '#33FFF7',
-        ]) +
-        cycler('linestyle', [
-            '-', '--', '-.', ':', '-',
-            '--', '-.', ':', '-', '--'
-        ])
-    )
-    
-    textsize = 16
-    labelsize = 18
-    
-    plt.rc('font', family='serif', serif='Times')
-    plt.rcParams["text.usetex"] = True
-    plt.rc('text.latex', preamble=r'\usepackage[utf8]{inputenc} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{fontawesome} \DeclareMathAlphabet{\mathcal}{OMS}{cmsy}{m}{n}')
-    plt.rc('xtick', labelsize=textsize)
-    plt.rc('ytick', labelsize=textsize)
-    plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
-    plt.rc('legend', fontsize=textsize)
-    plt.rc('grid', linestyle='-.', alpha=0.5)
-    plt.rc('axes', grid=True)
-    
-    plt.rcParams['figure.constrained_layout.use'] = True
-    
+class Animation():    
     def __init__(self, data, goals, obstacles, ax, dt) -> None:
+        self.textsize = init_matplotlib()
+        
         self.n_history = np.inf
         
         self.data = data

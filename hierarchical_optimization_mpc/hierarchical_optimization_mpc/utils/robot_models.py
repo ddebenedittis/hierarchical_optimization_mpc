@@ -1,6 +1,21 @@
+from dataclasses import dataclass
+from typing import Any
+
 import casadi as ca
 
 
+@dataclass
+class RobCont:
+    """
+    Generic container to hold quantities related to multi-robot system.
+    Each attribute is associated with a specific robot type.
+    """
+    omni: Any = None
+    
+    def tolist(self) -> list:
+        """Convert the class to a list of its attributes."""
+        return [self.omni]
+    
 
 def get_unicycle_model(dt: float):
     """

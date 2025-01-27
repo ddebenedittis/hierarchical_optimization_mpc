@@ -9,6 +9,7 @@ import numpy as np
 from scipy.special import binom
 
 from hierarchical_qp.hierarchical_qp import HierarchicalQP, QPSolver
+from hierarchical_optimization_mpc.auxiliary.ho_mpc_validator import HOMPCValidator
 from hierarchical_optimization_mpc.ho_mpc import HOMPC, subs
 
 
@@ -438,6 +439,11 @@ class HOMPCMultiRobot(HOMPC):
                                                           side of the in equality task.
         """
         
+        for task_ls in [eq_task_ls, ineq_task_ls]:
+            HOMPCValidator.validate_task_ls(task_ls)
+        for task_coeff in [eq_task_coeff, ineq_task_coeff]:
+            HOMPCValidator.validate_task_coeff(task_coeff)
+        
         if eq_task_ls is None:
             eq_task_ls = [ca.SX.sym("eq", 0)] * len(self.n_robots)
             
@@ -505,20 +511,28 @@ class HOMPCMultiRobot(HOMPC):
     def update_task(
         self,
         name: str,
-        prio: int| None = None,
-        type: TaskType| None = None,
-        eq_task_ls: list[ca.SX]| None = None,
-        eq_task_coeff: list[list[list[np.ndarray]]]| None = None,
-        ineq_task_ls: list[ca.SX]| None = None,
-        ineq_task_coeff: list[list[list[np.ndarray]]]| None = None,
-        time_index: TaskIndexes| None = None,
-        robot_index: TaskIndexes| None = None
+        prio: int | None = None,
+        type: TaskType | None = None,
+        eq_task_ls: list[ca.SX] | None = None,
+        eq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        ineq_task_ls: list[ca.SX] | None = None,
+        ineq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        time_index: TaskIndexes | None = None,
+        robot_index: TaskIndexes | None = None
     ):
+        # Check the input arguments.
+        for task_ls in [eq_task_ls, ineq_task_ls]:
+            HOMPCValidator.validate_task_ls(task_ls)
+        for task_coeff in [eq_task_coeff, ineq_task_coeff]:
+            HOMPCValidator.validate_task_coeff(task_coeff)
+        
+        # Find the task with the given name.
         for i, t in enumerate(self._tasks):
             if t.name == name:
                 id = i
                 break
             
+        # Preprocess the input arguments.
         if robot_index is not None:
             if eq_task_coeff is not None:
                 eq_coeff = [
@@ -544,6 +558,7 @@ class HOMPCMultiRobot(HOMPC):
                         
                 ineq_task_coeff = ineq_coeff
                 
+        # If the argument is not given, use the current value.
         if prio is None:
             prio = self._tasks[id].prio
         if type is None:
@@ -561,7 +576,8 @@ class HOMPCMultiRobot(HOMPC):
         if robot_index is None:
             robot_index = self._tasks[id].robot_index
             
-        self._tasks[i] = self.Task(
+        # Update the task.
+        self._tasks[id] = self.Task(
             name = name,
             prio = prio,
             type = type,

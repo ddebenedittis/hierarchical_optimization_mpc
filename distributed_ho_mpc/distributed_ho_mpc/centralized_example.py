@@ -193,6 +193,7 @@ def main():
         centroid=True, goals=True, obstacles=False,
         past_trajectory=True,
         robots=RobCont(omni=True),
+        robot_names=True,
         voronoi=False,
     )
     

@@ -23,6 +23,7 @@ class MultiRobotArtists:
     obstacles: Optional[Any] = None
     past_trajectory: Optional[Any] = None
     robots: RobCont = field(default_factory=RobCont)
+    robot_names: Optional[Any] = None
     voronoi: Optional[Any] = None
 
 # ================================= Animation ================================ #
@@ -78,6 +79,8 @@ class Animation():
         # self.artists.robots.unicycles = [None] * self.n_robots[1]
         # for i in range(self.n_robots[1]):
         #     self.artists.robots.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
+        
+        self.artists.robot_names = [self.ax.annotate("", (0, 0)) for _ in range(sum(self.n_robots))]
         
         if self.artist_flags.centroid:
             self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
@@ -245,6 +248,11 @@ class Animation():
         #         marker = marker,
         #     )
         
+        if self.artist_flags.robot_names:
+            for i in range(self.n_robots[0]):
+                self.artists.robot_names[i].set_text(f"$r_{i+1}$") 
+                self.artists.robot_names[i].set_position((x[0][i,0], x[0][i,1]+0.5))
+        
         # Fleet centroid. Plotted only if more than one robot.
         if self.artist_flags.centroid and sum(self.n_robots) > 1:
             self.artists.centroid.set_offsets(
@@ -300,6 +308,7 @@ class Animation():
 # ============================= Display_animation ============================ #
 
 def display_animation(
+    
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
     artist_flags = MultiRobotArtists,

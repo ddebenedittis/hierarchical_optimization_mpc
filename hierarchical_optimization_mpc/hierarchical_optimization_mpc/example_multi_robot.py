@@ -4,12 +4,11 @@ import copy
 import time
 import sys
 
-import casadi as ca
 import numpy as np
 
 from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.auxiliary.str2bool import str2bool
-from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
+from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, plot_distances, save_snapshots
 from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, get_unicycle_model

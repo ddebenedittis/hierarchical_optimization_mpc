@@ -6,7 +6,12 @@ import numpy as np
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from distributed_ho_mpc.utils.disp_het_multi_rob import display_animation, plot_distances, save_snapshots
+from distributed_ho_mpc.utils.disp_het_multi_rob import (
+    display_animation,
+    MultiRobotArtists,
+    plot_distances,
+    save_snapshots
+)
 from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, RobCont
 
 
@@ -184,16 +189,23 @@ def main():
     
     s_history = [s.tolist() for s in s_history]
     
+    artist_flags = MultiRobotArtists(
+        centroid=True, goals=True, obstacles=False,
+        past_trajectory=True,
+        robots=RobCont(omni=True),
+        voronoi=False,
+    )
+    
     if visual_method is not None and visual_method != 'none':
         display_animation(
             s_history, charging_stations[0], None, dt, visual_method,
-            show_trajectory=True, show_voronoi=False,
+            artist_flags,
         )
         
     if visual_method == 'save':
         save_snapshots(
             s_history, charging_stations[0], None, dt, [0, 10, 25], 'snapshot',
-            show_trajectory=True, show_voronoi=False,
+            artist_flags,
         )
         
     return time_elapsed

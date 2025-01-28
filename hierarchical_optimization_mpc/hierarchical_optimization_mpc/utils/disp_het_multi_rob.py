@@ -141,10 +141,8 @@ class Player(FuncAnimation):
         self.button_stop.on_clicked(self.stop)
         self.button_forward.on_clicked(self.forward)
         self.button_oneforward.on_clicked(self.oneforward)
-
-# ================================= Animation ================================ #
-
-class Animation():
+        
+def init_matplotlib():
     default_cycler = (
         cycler(color=[
             '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30',
@@ -171,7 +169,14 @@ class Animation():
     
     plt.rcParams['figure.constrained_layout.use'] = True
     
+    return textsize
+
+# ================================= Animation ================================ #
+
+class Animation():
     def __init__(self, data, goals, obstacles, ax, dt) -> None:
+        self.textsize = init_matplotlib()
+        
         self.n_history = np.inf
         
         self.data = data

@@ -1,8 +1,13 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 import casadi as ca
 
+
+class RobotType(Enum):
+    OMNIDIRECTIONAL = 1
+    UNICYCLE = 2
 
 @dataclass
 class RobCont:

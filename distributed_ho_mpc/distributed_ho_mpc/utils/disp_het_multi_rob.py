@@ -1,33 +1,42 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import itertools
+from typing import Any, Optional
 
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     gen_arrow_head_marker,
     init_matplotlib,
     Player,
 )
+from hierarchical_optimization_mpc.utils.robot_models import RobCont
+from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
 
 
 @dataclass
 class MultiRobotArtists:
-    omnidir: ...
-    unicycles: ...
-    centroid: ...
-    voronoi: ...
-    past_trajectory: ...
-    goals: ...
-    obstacles: ...
+    centroid: Optional[Any] = None
+    goals: Optional[Any] = None
+    obstacles: Optional[Any] = None
+    past_trajectory: Optional[Any] = None
+    robots: RobCont = field(default_factory=RobCont)
+    voronoi: Optional[Any] = None
 
 # ================================= Animation ================================ #
 
 class Animation():    
-    def __init__(self, data, goals, obstacles, ax, dt) -> None:
+    def __init__(
+        self,
+        data,
+        artist_flags: MultiRobotArtists,
+        goals,
+        obstacles,
+        ax,
+        dt: float
+    ) -> None:
         self.textsize = init_matplotlib()
         
         self.n_history = np.inf
@@ -45,6 +54,7 @@ class Animation():
         
         self.artists = None
         
+        self.artist_flags = artist_flags
         self.show_trajectory = True
         self.show_voronoi = True
         
@@ -56,98 +66,100 @@ class Animation():
         
         self.ax.set_aspect('equal', 'box')
         
-        # ====================== Initialize The Artists ====================== #
-        
-        self.artists = MultiRobotArtists
-        self.artists.omnidir = [None] * self.n_robots[0]
-        # self.artists.unicycles = [None] * self.n_robots[1]
-        
-        # We create one object for the unicycles because each of them needs to
-        # have a different dimension.    
-        # for i in range(self.n_robots[0]):
-        #     self.artists.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
-        
-        self.artists.omnidir = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o',)
-            
-        self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
-        
-        self.artists.voronoi = [self.ax.plot([],[])]
-        
-        if self.show_trajectory:
-            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots)+1)]
-            self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
-        
         self.ax.set(xlim=self.x_lim, ylim=self.y_lim, xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
         
-        self.artists.goals = [None for _ in range(2)]
-        self.artists.goals[0] = self.ax.scatter(
-            [g[0] for g in self.goals] if self.goals is not None else [],
-            [g[1] for g in self.goals] if self.goals is not None else [],
-            25, 'k', 'x'
-        )
+        # ====================== Initialize The Artists ====================== #
         
-        self.artists.goals[1] = []
-        if self.goals is not None:
-            for i, g_i in enumerate(self.goals):
-                self.artists.goals[1].append(
-                    self.ax.annotate(
-                        "$\mathcal{T}_{" + str(i+1) + "}$",
-                        (g_i[0], g_i[1]+1),
+        self.artists = MultiRobotArtists()
+        
+        self.artists.robots.omni = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o')
+        # We create one object for the unicycles because each of them needs to
+        # have a different dimension.
+        # self.artists.robots.unicycles = [None] * self.n_robots[1]
+        # for i in range(self.n_robots[1]):
+        #     self.artists.robots.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
+        
+        if self.artist_flags.centroid:
+            self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
+        
+        if self.artist_flags.voronoi:
+            self.artists.voronoi = [self.ax.plot([],[])]
+        
+        if self.artist_flags.past_trajectory:
+            self.artists.past_trajectory = [self.ax.plot([],[])[0] for _ in range(sum(self.n_robots)+1)]
+        
+        if self.artist_flags.goals and self.goals is not None:
+            self.artists.goals = {'pos': None, 'name': None}
+            self.artists.goals['pos'] = self.ax.scatter(
+                [g[0] for g in self.goals] if self.goals is not None else [],
+                [g[1] for g in self.goals] if self.goals is not None else [],
+                25, 'k', 'x'
+            )
+        
+            self.artists.goals['name'] = []
+            if self.goals is not None:
+                for i, g_i in enumerate(self.goals):
+                    self.artists.goals['name'].append(
+                        self.ax.annotate(
+                            "$\mathcal{T}_{" + str(i+1) + "}$",
+                            (g_i[0], g_i[1]+1),
+                        )
                     )
-                )
-                
+        
+        if self.artist_flags.obstacles and self.obstacles is not None:
+            self.artists.obstacles = plt.Circle(self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5)
+            self.ax.add_patch(self.artists.obstacles)
+            
+        # ========================= Extract The State ======================== #
+            
         # state = self.data[0]
         
         # x = [
-        #     np.zeros((self.n_robots[0], 3)),
-        #     np.zeros((self.n_robots[1], 2)),
+        #     np.zeros((self.n_robots[0], 2)),
+        #     np.zeros((self.n_robots[1], 3)),
         # ]
         
         # for c, state_c in enumerate(state):
         #     for j, s_c_j in enumerate(state_c):
         #         x[c][j, 0] = s_c_j[0]
         #         x[c][j, 1] = s_c_j[1]
-        #         if c == 0:
+        #         if c == 1:
         #             x[c][j, 2] = s_c_j[2]
         
         # # Unicycles.
-        # for i in range(self.n_robots[0]):
+        # for i in range(self.n_robots[1]):
         #     deg = x[0][i,2] * 180 / np.pi
         #     marker, scale = gen_arrow_head_marker(deg)
             
         #     plt.scatter(
-        #         x = x[0][i,0], y = x[0][i,1],
+        #         x = x[1][i,0], y = x[1][i,1],
         #         s = 250 * scale**2, c = 'C0',
         #         alpha=0.25,
         #         marker = marker,
         #     )
         
-        if self.obstacles is not None:
-            self.artists.obstacles = plt.Circle(self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5)
-            self.ax.add_patch(self.artists.obstacles)
-        
         # ============================== Legend ============================== #
         
         marker, scale = gen_arrow_head_marker(0)
         legend_elements = []
-        # if self.n_robots[0] > 0:
-        #     legend_elements.append(
-        #         Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycle')
-        #     )
         if self.n_robots[0] > 0:
             legend_elements.append(
                 Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot')
             )
-        if sum(self.n_robots) > 1:
+        # if self.n_robots[1] > 0:
+        #     legend_elements.append(
+        #         Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycle')
+        #     )
+        if self.artist_flags.centroid:
             legend_elements.append(
                 Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
             )
-        if self.goals is not None:
+        if self.artist_flags.goals and self.goals is not None:
             if len(self.goals) > 0:
                 legend_elements.append(
                     Line2D([], [], marker='x', color= 'k', linestyle='None', label='Goal')
                 )
-        if self.obstacles is not None:
+        if self.artist_flags.obstacles and self.obstacles is not None:
             legend_elements.append(
                 plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
             )
@@ -183,7 +195,7 @@ class Animation():
         
         x = [
             np.zeros((self.n_robots[0], 2)),
-            # np.zeros((self.n_robots[0], 3)),
+            # np.zeros((self.n_robots[1], 3)),
         ]
         
         for c, state_c in enumerate(state):
@@ -209,41 +221,40 @@ class Animation():
                         
         # ========================= Clean Old Artists ======================== #
         
-        # for i in range(self.n_robots[0]):
-        #     self.artists.unicycles[i].remove()
-
-        self.artists.omnidir.remove()
+        self.artists.robots.omni.remove()
+        # for i in range(self.n_robots[1]):
+        #     self.artists.robots.unicycle[i].remove()
         
         # ====================== Display Updated Artists ===================== #
         
-        # # Unicycles.
-        # for i in range(self.n_robots[0]):
-        #     deg = x[0][i,2] * 180 / np.pi
-        #     marker, scale = gen_arrow_head_marker(deg)
-                        
-        #     self.artists.unicycles[i] = plt.scatter(
-        #         x = x[0][i,0], y = x[0][i,1],
-        #         s = 250 * scale**2, c = 'C0',
-        #         marker = marker,
-        #     )
-            
         # Omnidirectional robot.
-        self.artists.omnidir = plt.scatter(
+        self.artists.robots.omni = plt.scatter(
             x = x[0][:,0], y = x[0][:,1],
             s = 25, c = 'C1',
             marker = 'o',
         )
         
-        # Fleet centroid. Plotted only if more than one robot.
-        # if sum(self.n_robots) > 1:
-        #     self.artists.centroid.set_offsets(
-        #         sum([np.nan_to_num(np.mean(
-        #             x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
-        #         ) / sum(self.n_robots)
+        # # Unicycles.
+        # for i in range(self.n_robots[1]):
+        #     deg = x[1][i,2] * 180 / np.pi
+        #     marker, scale = gen_arrow_head_marker(deg)
+                        
+        #     self.artists.robots.unicycle[i] = plt.scatter(
+        #         x = x[1][i,0], y = x[1][i,1],
+        #         s = 250 * scale**2, c = 'C0',
+        #         marker = marker,
         #     )
         
+        # Fleet centroid. Plotted only if more than one robot.
+        if self.artist_flags.centroid and sum(self.n_robots) > 1:
+            self.artists.centroid.set_offsets(
+                sum([np.nan_to_num(np.mean(
+                    x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
+                ) / sum(self.n_robots)
+            )
+        
         # Voronoi.
-        if self.show_voronoi:
+        if self.artist_flags.voronoi:
             towers = np.array(
                 [e[0:2] for e in state[0]] #+ [e[0:2] for e in state[1]]
             )
@@ -257,7 +268,7 @@ class Animation():
             self.artists.voronoi = vor.plot()
         
         # Past trajectory.
-        if self.show_trajectory:
+        if self.artist_flags.past_trajectory:
             for e in self.artists.past_trajectory:
                 e.remove()
             
@@ -291,14 +302,12 @@ class Animation():
 def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
-    show_trajectory: bool = True, show_voronoi: bool = True,
+    artist_flags = MultiRobotArtists,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     fig, ax = plt.subplots()
     
-    anim = Animation(s_history, goals, obstacles, ax, dt)
-    anim.show_trajectory = show_trajectory
-    anim.show_voronoi = show_voronoi
+    anim = Animation(s_history, artist_flags, goals, obstacles, ax, dt)
     anim.x_lim = x_lim
     anim.y_lim = y_lim
     
@@ -329,7 +338,7 @@ def display_animation(
 def save_snapshots(
     s_history, goals, obstacles,
     dt: float, times: int | list[int], filename: str,
-    show_trajectory: bool = True, show_voronoi: bool = True,
+    artist_flags = MultiRobotArtists,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     if isinstance(times, int):
@@ -339,9 +348,7 @@ def save_snapshots(
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, obstacles, ax, dt)
-        anim.show_trajectory = show_trajectory
-        anim.show_voronoi = show_voronoi
+        anim = Animation(s_history, artist_flags, goals, obstacles, ax, dt)
         anim.x_lim = x_lim
         anim.y_lim = y_lim
     

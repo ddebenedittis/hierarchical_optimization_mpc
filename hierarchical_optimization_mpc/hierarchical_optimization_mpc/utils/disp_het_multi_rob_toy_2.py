@@ -1,56 +1,16 @@
 from dataclasses import dataclass
 
-from cycler import cycler
-import matplotlib as mpl
 from matplotlib.animation import FuncAnimation, FFMpegWriter
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    gen_arrow_head_marker,
+    init_matplotlib,
+)
 
-
-
-def gen_arrow_head_marker(rot):
-    """generate a marker to plot with matplotlib scatter, plot, ...
-
-    https://matplotlib.org/stable/api/markers_api.html#module-matplotlib.markers
-
-    rot=0: positive x direction
-    Parameters
-    ----------
-    rot : float
-        rotation in degree
-        0 is positive x direction
-
-    Returns
-    -------
-    arrow_head_marker : Path
-        use this path for marker argument of plt.scatter
-    scale : float
-        multiply a argument of plt.scatter with this factor got get markers
-        with the same size independent of their rotation.
-        Paths are autoscaled to a box of size -1 <= x, y <= 1 by plt.scatter
-    """
-    
-    arr = np.array([[.1, .3], [.1, -.3], [1, 0], [.1, .3]])  # arrow shape
-    angle = rot / 180 * np.pi
-    rot_mat = np.array([
-        [np.cos(angle), np.sin(angle)],
-        [-np.sin(angle), np.cos(angle)]
-        ])
-    arr = np.matmul(arr, rot_mat)  # rotates the arrow
-
-    # scale
-    x0 = np.amin(arr[:, 0])
-    x1 = np.amax(arr[:, 0])
-    y0 = np.amin(arr[:, 1])
-    y1 = np.amax(arr[:, 1])
-    scale = np.amax(np.abs([x0, x1, y0, y1]))
-    codes = [mpl.path.Path.MOVETO, mpl.path.Path.LINETO,mpl.path.Path.LINETO, mpl.path.Path.CLOSEPOLY]
-    arrow_head_marker = mpl.path.Path(arr, codes)
-    
-    return arrow_head_marker, scale
 
 @dataclass
 class MultiRobotArtists:
@@ -63,27 +23,10 @@ class MultiRobotArtists:
 
 # ================================= Animation ================================ #
 
-class Animation():
-    default_cycler = (
-        cycler(color=['#0072BD', '#D95319', '#EDB120', '#7E2F8E']) +
-        cycler('linestyle', ['-', '--', '-', '--'])
-    )
-    
-    textsize = 16
-    labelsize = 18
-    
-    plt.rc('font', family='serif', serif='Times')
-    plt.rcParams["text.usetex"] = True
-    plt.rc('xtick', labelsize=textsize)
-    plt.rc('ytick', labelsize=textsize)
-    plt.rc('axes', titlesize=labelsize, labelsize=labelsize, prop_cycle=default_cycler)
-    plt.rc('legend', fontsize=textsize)
-    plt.rc('grid', linestyle='-.', alpha=0.5)
-    plt.rc('axes', grid=True)
-    
-    plt.rcParams['figure.constrained_layout.use'] = True
-    
+class Animation():    
     def __init__(self, data, goals, ax, dt) -> None:
+        self.textsize = init_matplotlib()
+        
         self.n_history = np.inf
         
         self.data = data[0]

@@ -60,7 +60,7 @@ class Node():
 
         self.Xsym = [task['Xsym'] for task in self.tasks]
          
-
+        self.s_next = [[np.array([0,0,0]),np.array([0,0,0])]]
         self.Z_old = []
         self.Z_neigh = {f'{i}': [[np.eye(20)]] for i in self.neigh} #np.empty([20,20])
 
@@ -76,7 +76,7 @@ class Node():
     def Tasks(self)->None:
         # Define the tasks separately.
 
-        n_robots = [1, 0]
+        n_robots = [self.degree+1, 0] # n° of neighbours + self agent
 
         tasks_creator = TasksCreatorHOMPCMultiRobot(
                                                          self.s, self.u, self.s_kp1, self.dt, n_robots,
@@ -107,7 +107,7 @@ class Node():
     #                                      MPC                                     #
     # ---------------------------------------------------------------------------- #
     def MPC(self)->None:
-        self.hompc = HOMPCMultiRobot(self.s, self.u, self.s_kp1, [1,0])
+        self.hompc = HOMPCMultiRobot(self.s, self.u, self.s_kp1, [self.degree+1,0])
         self.hompc.n_control = 4
         self.hompc.n_pred = 0
         
@@ -156,7 +156,7 @@ class Node():
 
         # ======================================================================== #
         
-        self.s = [[np.array([0, 0, 0])], []]
+        self.s = [[np.array([0,0,0]),np.array([0,0,0])]]
         
         
         
@@ -169,9 +169,9 @@ class Node():
         " Create a message with state and the neighbours to share with"
         
         if self.step < 2:
-            message = Message(self.node_id, self.xi, self.s, Z=None, Xsym=None)
+            message = Message(self.node_id, self.xi, self.s_next, Z=None, Xsym=None)
         else :
-            message = Message(self.node_id, self.xi, self.s, self.Z_old[-1], Xsym=None)
+            message = Message(self.node_id, self.xi, self.s_next, self.Z_old[-1], Xsym=None)
         
 
         return message, self.neigh
@@ -186,8 +186,10 @@ class Node():
         for j in self.neigh:
             data = self.buffer.pop()
             self.neighbors_sum += data.node_xi
+            self.s[0][1] = data.s[0][1]
             if self.step >= 3 :
                 self.null_sharing(data.Z, data.node_id)
+
             
          
 
@@ -197,7 +199,7 @@ class Node():
         if self.step < self.n_steps:
             print(self.step)
             
-            self.u_star, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
+            self.u_star, self.s_next, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
             self.Z_old.append(Z)
                     
             self.s = evolve(self.s, self.u_star, self.dt)                      
@@ -216,10 +218,14 @@ class Node():
             #self.s_history[self.step, :] = copy.deepcopy(self.s)
             self.step += 1
         
-        if self.step > 4:
+        if self.step > 2:
             self.hompc.null_consensus_start()
                 
         return 
     
     def null_sharing(self, Z, i):
         self.Z_neigh[f'{i}'].append(Z)
+
+    def s_update(self, s_neigh, i):
+        # TODO 
+        print('da fare')

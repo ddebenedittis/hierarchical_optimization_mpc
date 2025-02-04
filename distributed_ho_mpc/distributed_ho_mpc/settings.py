@@ -4,12 +4,12 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1   # probability of arc of communication
-n_nodes = 3 # numbers of nodes
+n_nodes = 2 # numbers of nodes
 random_graph = True    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 MAX_iter = 20 # Number of iteration 
 dt = 0.1
-n_steps = 30
+n_steps = 40
 
 
 output = {

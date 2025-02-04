@@ -331,7 +331,7 @@ class HierarchicalQP:
                 
         return sol
 
-    # TODO add Z as argument to pass
+    
     def _solve_hierarchical(
         self, A, b, C, d, Z_n = None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
@@ -363,7 +363,7 @@ class HierarchicalQP:
         n_tasks = len(A)
 
         # Dimension of the optimization vector.
-        nx = A[0].shape[1]
+        nx = A[0].shape[1] 
 
         # Optimization vector.
         x_star_bar = np.zeros(nx)
@@ -477,7 +477,7 @@ class HierarchicalQP:
 
             sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
-                return x_star_bar
+                return x_star_bar, Z_list
 
 
             # ======================== Post-processing ======================= #
@@ -488,6 +488,8 @@ class HierarchicalQP:
             Z_list.append(Z)
             if self.start_consensus:
                 for key in Z_n.keys():
+                    '''if len(Z_n[key][-1]) < priority: 
+                        continue'''
                     Z = Z @ Z_n[key][-1][priority]
 
             # Update the solution of all the tasks up to now.

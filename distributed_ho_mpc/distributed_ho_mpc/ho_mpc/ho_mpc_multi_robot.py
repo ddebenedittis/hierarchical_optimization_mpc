@@ -1139,13 +1139,19 @@ class HOMPCMultiRobot(HOMPC):
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
         ]
+
+        s_1 = [
+            [x_star[self._get_idx_state_kp1(c, j, 0)]
+                for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots)) 
+        ]
         
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, Z
+        return u_0, s_1, Z
     
     # ======================================================================== #
     

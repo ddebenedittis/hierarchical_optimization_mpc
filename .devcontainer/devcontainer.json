@@ -10,7 +10,8 @@
             "MYGID": "${localEnv:GID}",
             "USER": "${localEnv:USER}",
             "PWDR": "${localEnv:PWD}",
-            "FFMPEG": "1"
+            "FFMPEG": "1",
+            "LATEX": "1"
         }
     },
 
@@ -44,16 +45,12 @@
             "extensions": [
                 "aaron-bond.better-comments",
                 "charliermarsh.ruff",
-                "codium.codium",
                 "cschlosser.doxdocgen",
                 "eamodio.gitlens",
-                "gimly81.matlab",
                 "github.copilot",
                 "github.copilot-chat",
-                "james-yu.latex-workshop",
                 "jeff-hykin.better-cpp-syntax",
                 "kevinrose.vsc-python-indent",
-                "lextudio.restructuredtext",
                 "llvm-vs-code-extensions.vscode-clangd",
                 "ms-azuretools.vscode-docker",
                 "ms-iot.vscode-ros",
@@ -71,22 +68,15 @@
                 "ms-vscode.cmake-tools",
                 "ms-vscode.cpptools",
                 "njpwerner.autodocstring",
-                "phr0s.bib",
                 "qiumingge.cpp-check-lint",
-                "quarto.quarto",
                 "redhat.vscode-xml",
-                "reditorsupport.r",
-                "romanpeshkov.vscode-text-tables",
                 "smilerobotics.urdf",
                 "stackbreak.comment-divider",
-                "tecosaur.latex-utilities",
-                "trond-snekvik.simple-rst",
                 "twxs.cmake",
                 "visualstudioexptteam.intellicode-api-usage-examples",
                 "visualstudioexptteam.vscodeintellicode",
                 "vscode-icons-team.vscode-icons",
-                "yzhang.markdown-all-in-one",
-                "znck.grammarly"
+                "yzhang.markdown-all-in-one"
             ]
         }
     }

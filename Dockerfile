@@ -64,6 +64,7 @@ RUN pip3 install \
     clarabel \
     cvxpy \
     matplotlib \
+    networkx \
     numpy \
     osqp \
     pandas \

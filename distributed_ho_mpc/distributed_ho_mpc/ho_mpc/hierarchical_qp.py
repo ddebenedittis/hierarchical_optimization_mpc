@@ -373,11 +373,7 @@ class HierarchicalQP:
 
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
-        if self.start_consensus:
-            Z = np.eye(nx) 
-            #Z = Z_n @ np.eye(nx)
-        else :
-            Z = np.eye(nx)
+        Z = np.eye(nx)
         
         
         # ==================================================================== #
@@ -477,7 +473,7 @@ class HierarchicalQP:
 
             sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
-                return x_star_bar, Z_list
+                return x_star_bar, Z_list           # NOTE: return also Z list updated until exit
 
 
             # ======================== Post-processing ======================= #
@@ -486,11 +482,11 @@ class HierarchicalQP:
             x_star = sol[0:nx]
             
             Z_list.append(Z)
-            if self.start_consensus:
+            if self.start_consensus:                            # NOTE: for each neigh, intersect null space fot each level of priority
                 for key in Z_n.keys():
-                    '''if len(Z_n[key][-1]) < priority: 
-                        continue'''
-                    Z = Z @ Z_n[key][-1][priority]
+                    if len(Z_n[key][-1]) < priority: 
+                        continue
+                    Z = Z @ Z_n[key][-1][priority-1]
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
@@ -511,7 +507,7 @@ class HierarchicalQP:
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
                 return x_star_bar, Z_list
 
-        return x_star_bar, Z_list
+        return x_star_bar, Z_list       # NOTE return also list of null matrix at each priority level
     
     
     def _solve_weighted(

@@ -31,22 +31,16 @@ system_tasks = {
                  'name':"input_smooth",   # task type
                  'Xsym' : None
                       },
-                 {'prio':3,             # priority
+                {'prio':3,             # priority
                  'name':"formation",   # task type
-                 'Xsym' : [[('u2',2),('s2',3)],[('u1',2),('s1',3)]]
+                 'Xsym' : None
                       },
-                {'prio':4,             # priority
+                {'prio':5,             # priority
                  'name':"position",   # task type
                  'goal': goals[0],         # [x,y] 
                  'goal_index':0,          # index of the corrisponding list goal's element 
-                 'Xsym': [[('u1',2),('s1',3)],[('u2',2),('s2',3)]]
-                        },       
-                {'prio':5,             # priority
-                 'name':"position",   # task type
-                'goal': goals[1],         # [x,y]
-                'goal_index':1,           # index of the corrisponding list goal's element 
-                'Xsym' : [[('u2',2),('s2',3)],[('u1',2),('s1',3)]]
-                      }
+                 'Xsym': None
+                        }                
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -58,14 +52,14 @@ system_tasks = {
                       },
                 {'prio':3,             # priority
                  'name':"formation",   # task type
-                 'Xsym' : [[('u2',2),('s2',3)],[('u1',2),('s1',3)]]
+                 'Xsym' : None
                       },
-                {'prio':5,             # priority
+                {'prio':4,             # priority
                  'name':"position",   # task type
                  'goal': goals[1],         # [x,y] 
                  'goal_index':1,          # index of the corrisponding list goal's element 
-                 'Xsym': [[('u1',2),('s1',3)],[('u2',2),('s2',3)]]
-                        }  
+                 'Xsym': None
+                        }
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -140,10 +134,6 @@ while st.random_graph:
 #         Create agents and initialize them based on settings and tasks        #
 # ---------------------------------------------------------------------------- #
 
-
-# shared list to communicate state with the neighbours (not used)
-buffer_states = [0, 0, 0, 0]
-
 nodes = [] # list of agents of the system
 
 #Create an agents of the same type for each node of the system
@@ -151,7 +141,7 @@ for i in range(st.n_nodes):
     node = Node(i,                          # ID
                 graph_matrix[i],            # Neighbours
                 model['unicycle'],          # robot model
-                st.dt,                         # time step
+                st.dt,                      # time step
                 system_tasks[f'agent_{i}'],  # agent's tasks
                 goals,                      #
                 st.n_steps                  #
@@ -183,16 +173,16 @@ for i in range(st.n_steps):
 
 s_hist_merged = [
     [
-        sum((node.s_history[i][j][:1] for node in nodes), [])
+        sum((node.s_history[i][j][:1] for node in nodes), []) 
         for j in range(len(nodes[0].s_history[i]))
     ]
     for i in range(len(nodes[0].s_history))
 ]
 #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
-#s_hist_merged = [nodes[0].s_history[i][0:1] + nodes[1].s_history[i][0:1] for i in range(len(nodes[0].s_history))]
+s_hist_merged = [nodes[0].s_history[i][0:1] + nodes[1].s_history[i][0:1] for i in range(len(nodes[0].s_history))]
 
 
-# display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
-# display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)
+'''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
+display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)'''
 display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False)
 

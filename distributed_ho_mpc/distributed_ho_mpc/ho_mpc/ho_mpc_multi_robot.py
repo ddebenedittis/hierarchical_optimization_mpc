@@ -11,7 +11,7 @@ from scipy.special import binom
 from ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
 from ho_mpc.ho_mpc import HOMPC, subs
 
-
+np.set_printoptions(threshold=np.inf)
 
 class TaskIndexes(Enum):
     All = auto()
@@ -217,7 +217,7 @@ class HOMPCMultiRobot(HOMPC):
             
     # ======================================================================== #
     
-    def null_consensus_start(self):
+    def null_consensus_start(self):         # NOTE activate flag for Z intersection
         self.hqp.start_consensus = True
 
     def remove_robots(self, idx_robots: dict[list[int]]):
@@ -914,7 +914,9 @@ class HOMPCMultiRobot(HOMPC):
                         d[ii:ii + ni_block] += coeff
 
                         ii += ni_block
-                                        
+
+        #print(f'A:\n{A}\n b:\n{b}\n C:\n{C}\n d:\n{d}\n ')
+
         return A, b, C, d
     
     # ==================== _helper_create_task_i_matrices ==================== #

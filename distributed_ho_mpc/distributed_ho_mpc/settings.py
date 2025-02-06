@@ -13,13 +13,13 @@ n_steps = 40
 
 
 output = {
-        'display':'plot', 
-        'save': 'save', 
-        'nothing' :'none'
-        }
+    'display':'plot', 
+    'save': 'save', 
+    'nothing' :'none'
+}
 visual_method = output['display'] # change the key to decide the output visualization
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
 n_control = 3 # mpc control step
-m_pred = 0 # mpc prediction step
+n_pred = 0 # mpc prediction step

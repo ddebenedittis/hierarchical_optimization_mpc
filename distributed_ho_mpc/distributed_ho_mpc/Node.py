@@ -1,14 +1,16 @@
-import numpy as np
 import copy
 import time
-from Message import *
-from robot_models import get_unicycle_model, get_omnidirectional_model
+
+import numpy as np
 import casadi as ca
 
 from auxiliary.evolve import evolve
 from ho_mpc.ho_mpc import HOMPC
-from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskType
+from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType
 from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
+from Message import *
+from robot_models import get_unicycle_model, get_omnidirectional_model
+import settings as st
 
 
 class Node():
@@ -79,9 +81,11 @@ class Node():
         n_robots = [self.degree+1, 0] # n° of neighbours + self agent
 
         tasks_creator = TasksCreatorHOMPCMultiRobot(
-                                                         self.s, self.u, self.s_kp1, self.dt, n_robots,
-                                                        )
+            self.s, self.u, self.s_kp1, self.dt, n_robots,
+        )
         
+        self.robot_idx = [[0],[]]
+
         self.task_input_limits = tasks_creator.get_task_input_limits()
         self.aux, self.mapping, self.task_formation, self.task_formation_coeff = tasks_creator.get_task_formation()
 
@@ -89,7 +93,7 @@ class Node():
         self.task_pos_coeff = [None for i in range(len(self.goals))]
         for i, g in enumerate(self.goals):
             self.task_pos[i], self.task_pos_coeff[i] = tasks_creator.get_task_pos_ref(
-                [[g for n_j in range(n_robots[c])] for c in range(len(n_robots))]
+                [[g for n_j in range(n_robots[c])] for c in range(len(n_robots))], robot_idx=self.robot_idx
         )
         self.task_input_smooth, self.task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
         self.task_input_limits_coeffs = [
@@ -108,8 +112,8 @@ class Node():
     # ---------------------------------------------------------------------------- #
     def MPC(self)->None:
         self.hompc = HOMPCMultiRobot(self.s, self.u, self.s_kp1, [self.degree+1,0])
-        self.hompc.n_control = 4
-        self.hompc.n_pred = 0
+        self.hompc.n_control = st.n_control
+        self.hompc.n_pred = st.n_pred
         
         for task in self.tasks:
             if task['name'] == "input_limits":
@@ -118,6 +122,7 @@ class Node():
                                 type = TaskType.Same,
                                 ineq_task_ls = self.task_input_limits,
                                 #ineq_task_coeff= self.task_input_limits_coeffs
+                                robot_index=self.robot_idx
                                 )
             elif task['name'] == "position":
                 self.hompc.create_task(
@@ -125,7 +130,8 @@ class Node():
                                 type = TaskType.Same,
                                 eq_task_ls = self.task_pos[task['goal_index']],
                                 eq_task_coeff = self.task_pos_coeff[task['goal_index']],
-                                time_index = [0, 1, 2, 3]
+                                time_index = TaskIndexes.All,
+                                robot_index=self.robot_idx
                                 )
             elif task['name'] == "input_minimization":
                 self.hompc.create_task(
@@ -186,7 +192,7 @@ class Node():
         for j in self.neigh:
             data = self.buffer.pop()
             self.neighbors_sum += data.node_xi
-            self.s[0][1] = data.s[0][1]
+            self.s[0][1] = (self.s[0][1] + data.s[0][1])/(self.degree + 1)
             if self.step >= 3 :
                 self.null_sharing(data.Z, data.node_id)
 
@@ -203,13 +209,7 @@ class Node():
             self.Z_old.append(Z)
                     
             self.s = evolve(self.s, self.u_star, self.dt)                      
-            '''for i in range(10):
-                self.s = self.s + self.dt / 10 * np.array([
-                    self.u_star[0] * np.cos(self.s[0][2]),
-                    self.u_star[0] * np.sin(self.s[0][2]),
-                    self.u_star[1]
-                ])'''
-            
+
             print(self.s)
             print(self.u_star)
             print()

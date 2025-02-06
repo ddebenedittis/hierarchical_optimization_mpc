@@ -361,7 +361,7 @@ class HierarchicalQP:
 
         # Number of tasks.
         n_tasks = len(A)
-
+        # ! print(f'matrix A \n {A} \n')
         # Dimension of the optimization vector.
         nx = A[0].shape[1] 
 

@@ -122,7 +122,6 @@ class Node():
                                 type = TaskType.Same,
                                 ineq_task_ls = self.task_input_limits,
                                 #ineq_task_coeff= self.task_input_limits_coeffs
-                                robot_index=self.robot_idx
                                 )
             elif task['name'] == "position":
                 self.hompc.create_task(
@@ -192,7 +191,7 @@ class Node():
         for j in self.neigh:
             data = self.buffer.pop()
             self.neighbors_sum += data.node_xi
-            self.s[0][1] = (self.s[0][1] + data.s[0][1])/(self.degree + 1)
+            self.s[0][1] = (self.s[0][1] + data.s[0][0])/(self.degree + 1)
             if self.step >= 3 :
                 self.null_sharing(data.Z, data.node_id)
 
@@ -212,6 +211,7 @@ class Node():
 
             print(self.s)
             print(self.u_star)
+            print(f'xi: {self.xi}')
             print()
             
             self.s_history[self.step] = copy.deepcopy(self.s)

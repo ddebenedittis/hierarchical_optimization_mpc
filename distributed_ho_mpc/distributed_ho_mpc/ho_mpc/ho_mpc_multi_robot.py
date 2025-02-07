@@ -1143,7 +1143,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
 
         s_1 = [
-            [x_star[self._get_idx_state_kp1(c, j, 0)]
+            [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots)) 
         ]

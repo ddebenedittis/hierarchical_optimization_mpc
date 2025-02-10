@@ -237,7 +237,7 @@ def main_formation(
         obstacle_pos, obstacle_size
     )
     
-    aux, mapping, task_avoid_collision, task_avoid_collision_coeff = tasks_creator.get_task_avoid_collision(0.1)
+    aux_avoid_collision, mapping_avoid_collision, task_avoid_collision, task_avoid_collision_coeff = tasks_creator.get_task_avoid_collision(0.5)
     
     task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([1, 0])
     
@@ -245,7 +245,7 @@ def main_formation(
     #     [3, 1]
     # )
     
-    aux, mapping, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
+    aux_formation, mapping_formation, task_formation, task_formation_coeff = tasks_creator.get_task_formation()
     
     task_input_min = tasks_creator.get_task_input_min()
     
@@ -274,26 +274,26 @@ def main_formation(
         ineq_task_ls = task_obs_avoidance,
     )
     
-    # hompc.create_task_bi(
-    #     name = "collision_avoidance", prio = 4,
-    #     type = TaskType.Bi,
-    #     aux = aux,
-    #     mapping = mapping,
-    #     ineq_task_ls=task_avoid_collision,
-    #     ineq_task_coeff=task_avoid_collision_coeff,
-    # )
+    hompc.create_task_bi(
+        name = "collision_avoidance", prio = 4,
+        type = TaskType.Bi,
+        aux = aux_avoid_collision,
+        mapping = mapping_avoid_collision,
+        ineq_task_ls=task_avoid_collision,
+        ineq_task_coeff=task_avoid_collision_coeff,
+    )
     
     hompc.create_task_bi(
-        name = "formation", prio = 4,
+        name = "formation", prio = 5,
         type = TaskType.Bi,
-        aux = aux,
-        mapping = mapping,
+        aux = aux_formation,
+        mapping = mapping_formation,
         eq_task_ls = task_formation,
         eq_task_coeff = task_formation_coeff,
     )
     
     hompc.create_task(
-        name = "centroid_vel_ref", prio = 5,
+        name = "centroid_vel_ref", prio = 6,
         type = TaskType.Sum,
         eq_task_ls = task_centroid_vel_ref,
         time_index = TaskIndexes.Last,
@@ -308,7 +308,7 @@ def main_formation(
     # )
     
     hompc.create_task(
-        name = "input_minimization", prio = 6,
+        name = "input_minimization", prio = 7,
         type = TaskType.Same,
         eq_task_ls = task_input_min,
     )

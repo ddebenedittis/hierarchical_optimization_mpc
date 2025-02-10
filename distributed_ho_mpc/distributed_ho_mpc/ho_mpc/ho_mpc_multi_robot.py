@@ -914,8 +914,8 @@ class HOMPCMultiRobot(HOMPC):
                         d[ii:ii + ni_block] += coeff
 
                         ii += ni_block
-
-        #print(f'A:\n{A}\n b:\n{b}\n C:\n{C}\n d:\n{d}\n ')
+        '''if A.size > 0 :
+            print(f'A:\n{A}\n b:\n{b}\n C:\n{C}\n d:\n{d}\n ')'''
 
         return A, b, C, d
     
@@ -1142,6 +1142,12 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
 
+        u_1 = [
+            [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
+                for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots))
+        ]
+
         s_1 = [
             [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
                 for j in range(self.n_robots[c])]
@@ -1153,7 +1159,7 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, s_1, Z
+        return u_0, u_1, Z
     
     # ======================================================================== #
     

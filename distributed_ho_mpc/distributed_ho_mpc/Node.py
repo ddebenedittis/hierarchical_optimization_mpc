@@ -62,7 +62,7 @@ class Node():
 
         self.Xsym = [task['Xsym'] for task in self.tasks]
          
-        self.s_next = [[np.array([0,0,0]),np.array([0,0,0])]]
+        self.u_next = [[np.array([0,0]),np.array([0,0])]]
         self.Z_old = []
         self.Z_neigh = {f'{i}': [[np.eye(20)]] for i in self.neigh} #np.empty([20,20])
 
@@ -174,9 +174,9 @@ class Node():
         " Create a message with state and the neighbours to share with"
         
         if self.step < 2:
-            message = Message(self.node_id, self.xi, self.s_next, Z=None, Xsym=None)
+            message = Message(self.node_id, self.xi, self.u_next, Z=None, Xsym=None)
         else :
-            message = Message(self.node_id, self.xi, self.s_next, self.Z_old[-1], Xsym=None)
+            message = Message(self.node_id, self.xi, self.u_next, self.Z_old[-1], Xsym=None)
         
 
         return message, self.neigh
@@ -191,7 +191,7 @@ class Node():
         for j in self.neigh:
             data = self.buffer.pop()
             self.neighbors_sum += data.node_xi
-            self.s[0][1] = (self.s[0][1] + data.s[0][0])/(self.degree + 1)
+            #self.s[0][1] = (self.s[0][1] + data.s[0][0])/(self.degree + 1)
             if self.step >= 3 :
                 self.null_sharing(data.Z, data.node_id)
 
@@ -204,16 +204,16 @@ class Node():
         if self.step < self.n_steps:
             print(self.step)
             
-            self.u_star, self.s_next, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
+            self.u_star, self.u_next, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
             self.Z_old.append(Z)
-                    
+
+            self.u_star[0][1] = (self.u_star[0][1]+ data.s[0][0])/2
+
             self.s = evolve(self.s, self.u_star, self.dt)                      
 
-            print(self.s)
-            print(self.u_star)
-            print(f'xi: {self.xi}')
-            print()
+            print(f's:\t{self.s}\nu:\t{self.u_star}\n')
             
+               
             self.s_history[self.step] = copy.deepcopy(self.s)
             #self.s_history[self.step, :] = copy.deepcopy(self.s)
             self.step += 1

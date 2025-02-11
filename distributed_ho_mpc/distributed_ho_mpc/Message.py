@@ -9,6 +9,7 @@ class Message:
     node_id: int    # Identifier of the agent that send the message
     node_xi: float  # Shared information
     s: list # state vector
+    u: list
     Z : dict # Nullspace
     Xsym : list # symbolic component of the optimization vector 
     

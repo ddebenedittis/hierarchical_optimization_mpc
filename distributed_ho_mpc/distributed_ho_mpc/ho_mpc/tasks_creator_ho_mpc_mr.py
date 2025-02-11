@@ -276,7 +276,7 @@ class TasksCreatorHOMPCMultiRobot():
         )
         
         task_formation_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 1, 5**2)
+            TaskBiCoeff(0, 0, 0, 1, 1, 2**2)
         ]
         
         return aux, mapping, task_formation, task_formation_coeff

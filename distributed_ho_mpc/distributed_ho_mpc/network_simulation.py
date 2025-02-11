@@ -17,7 +17,7 @@ model = {
 # ---------------------------------------------------------------------------- #
 
 goals = [
-        np.array([13, -16]),
+        np.array([12, -10]),
         np.array([11, 6]),
         
     ]
@@ -34,13 +34,13 @@ system_tasks = {
                 {'prio':3,             # priority
                  'name':"formation",   # task type
                  'Xsym' : None
-                      },
-                {'prio':5,             # priority
+                      }, 
+                {'prio':4,             # priority
                  'name':"position",   # task type
                  'goal': goals[0],         # [x,y] 
                  'goal_index':0,          # index of the corrisponding list goal's element 
                  'Xsym': None
-                        }                
+                        },               
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -53,13 +53,7 @@ system_tasks = {
                 {'prio':3,             # priority
                  'name':"formation",   # task type
                  'Xsym' : None
-                      },
-                {'prio':4,             # priority
-                 'name':"position",   # task type
-                 'goal': goals[1],         # [x,y] 
-                 'goal_index':1,          # index of the corrisponding list goal's element 
-                 'Xsym': None
-                        }
+                      }
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -169,8 +163,6 @@ for i in range(st.n_steps):
 # ---------------------------------------------------------------------------- #
 #                          plot the states evolutions                          #
 # ---------------------------------------------------------------------------- #
-
-
 s_hist_merged = [
     [
         sum((node.s_history[i][j][:1] for node in nodes), []) 
@@ -185,4 +177,3 @@ s_hist_merged = [nodes[0].s_history[i][0:1] + nodes[1].s_history[i][0:1] for i i
 '''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
 display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)'''
 display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False)
-

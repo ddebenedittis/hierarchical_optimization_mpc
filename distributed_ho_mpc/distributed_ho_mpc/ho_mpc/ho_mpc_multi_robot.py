@@ -1142,24 +1142,41 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
 
-        u_1 = [
+        '''u_1 = [
             [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
+        ]'''
+        for c, n_r in enumerate(self.n_robots):
+            for j in range(n_r):
+                for k in range(n_c):
+                    self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
+        
+
+
+        u = [
+            [[self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
+                for k in range(n_c)] for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots))
+        ]
+        s = [
+            [[np.reshape(self._state_bar[c][j][k], 3) + x_star[self._get_idx_state_kp1(c, j, k)]
+                for k in range(n_c)] for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots))
         ]
 
-        s_1 = [
+        '''s_1 = [
             [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots)) 
-        ]
+        ]'''
         
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, u_1, Z
+        return u_0, u, s, Z
     
     # ======================================================================== #
     
@@ -1215,7 +1232,7 @@ class HOMPCMultiRobot(HOMPC):
         if j < 0 or j > self.n_robots[c] - 1:
             raise ValueError
         
-        if k < 0 or k > self._n_control + self._n_pred - 1:
+        if k < 0 or k > self._n_control + self._n_pred - 1:  
             raise ValueError
         
         n_c = self._n_control

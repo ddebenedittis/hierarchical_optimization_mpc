@@ -61,17 +61,18 @@ class Node():
         self.tasks = tasks
 
         self.Xsym = [task['Xsym'] for task in self.tasks]
-         
+        
+        self.n_robots = [self.degree+1,0]
+
+        # shared variable
+        self.s_opt = []
+        self.u_opt = []
+
         self.u_next = [[np.array([0,0]),np.array([0,0])]]
         self.Z_old = []
-        self.Z_neigh = {f'{i}': [[np.eye(20)]] for i in self.neigh} #np.empty([20,20])
+        self.Z_neigh = {f'{i}': [[np.eye(30)]] for i in self.neigh} #np.empty([20,20])
 
     
-    def receive_data(self, message)->None:
-        " Append the received information in a local buffer"
-
-        self.buffer.append(message)
-
     # ---------------------------------------------------------------------------- #
     #                                     Task                                     #
     # ---------------------------------------------------------------------------- #
@@ -169,14 +170,23 @@ class Node():
 
         return
     
+    # ---------------------------------------------------------------------------- #
+    #                                Node's Methods                                #
+    # ---------------------------------------------------------------------------- #
+
+
+    def receive_data(self, message)->None:
+        " Append the received information in a local buffer"
+
+        self.buffer.append(message)
 
     def transmit_data(self):
         " Create a message with state and the neighbours to share with"
-        
+        # modify message 
         if self.step < 2:
-            message = Message(self.node_id, self.xi, self.u_next, Z=None, Xsym=None)
+            message = Message(self.node_id, self.xi, self.s_opt, self.u_opt, Z=None, Xsym=None)
         else :
-            message = Message(self.node_id, self.xi, self.u_next, self.Z_old[-1], Xsym=None)
+            message = Message(self.node_id, self.xi, self.s_opt, self.u_opt, self.Z_old[-1], Xsym=None)
         
 
         return message, self.neigh
@@ -191,10 +201,18 @@ class Node():
         for j in self.neigh:
             data = self.buffer.pop()
             self.neighbors_sum += data.node_xi
-            #self.s[0][1] = (self.s[0][1] + data.s[0][0])/(self.degree + 1)
             if self.step >= 3 :
                 self.null_sharing(data.Z, data.node_id)
-
+                for c, n_r in enumerate(self.n_robots):
+                    for j in range(self.n_robots[c]):
+                        for k in range(st.n_control):
+                            self.s_opt[c][j][k] = copy.deepcopy((self.s_opt[c][j][k] + data.s[c][np.abs(j-1)][k])/(self.degree+1))
+                for c, n_r in enumerate(self.n_robots):
+                    for j in range(self.n_robots[c]):
+                        for k in range(st.n_control):
+                            self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
+                self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]]
+            #consensus on x 
             
          
 
@@ -204,14 +222,18 @@ class Node():
         if self.step < self.n_steps:
             print(self.step)
             
-            self.u_star, self.u_next, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
+            if self.step >= 3 :
+                self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh, copy.deepcopy(self.u_opt))
+            else:
+                self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
             self.Z_old.append(Z)
-
-            self.u_star[0][1] = (self.u_star[0][1]+ data.s[0][0])/2
+            # put in message u and s
+            #self.u_star[0][1] = (self.u_star[0][1]+ data.s[0][0])/2
 
             self.s = evolve(self.s, self.u_star, self.dt)                      
 
-            print(f's:\t{self.s}\nu:\t{self.u_star}\n')
+            print(f's:\t{self.s}\n'
+                  f'u:\t{self.u_star}\n')
             
                
             self.s_history[self.step] = copy.deepcopy(self.s)

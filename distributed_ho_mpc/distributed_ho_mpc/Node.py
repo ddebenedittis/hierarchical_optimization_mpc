@@ -108,6 +108,13 @@ class Node():
             
         self.task_input_min = tasks_creator.get_task_input_min()
 
+        obstacle_pos = np.array([1, 1])
+        obstacle_size = 3
+        self.task_obs_avoidance = tasks_creator.get_task_obs_avoidance(
+                                                    obstacle_pos, obstacle_size
+                                            )
+
+
     # ---------------------------------------------------------------------------- #
     #                                      MPC                                     #
     # ---------------------------------------------------------------------------- #
@@ -159,6 +166,15 @@ class Node():
                                 eq_task_ls = self.task_formation,
                                 eq_task_coeff = self.task_formation_coeff,
                                         )
+            elif task['name'] == 'obstacle_avoidance':
+                self.hompc.create_task(
+                                name = "obstacle_avoidance", prio = task['prio'],
+                                type = TaskType.Same,
+                                eq_task_ls = self.task_obs_avoidance,
+                                robot_index=self.robot_idx,
+                                time_index = TaskIndexes.All,
+                                        )
+    
 
         # ======================================================================== #
         

@@ -26,34 +26,34 @@ system_tasks = {
     'agent_0': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
                  'Xsym' : None
-                      },
+                    },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
                  'Xsym' : None
-                      },
+                      },         
                 {'prio':3,             # priority
-                 'name':"formation",   # task type
-                 'Xsym' : None
-                      }, 
-                {'prio':4,             # priority
                  'name':"position",   # task type
                  'goal': goals[0],         # [x,y] 
                  'goal_index':0,          # index of the corrisponding list goal's element 
                  'Xsym': None
-                        },               
+                    }, 
+                {'prio':4,             # priority
+                 'name':"obstacle_avoidance",   # task type
+                 'Xsym' : None
+                    },      
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
                  'Xsym' : None
-                      },
+                    },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
                  'Xsym' : None
-                      },
+                    },          
                 {'prio':3,             # priority
-                 'name':"formation",   # task type
+                 'name':"obstacle_avoidance",   # task type
                  'Xsym' : None
-                      }
+                    },   
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type

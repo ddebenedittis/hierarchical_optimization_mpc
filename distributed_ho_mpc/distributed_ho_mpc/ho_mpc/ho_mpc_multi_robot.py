@@ -597,7 +597,7 @@ class HOMPCMultiRobot(HOMPC):
     def create_task_bi(
         self,
         name: str,
-        prio: int,
+        prio: int, 
         type: TaskType,
         aux: ca.SX,
         mapping: list[ca.SX] | None = None,
@@ -648,6 +648,70 @@ class HOMPCMultiRobot(HOMPC):
             mapping = mapping,
             time_index = time_index
         ))
+    
+    # ! new function
+
+    def update_task_bi(
+        self,
+        name: str,
+        prio: int | None = None,
+        type: TaskType | None = None,
+        aux: ca.SX | None = None,
+        mapping: list[ca.SX] | None = None,
+        eq_task_ls: ca.SX | None = None,
+        eq_task_coeff: list[np.ndarray] | None = None,
+        eq_weight: float = 1.0,
+        ineq_task_ls: ca.SX | None = None,
+        ineq_task_coeff: list[np.ndarray] | None = None,
+        ineq_weight: float = 1.0,
+        time_index: TaskIndexes = TaskIndexes.All
+    ):
+        for i, t in enumerate(self._tasks):
+            if t.name == name:
+                id = i
+                break
+                           
+        if prio is None:
+            prio = self._tasks[id].prio
+        if type is None:
+            type = self._tasks[id].type
+        if aux is None:
+            aux = self._tasks[id].aux_var
+        if mapping is None:
+            mapping = self._tasks[id].mapping
+        if eq_task_ls is None:
+            eq_task_ls = self._tasks[id].eq_task_ls
+        if eq_task_coeff is None:
+            eq_task_coeff = self._tasks[id].eq_coeff
+        if eq_weight is None:
+            eq_weight = self._tasks[id].eq_weight
+        if ineq_task_ls is None:
+            ineq_task_ls = self._tasks[id].ineq_task_ls
+        if ineq_task_coeff is None:
+            ineq_task_coeff = self._tasks[id].ineq_coeff
+        if time_index is None:
+            time_index = self._tasks[id].time_index
+        if ineq_weight is None:
+            ineq_weight = self._tasks[id].ineq_weight
+            
+        self._tasks[i] = self.Task(
+            name = name,
+            prio = prio,
+            type = type,
+            eq_task_ls = eq_task_ls,
+            eq_J_T_s = None,
+            eq_J_T_u = None,
+            eq_coeff = eq_task_coeff,
+            eq_weight=eq_weight,
+            ineq_task_ls = ineq_task_ls,
+            ineq_J_T_s = None,
+            ineq_J_T_u = None,
+            ineq_coeff = ineq_task_coeff,
+            ineq_weight=ineq_weight,
+            aux_var = aux,
+            mapping = mapping,
+            time_index = time_index
+        )
     
     # ======================================================================== #
         
@@ -1105,6 +1169,13 @@ class HOMPCMultiRobot(HOMPC):
         start_time = time.time()
         self._initialize(state_meas, inputs)
         
+        # ! update position of neighbour to reach
+        self.update_task(
+            name = 'obstacle_avoidance',
+            type = TaskType.Same,
+            eq_task_ls = np.reshape(self._state_bar[0][1][0][0:2], 2)
+        )
+
         n_tasks = len(self._tasks)
         
         A = [None] * (1 + n_tasks)

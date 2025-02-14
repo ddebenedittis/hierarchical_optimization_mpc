@@ -240,7 +240,7 @@ class Node():
             print(self.step)
             
             if self.step >= 3 :
-                self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh, copy.deepcopy(self.u_opt))
+                self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh, copy.deepcopy(self.u_opt), self.node_id)
             else:
                 self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)
             self.Z_old.append(Z)

@@ -1165,16 +1165,17 @@ class HOMPCMultiRobot(HOMPC):
         
     # ======================================================================== #
     
-    def __call__(self, state_meas: np.ndarray = None, Null: np.ndarray = None, inputs: list[np.ndarray] = None, ) -> np.ndarray:
+    def __call__(self, state_meas: np.ndarray = None, Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
         start_time = time.time()
         self._initialize(state_meas, inputs)
         
         # ! update position of neighbour to reach
-        self.update_task(
-            name = 'obstacle_avoidance',
-            type = TaskType.Same,
-            eq_task_ls = np.reshape(self._state_bar[0][1][0][0:2], 2)
-        )
+        if id == 1:
+            self.update_task(
+                name = 'obstacle_avoidance',
+                type = TaskType.Same,
+                eq_task_ls = np.reshape(self._state_bar[0][1][0][0:2], 2)
+            )
 
         n_tasks = len(self._tasks)
         

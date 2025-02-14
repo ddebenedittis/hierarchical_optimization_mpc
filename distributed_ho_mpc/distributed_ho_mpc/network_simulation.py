@@ -19,7 +19,7 @@ model = {
 goals = [
         np.array([12, -10]),
         np.array([11, 6]),
-        
+        np.array([1,1])
     ]
 
 system_tasks = {
@@ -49,11 +49,11 @@ system_tasks = {
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
                  'Xsym' : None
-                    },          
+                    }, 
                 {'prio':3,             # priority
                  'name':"obstacle_avoidance",   # task type
                  'Xsym' : None
-                    },   
+                    },  
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type

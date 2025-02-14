@@ -7,9 +7,9 @@ p = 1   # probability of arc of communication
 n_nodes = 2 # numbers of nodes
 random_graph = True    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
-MAX_iter = 20 # Number of iteration 
+MAX_iter = 40 # Number of iteration 
 dt = 0.1
-n_steps = 40
+n_steps = 60
 
 
 output = {

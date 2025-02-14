@@ -1170,12 +1170,12 @@ class HOMPCMultiRobot(HOMPC):
         self._initialize(state_meas, inputs)
         
         # ! update position of neighbour to reach
-        if id == 1:
+        '''if id == 1:
             self.update_task(
                 name = 'obstacle_avoidance',
                 type = TaskType.Same,
-                eq_task_ls = np.reshape(self._state_bar[0][1][0][0:2], 2)
-            )
+                eq_task_ls = (np.reshape(self._state_bar[0][1][0][0:2], 2))
+            )'''
 
         n_tasks = len(self._tasks)
         

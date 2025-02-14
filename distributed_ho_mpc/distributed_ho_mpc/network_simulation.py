@@ -19,7 +19,6 @@ model = {
 goals = [
         np.array([12, -10]),
         np.array([11, 6]),
-        np.array([1,1])
     ]
 
 system_tasks = {

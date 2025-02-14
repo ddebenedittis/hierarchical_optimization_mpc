@@ -211,8 +211,8 @@ class TasksCreatorHOMPCMultiRobot():
             raise ValueError("The obstacle position must be a vector of size 2.")
         
         return [
-            ca.vertcat(- (self.s_kp1[0][0] - obstacle_pos[0])**2 + threshold**2, - (self.s_kp1[0][1] - obstacle_pos[1])**2 + threshold**2),
-            ca.vertcat(- (self.s_kp1[1][0] - obstacle_pos[0])**2 + threshold**2, - (self.s_kp1[1][1] - obstacle_pos[1])**2 + threshold**2),
+            ca.vertcat(- (self.s[0][0] - (obstacle_pos[0]))**2 + threshold**2, - (self.s[0][1] - (obstacle_pos[1]))**2 + threshold**2),
+            ca.vertcat(- (self.s[1][0] - obstacle_pos[0])**2 + threshold**2, - (self.s[1][1] - obstacle_pos[1])**2 + threshold**2),
         ]
         
         

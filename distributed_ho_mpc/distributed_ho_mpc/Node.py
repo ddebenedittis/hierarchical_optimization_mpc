@@ -81,22 +81,22 @@ class Node():
 
         n_robots = [self.degree+1, 0] # n° of neighbours + self agent
 
-        tasks_creator = TasksCreatorHOMPCMultiRobot(
+        self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s, self.u, self.s_kp1, self.dt, n_robots,
         )
         
         self.robot_idx = [[0],[]]
 
-        self.task_input_limits = tasks_creator.get_task_input_limits()
-        self.aux, self.mapping, self.task_formation, self.task_formation_coeff = tasks_creator.get_task_formation()
+        self.task_input_limits = self.tasks_creator.get_task_input_limits()
+        self.aux, self.mapping, self.task_formation, self.task_formation_coeff = self.tasks_creator.get_task_formation()
 
         self.task_pos       = [None for i in range(len(self.goals))]
         self.task_pos_coeff = [None for i in range(len(self.goals))]
         for i, g in enumerate(self.goals):
-            self.task_pos[i], self.task_pos_coeff[i] = tasks_creator.get_task_pos_ref(
+            self.task_pos[i], self.task_pos_coeff[i] = self.tasks_creator.get_task_pos_ref(
                 [[g for n_j in range(n_robots[c])] for c in range(len(n_robots))], robot_idx=self.robot_idx
         )
-        self.task_input_smooth, self.task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
+        self.task_input_smooth, self.task_input_smooth_coeffs = self.tasks_creator.get_task_input_smooth()
         self.task_input_limits_coeffs = [
             np.array([0, 0, 0, 0])
         ]
@@ -106,11 +106,11 @@ class Node():
             (self.s_kp1[1] - self.s[1]) / self.dt - 0
         )
             
-        self.task_input_min = tasks_creator.get_task_input_min()
+        self.task_input_min = self.tasks_creator.get_task_input_min()
 
         obstacle_pos = np.array([1, 1])
         obstacle_size = 3
-        self.task_obs_avoidance = tasks_creator.get_task_obs_avoidance(
+        self.task_obs_avoidance = self.tasks_creator.get_task_obs_avoidance(
                                                     obstacle_pos, obstacle_size
                                             )
 
@@ -240,6 +240,13 @@ class Node():
             print(self.step)
             
             if self.step >= 3 :
+                self.hompc.update_task(
+                    name = 'obstacle_avoidance',
+                    type = TaskType.Same,
+                    eq_task_ls = self.tasks_creator.get_task_obs_avoidance( 
+                                              np.reshape(self.hompc._state_bar[0][1][0][0:2], 2), 3)
+                )
+
                 self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh, copy.deepcopy(self.u_opt), self.node_id)
             else:
                 self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh)

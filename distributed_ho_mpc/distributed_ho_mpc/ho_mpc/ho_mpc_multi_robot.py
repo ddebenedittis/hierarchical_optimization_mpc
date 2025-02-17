@@ -1169,14 +1169,6 @@ class HOMPCMultiRobot(HOMPC):
         start_time = time.time()
         self._initialize(state_meas, inputs)
         
-        # ! update position of neighbour to reach
-        '''if id == 1:
-            self.update_task(
-                name = 'obstacle_avoidance',
-                type = TaskType.Same,
-                eq_task_ls = (np.reshape(self._state_bar[0][1][0][0:2], 2))
-            )'''
-
         n_tasks = len(self._tasks)
         
         A = [None] * (1 + n_tasks)
@@ -1224,7 +1216,7 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
         
-
+        # create optimization vector X to share with the neighbours and make consensus
 
         u = [
             [[self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]

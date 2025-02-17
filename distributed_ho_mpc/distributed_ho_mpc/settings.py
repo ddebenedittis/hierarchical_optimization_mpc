@@ -9,8 +9,9 @@ random_graph = True    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 MAX_iter = 40 # Number of iteration 
 dt = 0.1
-n_steps = 60
+n_steps = 200
 
+formation_distance = 4
 
 output = {
     'display':'plot', 

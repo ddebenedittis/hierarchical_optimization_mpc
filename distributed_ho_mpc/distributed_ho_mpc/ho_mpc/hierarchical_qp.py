@@ -366,6 +366,7 @@ class HierarchicalQP:
         nx = A[0].shape[1] 
 
         # Optimization vector.
+        x_star_bar_2 = np.zeros(nx)
         x_star_bar = np.zeros(nx)
         
         # History of the slack variables, stored as a list of np.arrays.
@@ -480,20 +481,19 @@ class HierarchicalQP:
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-            
+            x_star_bar_2 = x_star_bar + Z @ x_star
             Z_list.append(Z)
-            if self.start_consensus:                            # NOTE: for each neigh, intersect null space fot each level of priority
+            if self.start_consensus:                           # NOTE: for each neigh, intersect null space for each level of priority
                 for key in Z_n.keys():
                     if len(Z_n[key][-1]) > priority:           # check if neigh as same priority level's task
                         Z = Z @ Z_n[key][-1][priority]
                     else:
                         Z = Z @ Z_n[key][-1][-1]
-            '''for key in Z_n.keys():
-                    Z = Z @ Z_n[key][-1][-1]'''
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
-
+            diff = x_star_bar_2 - x_star_bar
+            print(diff)
             # Store the history of w_star
             if priority == 0:
                 w_star_bar = [sol[nx:]]

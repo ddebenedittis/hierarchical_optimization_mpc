@@ -109,7 +109,7 @@ class Node():
         self.task_input_min = self.tasks_creator.get_task_input_min()
 
         obstacle_pos = np.array([1, 1])
-        obstacle_size = 3
+        obstacle_size = st.formation_distance
         self.task_obs_avoidance = self.tasks_creator.get_task_obs_avoidance(
                                                     obstacle_pos, obstacle_size
                                             )
@@ -239,12 +239,12 @@ class Node():
         if self.step < self.n_steps:
             print(self.step)
             
-            if self.step >= 3 :
+            if self.step >= 3:
                 self.hompc.update_task(
                     name = 'obstacle_avoidance',
                     type = TaskType.Same,
                     eq_task_ls = self.tasks_creator.get_task_obs_avoidance( 
-                                              np.reshape(self.hompc._state_bar[0][1][0][0:2], 2), 3)
+                                              np.reshape(self.hompc._state_bar[0][1][0][0:2], 2), st.formation_distance)
                 )
 
                 self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s), self.Z_neigh, copy.deepcopy(self.u_opt), self.node_id)

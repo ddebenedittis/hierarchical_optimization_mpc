@@ -1,20 +1,20 @@
-import numpy as np 
 import networkx as nx
-from matplotlib.animation import FuncAnimation
-import matplotlib.pyplot as plt
-from Node import Node
-from robot_models import get_unicycle_model, get_omnidirectional_model
+import numpy as np 
+
+from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
+
+from distributed_ho_mpc.node import Node
 import settings as st
-from auxiliary.disp_het_multi_rob import display_animation
 
 model = {
    'unicycle': get_unicycle_model(st.dt),
    'omnidirectional': get_omnidirectional_model(st.dt)
 }
 
-# ---------------------------------------------------------------------------- #
-#                                 Task scheduler                               #
-# ---------------------------------------------------------------------------- #
+# =========================================================================== #
+#                                TASK SCHEDULER                               #
+# =========================================================================== #
 
 goals = [
         np.array([12, -10]),

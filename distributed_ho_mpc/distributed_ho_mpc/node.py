@@ -4,12 +4,13 @@ import time
 import numpy as np
 import casadi as ca
 
-from auxiliary.evolve import evolve
+from hierarchical_optimization_mpc.auxiliary.evolve import evolve
+from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model
+
 from ho_mpc.ho_mpc import HOMPC
 from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType
 from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
-from Message import *
-from robot_models import get_unicycle_model, get_omnidirectional_model
+from distributed_ho_mpc.message import *
 import settings as st
 
 

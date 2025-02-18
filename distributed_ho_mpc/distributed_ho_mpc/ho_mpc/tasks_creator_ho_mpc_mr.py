@@ -2,7 +2,7 @@ import casadi as ca
 import numpy as np
 
 from ho_mpc.ho_mpc_multi_robot import TaskBiCoeff
-from ho_mpc.voronoi_task import VoronoiTask
+from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 
 

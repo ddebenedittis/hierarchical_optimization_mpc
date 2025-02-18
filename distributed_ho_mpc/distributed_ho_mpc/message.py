@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import numpy as np
 
 @dataclass
 class Message:
@@ -12,4 +11,3 @@ class Message:
     u: list
     Z : dict # Nullspace
     Xsym : list # symbolic component of the optimization vector 
-    

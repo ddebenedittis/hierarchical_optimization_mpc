@@ -240,7 +240,7 @@ class Node():
         if self.step < self.n_steps:
             print(self.step)
             
-            if self.step >= 3:
+            if self.step >= 3 and self.node_id == 1:
                 self.hompc.update_task(
                     name = 'obstacle_avoidance',
                     type = TaskType.Same,

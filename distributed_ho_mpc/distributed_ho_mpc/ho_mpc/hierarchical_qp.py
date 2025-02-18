@@ -483,7 +483,7 @@ class HierarchicalQP:
             x_star = sol[0:nx]
             x_star_bar_2 = x_star_bar + Z @ x_star
             Z_list.append(Z)
-            if self.start_consensus:                           # NOTE: for each neigh, intersect null space for each level of priority
+            if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
                 for key in Z_n.keys():
                     if len(Z_n[key][-1]) > priority:           # check if neigh as same priority level's task
                         Z = Z @ Z_n[key][-1][priority]

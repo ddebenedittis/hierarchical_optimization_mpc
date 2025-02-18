@@ -36,10 +36,6 @@ system_tasks = {
                  'goal_index':1,          # index of the corrisponding list goal's element 
                  'Xsym': None
                     },
-                {'prio':4,             # priority
-                 'name':"obstacle_avoidance",   # task type
-                 'Xsym' : None
-                    },  
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type

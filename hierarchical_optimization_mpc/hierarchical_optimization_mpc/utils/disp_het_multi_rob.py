@@ -373,6 +373,14 @@ class Animation():
                 s = 250 * scale**2, c = 'C0',
                 marker = marker,
             )
+        # TODO: handle myself robots (style) in plot
+        # real robot.
+        # self.artists.myself = plt.scatter(
+        #     x = x[0][i,0], y = x[0][i,1],
+        #     s = 250 * scale**2, c = 'C0',
+        #     marker = marker,
+        # )
+        
             
         # Omnidirectional robot.
         self.artists.omnidir = plt.scatter(
@@ -380,6 +388,14 @@ class Animation():
             s = 25, c = 'C1',
             marker = 'o',
         )
+        # TODO: handle neigh robots (style) in plot
+        # neighbours robot.
+        # self.artists.neigh = plt.scatter(
+        #     x = x[1][:,0], y = x[1][:,1],
+        #     s = 25, c = 'C1',
+        #     marker = 'o',
+        # )
+        
         
         # Fleet centroid. Plotted only if more than one robot.
         if sum(self.n_robots) > 1:

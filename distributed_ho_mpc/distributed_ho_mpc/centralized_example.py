@@ -6,7 +6,7 @@ import numpy as np
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from distributed_ho_mpc.utils.disp_het_multi_rob import (
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     display_animation,
     MultiRobotArtists,
     plot_distances,
@@ -106,21 +106,21 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 4
+    hompc.n_control = 1
     hompc.n_pred = 0
     
-    hompc.create_task(
-        name="input_limits", prio=1,
-        type=TaskType.Same,
-        ineq_task_ls=task_input_limits.tolist(),
-    )
-    hompc.create_task(
-        name="pos_ref_1", prio=2,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_1.tolist(),
-        eq_task_coeff=task_pos_ref_1_coeff.tolist(),
-        robot_index=[[0]],
-    )
+    # hompc.create_task(
+    #     name="input_limits", prio=1,
+    #     type=TaskType.Same,
+    #     ineq_task_ls=task_input_limits.tolist(),
+    # )
+    # hompc.create_task(
+    #     name="pos_ref_1", prio=2,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_1.tolist(),
+    #     eq_task_coeff=task_pos_ref_1_coeff.tolist(),
+    #     robot_index=[[0]],
+    # )
     hompc.create_task_bi(
         name="formation", prio=3,
         type=TaskType.Bi,
@@ -129,25 +129,25 @@ def main():
         eq_task_ls=task_formation,
         eq_task_coeff=task_formation_coeff,
     )
-    hompc.create_task(
-        name="pos_ref_2", prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_2.tolist(),
-        eq_task_coeff=task_pos_ref_2_coeff.tolist(),
-        robot_index=[[1]]
-    )
-    hompc.create_task(
-        name="pos_ref_3", prio=5,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_3.tolist(),
-        eq_task_coeff=task_pos_ref_3_coeff.tolist(),
-        robot_index=[[2]]
-    )
-    hompc.create_task(
-        name="input_min", prio=6,
-        type=TaskType.Same,
-        eq_task_ls=task_input_min.tolist(),
-    )
+    # hompc.create_task(
+    #     name="pos_ref_2", prio=4,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_2.tolist(),
+    #     eq_task_coeff=task_pos_ref_2_coeff.tolist(),
+    #     robot_index=[[1]]
+    # )
+    # hompc.create_task(
+    #     name="pos_ref_3", prio=5,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_3.tolist(),
+    #     eq_task_coeff=task_pos_ref_3_coeff.tolist(),
+    #     robot_index=[[2]]
+    # )
+    # hompc.create_task(
+    #     name="input_min", prio=6,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_input_min.tolist(),
+    # )
     
     # ======================================================================= #
     

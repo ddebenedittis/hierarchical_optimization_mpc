@@ -25,7 +25,7 @@ class Node():
     
     """
 
-    def __init__(self, node_id: int, adjacency_vector: np.array, model: str, dt: float, tasks: list, goals: np.array, n_steps: int):
+    def __init__(self, node_id: int, adjacency_vector: np.array, model: str, dt: float, self_tasks: list, neigh_tasks:dict, goals: np.array, n_steps: int):
 
         super(Node, self).__init__()
 
@@ -59,7 +59,8 @@ class Node():
         #self.s, self.u, self.s_kp1 = model
         self.n_steps = n_steps
         self.step = 0
-        self.tasks = tasks
+        self.tasks = self_tasks
+        self.neigh_tasks = neigh_tasks
 
         self.Xsym = [task['Xsym'] for task in self.tasks]
         

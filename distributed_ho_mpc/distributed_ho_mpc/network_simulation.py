@@ -1,11 +1,12 @@
 import networkx as nx
 import numpy as np 
+import copy
+import settings as st
 
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
 
 from distributed_ho_mpc.node import Node
-import settings as st
 
 model = {
    'unicycle': get_unicycle_model(st.dt),
@@ -119,7 +120,18 @@ while st.random_graph:
     else:
         print("the graph is NOT connected")
 
-# ---------------------------------------------------------------------------- #
+# update task manifold with the neighbours tasks
+neigh_tasks = {}
+for i in range(st.n_nodes):
+    id = 0
+    neigh_tasks[f'agent_{i}'] = {} 
+    for j in graph_matrix[i]:
+        if int(j) != 0:
+            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}'])
+            #neigh_tasks[f'agent_{i}'].append({'neigh_ID': id})  
+        id += 1
+                                                         
+#----------------------------------------------------------------------------- #
 #         Create agents and initialize them based on settings and tasks        #
 # ---------------------------------------------------------------------------- #
 
@@ -132,8 +144,9 @@ for i in range(st.n_nodes):
                 model['unicycle'],          # robot model
                 st.dt,                      # time step
                 system_tasks[f'agent_{i}'],  # agent's tasks
-                goals,                      #
-                st.n_steps                  #
+                neigh_tasks[f'agent_{i}'],   # neighbours tasks
+                goals,                      # goals to be reached
+                st.n_steps                  # max simulation steps
                     )
     nodes.append(node)
 
@@ -158,13 +171,13 @@ for i in range(st.n_steps):
 # ---------------------------------------------------------------------------- #
 #                          plot the states evolutions                          #
 # ---------------------------------------------------------------------------- #
-'''s_hist_merged = [
-    [
-        sum((node.s_history[i][j][:1] for node in nodes), []) 
-        for j in range(len(nodes[0].s_history[i]))
-    ]
-    for i in range(len(nodes[0].s_history))
-]'''
+# s_hist_merged = [
+#     [
+#         sum((node.s_history[i][j][:1] for node in nodes), []) 
+#         for j in range(len(nodes[0].s_history[i]))
+#     ]
+#     for i in range(len(nodes[0].s_history))
+# ]
 s_hist_merged = [
             sum((node.s_history[i][:1] for node in nodes), []) 
     for i in range(len(nodes[0].s_history))

@@ -25,52 +25,42 @@ goals = [
 system_tasks = {
     'agent_0': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
-                 'Xsym' : None
                     },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
-                 'Xsym' : None
                       },
                 {'prio':3,             # priority
                  'name':"position",   # task type
                  'goal': goals[1],         # [x,y] 
                  'goal_index':1,          # index of the corrisponding list goal's element 
-                 'Xsym': None
                     },
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
-                 'Xsym' : None
                     },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
-                 'Xsym' : None
-                    },
+          },
                 {'prio':3,             # priority
                  'name':"obstacle_avoidance",   # task type
-                 'Xsym' : None
-                    },  
+                 },  
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
-                 'Xsym' : None
-                      },
+                },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
-                 'Xsym' : None
-                      },
+                },
                 {'prio':3,             # priority
                  'name':"position",   # task type
                  'goal': goals[1],         # [x,y] 
                  'goal_index':2,          # index of the corrisponding list goal's element 
-                 'Xsym': [[('u1',2),('s1',3)],[('u2',2),('s2',3)]]
-                        },
+                },
                   {'prio':4,             # priority
                  'name':"position",   # task type
                  'goal': goals[0],         # [x,y] 
                  'goal_index':2,          # index of the corrisponding list goal's element 
-                 'Xsym': [[('u1',2),('s1',3)],[('u2',2),('s2',3)]]
-                        }     
+                }     
                 ],
     'agent_3': [{'prio':1,             # priority
                  'name':"input_limits",   # task type

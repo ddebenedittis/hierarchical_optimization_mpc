@@ -192,8 +192,10 @@ def main():
     artist_flags = MultiRobotArtists(
         centroid=True, goals=True, obstacles=False,
         past_trajectory=True,
-        robots=RobCont(omni=True),
-        robot_names=True,
+        omnidir=RobCont(omni=True),
+        unicycles=False,
+        #robots=RobCont(omni=True),
+        #robot_names=True,
         voronoi=False,
     )
     

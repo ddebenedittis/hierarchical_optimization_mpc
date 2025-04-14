@@ -274,6 +274,7 @@ class HierarchicalQP:
                     )
                     
     def _solve_qp(self, H, p, C, d, priority):
+        # TODO add dual variables consensus
         # Quadprog library QP problem formulation
         #   min  1/2 x^T H x - p^T x
         #   s.t. CI^T x >= ci0
@@ -441,7 +442,7 @@ class HierarchicalQP:
                 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
-            
+            sigma = min(np.linalg.eig(H))   # convexity parameter
             # ================== Compute C_tilde And D_tilde ================= #
 
             nC2 = np.concatenate(C[0:priority+1]).shape[0]

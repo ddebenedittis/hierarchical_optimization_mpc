@@ -1206,11 +1206,12 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
 
-        '''u_1 = [
-            [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
-                for j in range(self.n_robots[c])]
-            for c in range(len(self.n_robots))
-        ]'''
+        # u_1 = [
+        #     [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
+        #         for j in range(self.n_robots[c])]
+        #     for c in range(len(self.n_robots))
+        # ]
+        
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
@@ -1228,19 +1229,30 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c)] for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
         ]
+        
+        # prepare vector to share with the neighbours 
+        x_neigh = []
+        for j in range(1,self.n_robots[1]):
+            s_j = [np.reshape(self._state_bar[1][j][k], 3) + x_star[self._get_idx_state_kp1(1, j, k)]
+                    for k in range(n_c)]
+            u_j = [self._input_bar[1][j][k] + x_star[self._get_idx_input_k(1, j, k)]
+                    for k in range(n_c)]
+            x_neigh.append((j, s_j, u_j))
+            
+        
 
-        '''s_1 = [
-            [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
-                for j in range(self.n_robots[c])]
-            for c in range(len(self.n_robots)) 
-        ]'''
+        # s_1 = [
+        #     [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
+        #         for j in range(self.n_robots[c])]
+        #     for c in range(len(self.n_robots)) 
+        # ]
         
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, u, s, Z
+        return u_0, u, s, x_neigh
     
     # ======================================================================== #
     
@@ -1295,7 +1307,7 @@ class HOMPCMultiRobot(HOMPC):
         
         if j < 0 or j > self.n_robots[c] - 1:
             raise ValueError
-        
+        get_idx_s
         if k < 0 or k > self._n_control + self._n_pred - 1:  
             raise ValueError
         

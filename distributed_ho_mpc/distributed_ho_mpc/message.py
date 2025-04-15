@@ -6,11 +6,8 @@ class Message:
     contains the required data to be transferred between nodes. """
 
     node_id: int    # Identifier of the agent that send the message
-    s: list # state vector
-    u: list
-    x: list # s+u
-    Z: dict # Nullspace 
-    #mapping: list # mapping of the opt_vector: ex. [(0,8), (1,8), (2,8)] means that the node has states of 0, 1 and 2
+    x_i: list # state vector
+    x_j: list # s+u
     
 @dataclass
 class Message_dual:
@@ -19,3 +16,4 @@ class Message_dual:
     
     node_id: int    # Identifier of the agent that send the message
     rho_j: list     # dual variable
+    j: int          # id of the node to send the message

@@ -1219,13 +1219,13 @@ class HOMPCMultiRobot(HOMPC):
         
         # create optimization vector X to share with the neighbours and make consensus
 
-        u = [
-            [[self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
+        u_i = [
+            [[self._input_bar[c][0][k] + x_star[self._get_idx_input_k(c, 0, k)]
                 for k in range(n_c)] for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
         ]
-        s = [
-            [[np.reshape(self._state_bar[c][j][k], 3) + x_star[self._get_idx_state_kp1(c, j, k)]
+        s_i = [
+            [[np.reshape(self._state_bar[c][0][k], 3) + x_star[self._get_idx_state_kp1(c, 0, k)]
                 for k in range(n_c)] for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
         ]
@@ -1237,7 +1237,7 @@ class HOMPCMultiRobot(HOMPC):
                     for k in range(n_c)]
             u_j = [self._input_bar[1][j][k] + x_star[self._get_idx_input_k(1, j, k)]
                     for k in range(n_c)]
-            x_neigh.append((j, s_j, u_j))
+            x_neigh.append((j, [s_j, u_j]))
             
         
 
@@ -1252,7 +1252,7 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, u, s, x_neigh
+        return u_0, [s_i,u_i], x_neigh
     
     # ======================================================================== #
     

@@ -10,7 +10,7 @@ from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model,
 from ho_mpc.ho_mpc import HOMPC
 from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType
 from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
-from distributed_ho_mpc.message import Message, Message_dual
+from distributed_ho_mpc.message import Message, MessageSender
 import settings as st
 
 
@@ -38,8 +38,17 @@ class Node():
         self.buffer_dual = [] # local buffer to receive dual variables
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
-        # ======================== Dual variables initialization ======================= #
         self.n_priority = 3
+
+        self.sender = MessageSender(
+            self.node_id,
+            self.neigh,
+            np.array([]),
+            np.array([]),
+            self.n_priority
+        )
+
+        # ======================== Dual variables initialization ======================= #
         self.alpha = 1e-6
         
         self.rho_i = np.zeros(((self.degree)*2, self.n_priority)) # p1 [[rho^ij1_i, rho^ij1_j, rho^ij2_i, rho^ij2_j...],
@@ -115,7 +124,7 @@ class Node():
     #                                     Task                                     #
     # ---------------------------------------------------------------------------- #
     def Tasks(self)->None:
-        # Define the tasks separately.
+        "Define the tasks separately"
 
         #n_robots = [self.degree+1, 0] # n° of neighbours + self agent
 

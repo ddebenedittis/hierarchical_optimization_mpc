@@ -3,16 +3,19 @@ import numpy as np
 
 @dataclass
 class Message:
-    sender_id: int
-    x_i: np.ndarray
-    x_j: np.ndarray
-    rho_i: np.ndarray
-    rho_j: np.ndarray
-    message: str 
+    sender_id: int      # node id
+    x_i: np.ndarray     # primal variable of the sender i
+    x_j: np.ndarray     # primal variable of the neighbour j estimated by the sender i
+    rho_i: np.ndarray   # dual variable of the sender
+    rho_j: np.ndarray   # dual variable of the neighbour j estimated by the sender i
+    update: str         # update type: 'P' for primal, 'D' for dual
 
 # TODO: support multiple priorities.
 class MessageSender:
-    """TODO"""
+    """
+        Handle the communication phase between agents. Agents initialize this class and use its methods to send messages to their neighbours.
+        NOTE! the update of y and rho must be perfmormed directly in the node, invoking the class variable
+    """
     
     def __init__(
         self,
@@ -30,41 +33,69 @@ class MessageSender:
 
         
         
-    def send_message(self, receiver_id: int, message) -> Message:
-        """TODO"""
+    def send_message(self, receiver_id: int, update: str) -> Message:
+        """ 
+            Divide the primal or dual variable in the correct information to send to the receiver agent.
+            receiver_id: id of the receiver agent
+            update: 'P' for primal, 'D' for dual
+        """
         
         #! This assumes that all the x_i have the same size
         receiver_idx = list(self.adjacency_vector).index(receiver_id)
 
-        if message == 'P': 
+        if update == 'P': 
             x_i = self.y[0:self.n_xi]
             x_j = self.y[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
 
-            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, message='P')
+            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
         
-        if message == 'D':
+        if update == 'D':
             rho_i = self.rho[0:self.n_xi]
             rho_j = self.rho[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
             
-            return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, message='D')
+            return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
         
         
 
 class MessageReceiver:
-    """TODO"""
+    """
+        Handle the communication phase between agents. Agents initialize this class and use its methods to receive messages from their neighbours.
+    """
+    
+    #! This assumes that all the x_i have the same size
     
     def __init__(
             self, 
             receiver_id: int,
-            neighbour_order: list
+            adjacency_vector: np.ndarray,
+            y: np.ndarray,
+            rho: np.ndarray,
+            n_xi: int
         ):
 
         self.receiver_id = receiver_id
-        self.neighbour_order = neighbour_order        
+        self.adjacency_vector = adjacency_vector
+        self.y = y
+        self.rho = rho        
         self.messages = []
+        self.n_xi = n_xi
         
     def receive_message(self, message: Message):
+        " Store the message received from neighbours in a local buffer"
+        
         if message.sender_id == self.receiver_id:
             return
         
         self.messages.append(message)
+        
+    def process_messages(self):
+        " Reorder the messages received and update the local variables y and rho using the correct agent order"        
+                
+        while not self.messages :
+            message = self.messages.pop(0)
+            receiver_idx = list(self.adjacency_vector).index(message.sender_id)
+            if message.update == 'P':
+                self.y[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
+            elif message.update == 'D':
+                self.rho[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.rho_j
+        

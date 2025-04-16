@@ -45,14 +45,14 @@ class MessageSender:
         receiver_idx = list(self.adjacency_vector).index(receiver_id)
 
         if update == 'P':
-            x_i = self.y[0:self.n_xi]
-            x_j = self.y[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
+            x_i = self.y[:, 0:self.n_xi]
+            x_j = self.y[:, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
 
             return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
         
         if update == 'D':
-            rho_i = self.rho[0:self.n_xi]
-            rho_j = self.rho[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
+            rho_i = self.rho[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi]
+            rho_j = self.rho[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi]
             
             return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
         
@@ -70,15 +70,15 @@ class MessageReceiver:
             self, 
             receiver_id: int,
             adjacency_vector: np.ndarray,
-            y: np.ndarray,
-            rho: np.ndarray,
+            y_j: np.ndarray,
+            rho_j: np.ndarray,
             n_xi: int
         ):
 
         self.receiver_id = receiver_id
         self.adjacency_vector = adjacency_vector
-        self.y = y
-        self.rho = rho        
+        self.y_j = y_j
+        self.rho_j = rho_j        
         self.messages = []
         self.n_xi = n_xi
         
@@ -97,7 +97,8 @@ class MessageReceiver:
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
             if message.update == 'P':
-                self.y[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
+                self.y_j[0, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
+                self.y_j[1, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_i
             elif message.update == 'D':
-                self.rho[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.rho_j
-        
+                self.rho_j[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_j
+                self.rho_j[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_i

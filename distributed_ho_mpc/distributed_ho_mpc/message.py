@@ -23,15 +23,16 @@ class MessageSender:
         adjacency_vector: np.ndarray,
         y: np.ndarray,
         rho: np.ndarray,
-        n_xi: int
+        n_xi: int,
+        n_priorities: int,
     ):
         self.sender_id = sender_id
         self.adjacency_vector = adjacency_vector
         self.y = y
         self.rho = rho
         self.n_xi = n_xi
-
-        
+        self.n_priorities = n_priorities
+                
         
     def send_message(self, receiver_id: int, update: str) -> Message:
         """ 
@@ -43,7 +44,7 @@ class MessageSender:
         #! This assumes that all the x_i have the same size
         receiver_idx = list(self.adjacency_vector).index(receiver_id)
 
-        if update == 'P': 
+        if update == 'P':
             x_i = self.y[0:self.n_xi]
             x_j = self.y[receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
 
@@ -60,6 +61,7 @@ class MessageSender:
 class MessageReceiver:
     """
         Handle the communication phase between agents. Agents initialize this class and use its methods to receive messages from their neighbours.
+        NOTE! the receipt and the process of the received message are computed in two different methods
     """
     
     #! This assumes that all the x_i have the same size

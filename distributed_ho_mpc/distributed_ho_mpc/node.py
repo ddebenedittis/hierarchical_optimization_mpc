@@ -10,7 +10,7 @@ from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model,
 from ho_mpc.ho_mpc import HOMPC
 from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType
 from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
-from distributed_ho_mpc.message import Message, MessageSender
+from distributed_ho_mpc.message import Message, MessageSender, MessageReceiver
 import settings as st
 
 
@@ -38,15 +38,27 @@ class Node():
         self.buffer_dual = [] # local buffer to receive dual variables
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
-        self.n_priority = 3
+        self.n_priority = 3 # number of priorities
+        self.n_xi = 2 # dimension of primal variables
 
         self.sender = MessageSender(
             self.node_id,
             self.neigh,
-            np.array([]),
-            np.array([]),
+            np.array([[]]),
+            np.array([[]]),
+            self.n_xi,
             self.n_priority
         )
+        
+        self.receiver = MessageReceiver(
+            self.node_id,
+            self.neigh,
+            np.array([[]]),
+            np.array([[]]),
+            self.n_xi
+        )
+        
+        
 
         # ======================== Dual variables initialization ======================= #
         self.alpha = 1e-6
@@ -311,20 +323,26 @@ class Node():
 
     def receive_data(self, message)->None:
         " Append the received information in a local buffer"
-        self.buffer.append(message)
+        
+        self.receiver.receive_message(message)
+        
+        #self.buffer.append(message)
 
-    def transmit_data(self):
+    def transmit_data(self, receiver_id:int, update:str):
         " Create a message with primal variables state and the neighbours to share with"
+        
+        self.sender.send_message(receiver_id, update)
+        
         # modify message 
-        message = []
-        for jj in self.x_neigh:
-            message.append(Message(self.node_id, self.x_i, jj))
-        return message, self.neigh
+        # message = []
+        # for jj in self.x_neigh:
+        #     message.append(Message(self.node_id, self.x_i, jj))
+        # return message, self.neigh
 
+    # deprecated -> eliminate
     def dual_sharing(self, i):
         " Create a message with dual variables to share with neighbours, in order to perform dual update"
         
-        # TODO 
         message = []
         for idx, j in enumerate(self.neigh):
             message = Message_dual(self.node_id, self.rho_i[:,2*idx:2*idx+1], j)
@@ -356,7 +374,8 @@ class Node():
  
             #self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh, copy.deepcopy(self.u_opt.tolist()), self.node_id)
 
-            self.u_star, self.x_i, self.x_neigh = self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh)
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh)
+            self.sender.y = copy.deepcopy(self.y)
             
             # put in message u and s
             self.s = evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)                      

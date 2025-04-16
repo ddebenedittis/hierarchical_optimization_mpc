@@ -151,9 +151,9 @@ for i in range(st.n_nodes):
 
 for i in range(st.n_steps):
     for j in range(st.n_nodes):
-        msg, nn = nodes[j].transmit_data()      # Transmit state to shared memory
-        for jj in nn:
-            nodes[jj].receive_data(msg)         # Neighbours receive data 
+        for ij in nodes[j].neigh:  # select my neighbours
+            msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
+            nodes[ij].receive(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].update()    # Update state evolution
 

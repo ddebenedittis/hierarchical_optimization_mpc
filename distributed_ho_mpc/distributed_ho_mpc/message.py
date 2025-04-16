@@ -90,15 +90,21 @@ class MessageReceiver:
         
         self.messages.append(message)
         
-    def process_messages(self):
-        " Reorder the messages received and update the local variables y and rho using the correct agent order"        
+    def process_messages(self, update: str)-> np.ndarray:
+        " Reorder the messages received and return the local variables y and rho using the correct agent's ordering"        
                 
         while not self.messages :
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
-            if message.update == 'P':
+            if message.update == 'P' & message.update == 'P':
                 self.y_j[0, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
                 self.y_j[1, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_i
-            elif message.update == 'D':
+                return self.y_j
+            if message.update == 'D'& message.update == 'D':
                 self.rho_j[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_j
                 self.rho_j[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_i
+                return self.rho_j
+            if message.update == 'P' and update == 'D':
+                raise ValueError("The update type must be the same")
+            elif message.update == 'D' and update == 'P':
+                raise ValueError("The update type must be the same")

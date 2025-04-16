@@ -74,15 +74,6 @@ class Node():
         )
         
         
-
-        self.primal_updater = np.zeros(((self.degree) * 2, self.n_priority)) # p1 [[x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
-                                                                           # p2  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
-                                                                           # p3  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...]]
-        
-        self.dual_updater = np.zeros(((self.degree) * 2, self.n_priority)) # p1 [[rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...],
-                                                                         # p2  [rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...],
-                                                                         # p3  [rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...]]
-        
         # ======================== Define The System Model ======================= #
     
         # Define the state and input variables, and the discrete-time dynamics model.
@@ -318,9 +309,7 @@ class Node():
         )
         #self.s = [[np.array([0,0,0]),np.array([0,0,0])]]
         
-        
-        
-        self.s_history = [None] * self.n_steps
+        # self.s_history = [None] * self.n_steps
 
         return
     
@@ -347,15 +336,6 @@ class Node():
         #     message.append(Message(self.node_id, self.x_i, jj))
         # return message, self.neigh
 
-    # deprecated -> eliminate
-    def dual_sharing(self, i):
-        " Create a message with dual variables to share with neighbours, in order to perform dual update"
-        
-        message = []
-        for idx, j in enumerate(self.neigh):
-            message = Message_dual(self.node_id, self.rho_i[:,2*idx:2*idx+1], j)
-        return message, self.neigh
-    
     def update(self):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
@@ -366,17 +346,17 @@ class Node():
                 #self.null_sharing(data.Z, data.node_id)
                 
                 # consensus on x[s,u] 
-                for c, n_r in enumerate(self.n_robots):
-                    for j in range(self.n_robots[c]):
-                        for k in range(st.n_control):
-                            self.s_opt[c][j][k] = copy.deepcopy((self.s_opt[c][j][k] + data.s[c][np.abs(j-1)][k])/(self.degree+1))  #incrocio i due vettori di ottimizzazione
-                for c, n_r in enumerate(self.n_robots):
-                    for j in range(self.n_robots[c]):
-                        for k in range(st.n_control):
-                            self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
+                # for c, n_r in enumerate(self.n_robots):
+                #     for j in range(self.n_robots[c]):
+                #         for k in range(st.n_control):
+                #             self.s_opt[c][j][k] = copy.deepcopy((self.s_opt[c][j][k] + data.s[c][np.abs(j-1)][k])/(self.degree+1))  #incrocio i due vettori di ottimizzazione
+                # for c, n_r in enumerate(self.n_robots):
+                #     for j in range(self.n_robots[c]):
+                #         for k in range(st.n_control):
+                #             self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
                 #self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]] # update new value of s
-            
-
+        self.rho_j = self.receiver.process_messages('D')
+        
         if self.step < self.n_steps:
             print(self.step)
  
@@ -386,8 +366,8 @@ class Node():
             self.sender.y = copy.deepcopy(self.y)
             
             # put in message u and s
-            self.s = evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)                      
-
+            self.s = evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+            
             print(f's:\t{self.s}\n'
                   f'u:\t{self.u_star}\n')
             
@@ -403,16 +383,11 @@ class Node():
         
     def dual_update(self):
         # TODO
-        for j in self.neigh:
-            data = self.buffer.pop() 
-            self.reorder_optvect(data.x_i, data.x_j, data.node_id)
-        for p in range(0, self.n_tasks):
-            for idx, val in np.ndenumerate(self.neigh):
-                    if val != self.node_id:
-                        self.rho_i[idx-1][0] += self.alpha * (x - self.primal_updater[p, idx])
-                        self.rho_i[idx-1][1] += self.alpha * (x - self.primal_updater[p, idx+1])
+        self.y_j = self.receiver.process_messages('P')
         
-            
+        self.rho_i[0, :, :] += self.alpha * (np.tile(self.y_i[:, 0:self.n_xi], self.degree) - self.y_j[0, :, :])
+        self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_xi+1:-1] - self.y_j[1, :, self.n_xi+1:-1])
+          
     def null_sharing(self, Z, i):
         self.Z_neigh[f'{i}'].append(Z)
 

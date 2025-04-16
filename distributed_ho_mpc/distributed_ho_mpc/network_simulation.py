@@ -152,11 +152,16 @@ for i in range(st.n_nodes):
 for i in range(st.n_steps):
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
+            msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
             nodes[ij].receive(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].update()    # Update state evolution
-
+    for j in range(st.n_nodes):
+        for ij in nodes[j].neigh:  # select my neighbours
+            msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
+            nodes[ij].receive(msg) # neighbour receives the message
+    for j in range(st.n_nodes):
+        nodes[j].update()    # linear update of dual problem
 
 # ---------------------------------------------------------------------------- #
 #                          plot the states evolutions                          #

@@ -41,11 +41,26 @@ class Node():
         self.n_priority = 3 # number of priorities
         self.n_xi = 2 # dimension of primal variables
 
+        # ======================== Variables updater ======================= #
+        self.alpha = 1e-6 * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
+        
+        
+        self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
+        self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
+        
+        self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree+1))) # p1 [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
+        self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1 [[[rho^j1i_i, rho^j1i_j], [rho^j2i_i, rho^j2i_j]...],
+                                                                             # p2  [[rho^j1i_i, rho^j1i_j], [rho^j2i_i, rho^j2i_j]...],
+                                                                             # p3  [[rho^j1i_i, rho^j1i_j], [rho^j2i_i, rho^j2i_j]...]]
+        
+        
         self.sender = MessageSender(
             self.node_id,
             self.neigh,
-            np.array([[]]),
-            np.array([[]]),
+            self.y_i,
+            self.rho_i,
             self.n_xi,
             self.n_priority
         )
@@ -53,25 +68,18 @@ class Node():
         self.receiver = MessageReceiver(
             self.node_id,
             self.neigh,
-            np.array([[]]),
-            np.array([[]]),
+            self.y_j,
+            self.rho_j,
             self.n_xi
         )
         
         
 
-        # ======================== Dual variables initialization ======================= #
-        self.alpha = 1e-6
-        
-        self.rho_i = np.zeros(((self.degree)*2, self.n_priority)) # p1 [[rho^ij1_i, rho^ij1_j, rho^ij2_i, rho^ij2_j...],
-                                                                  # p2  [rho^ij1_i, rho^ij1_j, rho^ij2_i, rho^ij2_j...],
-                                                                  # p3  [rho^ij1_i, rho^ij1_j, rho^ij2_i, rho^ij2_j...]]
-        
-        self.primal_updater = np.zeros(((self.degree)*2, self.n_priority)) # p1 [[x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
+        self.primal_updater = np.zeros(((self.degree) * 2, self.n_priority)) # p1 [[x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
                                                                            # p2  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
                                                                            # p3  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...]]
         
-        self.dual_updater = np.zeros(((self.degree)*2, self.n_priority)) # p1 [[rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...],
+        self.dual_updater = np.zeros(((self.degree) * 2, self.n_priority)) # p1 [[rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...],
                                                                          # p2  [rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...],
                                                                          # p3  [rho^j1i_i, rho^j1i_j, rho^j2i_i, rho^j2i_j...]]
         
@@ -79,7 +87,7 @@ class Node():
     
         # Define the state and input variables, and the discrete-time dynamics model.
         
-        self.n_robots = RobCont(omni=self.degree+1)
+        self.n_robots = RobCont(omni=self.degree + 1)
                 
         self.dt = dt       # timestep size
         
@@ -87,9 +95,9 @@ class Node():
         # self.u = [None for _ in range(2)]
         # self.s_kp1 = [None for _ in range(2)]
 
-        self.s = RobCont(omni=None)
-        self.u = RobCont(omni=None)
-        self.s_kp1 = RobCont(omni=None)
+        self.s = RobCont(omni = None)
+        self.u = RobCont(omni = None)
+        self.s_kp1 = RobCont(omni = None)
     
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
         

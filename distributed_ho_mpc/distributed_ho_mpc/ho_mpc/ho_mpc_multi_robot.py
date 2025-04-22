@@ -1165,7 +1165,7 @@ class HOMPCMultiRobot(HOMPC):
         
     # ======================================================================== #
     
-    def __call__(self, state_meas: np.ndarray = None, Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
+    def __call__(self, state_meas: np.ndarray = None, rho_delta: np.ndarray = None,Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
         start_time = time.time()
         self._initialize(state_meas, inputs)
         
@@ -1191,11 +1191,11 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, Z = self.hqp(A, b, C, d, Null)
+            x_star, Z = self.hqp(A, b, C, d, rho_delta, Null)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star = self.hqp(A, b, C, d, Null ,we, wi)
+            x_star = self.hqp(A, b, C, d, rho_delta, Null ,we, wi)
         self.solve_times["Solve Problem"] += time.time() - start_time
         
         n_c = self._n_control
@@ -1220,6 +1220,11 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
         
+        y = [
+            [[self._state_bar[c][j][k] + x_star[self._get_idx_state_kp1(c, j, k)], self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]]
+                    for k in range(n_c)
+                for j in range(self.n_robots[c])]
+            for c in range(len(self.n_robots))]
         # u_1 = [
         #     [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
         #         for j in range(self.n_robots[c])]
@@ -1266,7 +1271,7 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, [s,u]
+        return u_0, y
     
     # ======================================================================== #
     

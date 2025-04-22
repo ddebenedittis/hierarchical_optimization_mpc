@@ -273,10 +273,10 @@ class HierarchicalQP:
                         f"instead of {C[p].shape[0]}"
                     )
                     
-    def _solve_qp(self, H, p, C, d, priority):
+    def _solve_qp(self, H, p, C, d, rho, priority):
         # TODO add dual variables consensus
         # Quadprog library QP problem formulation
-        #   min  1/2 x^T H x - p^T x
+        #   min  1/2 x^T H x - p^T x + dual 
         #   s.t. CI^T x >= ci0
 
         if C.size == 0:
@@ -334,7 +334,7 @@ class HierarchicalQP:
 
     
     def _solve_hierarchical(
-        self, A, b, C, d, Z_n = None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho, Z_n = None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -396,7 +396,8 @@ class HierarchicalQP:
             
             Ap = A[priority]
             bp = b[priority]
-
+            rhop = rho[:, priority, :] # extract both i and j for priority p for each neighbour
+            
             if we is not None:
                 if we[priority] is not None:
                     if isinstance(we[priority], (int, float)):
@@ -472,7 +473,7 @@ class HierarchicalQP:
             #   min  1/2 x^T H x - p^T x
             #   s.t. CI^T x >= ci0
 
-            sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
+            sol = self._solve_qp(H, p, C_tilde, d_tilde, rhop, priority)
             if sol is None:
                 return x_star_bar, Z_list           # NOTE: return also Z list updated until exit
 
@@ -582,7 +583,7 @@ class HierarchicalQP:
 
 
     def __call__(
-        self, A, b, C, d, Z_n = None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho = None, Z_n = None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -596,6 +597,7 @@ class HierarchicalQP:
             b (list[np.ndarray]): list of bp vectors of size (ne_p)
             C (list[np.ndarray]): list of Cp matrices of size (ni_p, nx)
             d (list[np.ndarray]): list of dp vectors of size (ni_p)
+            rho ([np.ndarray,np.ndarray,np.ndarray]): matrix of rho_p vectors of size 2
             we (list[np.ndarray]): list of we_p vectors of size (ne_p)
             wi (list[np.ndarray]): list of wi_p vectors of size (ni_p)
             priorities (list[int]): list of ints representing the priorities of
@@ -608,6 +610,6 @@ class HierarchicalQP:
         self._check_dimensions(A, b, C, d, we, wi, priorities)
         
         if self.hierarchical:
-            return self._solve_hierarchical(A, b, C, d, Z_n, we, wi, priorities)
+            return self._solve_hierarchical(A, b, C, d, rho, Z_n, we, wi, priorities)
         
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

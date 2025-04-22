@@ -47,9 +47,9 @@ class Node():
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
-                                                                             # p1 [[[rho^(ij)_i, rho^(ij)_j1], [rho^(ij)_i, rho^(ij)_j2]...],
-                                                                             # p2  [[rho^(ij)_i, rho^(ij)_j1], [rho^(ij)_i, rho^(ij)_j2]...],
-                                                                             # p3  [[rho^(ij)_i, rho^(ij)_j1], [rho^(ij)_i, rho^(ij)_j2]...]]
+                                                                             # p1 [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
         self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree+1))) # p1 [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
                                                                              # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
                                                                              # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
@@ -361,10 +361,10 @@ class Node():
         
         if self.step < self.n_steps:
             print(self.step)
- 
+            rho_delta = self.rho_i - self.rho_j #! to be controlled
             #self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh, copy.deepcopy(self.u_opt.tolist()), self.node_id)
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh)
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, self.Z_neigh)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
             # put in message u and s

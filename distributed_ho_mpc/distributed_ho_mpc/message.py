@@ -3,6 +3,8 @@ import numpy as np
 
 @dataclass
 class Message:
+    " Class data-holder for messages between agents"
+    
     sender_id: int      # node id
     x_i: np.ndarray     # primal variable of the sender i
     x_j: np.ndarray     # primal variable of the neighbour j estimated by the sender i
@@ -108,3 +110,4 @@ class MessageReceiver:
                 raise ValueError("The update type must be the same")
             elif message.update == 'D' and update == 'P':
                 raise ValueError("The update type must be the same")
+            

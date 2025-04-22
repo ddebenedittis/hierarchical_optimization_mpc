@@ -1,6 +1,6 @@
+import copy
 import networkx as nx
 import numpy as np 
-import copy
 import settings as st
 
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model

@@ -96,11 +96,11 @@ class MessageReceiver:
         while not self.messages :
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
-            if message.update == 'P' & message.update == 'P':
+            if message.update == 'P' and update == 'P':
                 self.y_j[0, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
                 self.y_j[1, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_i
                 return self.y_j
-            if message.update == 'D'& message.update == 'D':
+            if message.update == 'D' and update == 'D':
                 self.rho_j[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_j
                 self.rho_j[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_i
                 return self.rho_j

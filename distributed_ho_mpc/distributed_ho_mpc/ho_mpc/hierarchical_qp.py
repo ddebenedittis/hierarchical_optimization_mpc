@@ -273,8 +273,7 @@ class HierarchicalQP:
                         f"instead of {C[p].shape[0]}"
                     )
                     
-    def _solve_qp(self, H, p, C, d, rho, priority):
-        # TODO add dual variables consensus
+    def _solve_qp(self, H, p, C, d, priority):
         # Quadprog library QP problem formulation
         #   min  1/2 x^T H x - p^T x + dual 
         #   s.t. CI^T x >= ci0
@@ -397,7 +396,7 @@ class HierarchicalQP:
             Ap = A[priority]
             bp = b[priority]
             rhop = rho[:, priority, :] # extract both i and j for priority p for each neighbour
-            
+                        
             if we is not None:
                 if we[priority] is not None:
                     if isinstance(we[priority], (int, float)):
@@ -417,6 +416,12 @@ class HierarchicalQP:
             # Slack variable dimension at task p.
             nw = C[priority].shape[0]
             
+            #! to be checked
+            rho_vector = np.block([
+                    np.sum(rhop[0]),
+                    rhop[1],
+                    np.zeros(nw)
+                ])
             
             # See Kinematic Control of Redundant Manipulators: Generalizing the
             # Task-Priority Framework to Inequality Task for the math behind it.
@@ -440,6 +445,9 @@ class HierarchicalQP:
                 ])
 
                 p = np.zeros(nx+nw)
+            
+            #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+            p += rho_vector
                 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
@@ -473,7 +481,7 @@ class HierarchicalQP:
             #   min  1/2 x^T H x - p^T x
             #   s.t. CI^T x >= ci0
 
-            sol = self._solve_qp(H, p, C_tilde, d_tilde, rhop, priority)
+            sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
                 return x_star_bar, Z_list           # NOTE: return also Z list updated until exit
 

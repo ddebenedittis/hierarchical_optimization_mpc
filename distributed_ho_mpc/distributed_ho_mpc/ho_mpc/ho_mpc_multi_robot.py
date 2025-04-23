@@ -1312,7 +1312,7 @@ class HOMPCMultiRobot(HOMPC):
         
         if j < 0 or j > self.n_robots[c] - 1:
             raise ValueError
-        get_idx_s
+        
         if k < 0 or k > self._n_control + self._n_pred - 1:  
             raise ValueError
         

@@ -396,7 +396,7 @@ class HierarchicalQP:
             
             Ap = A[priority]
             bp = b[priority]
-            rhop = rho[:, priority, :] # extract both i and j for priority p for each neighbour
+            rhop = rho[:, priority-1, :] # extract both i and j for priority p for each neighbour
                         
             if we is not None:
                 if we[priority] is not None:
@@ -419,7 +419,7 @@ class HierarchicalQP:
             
             #! to be checked
             rho_vector = np.block([
-                    np.sum(rhop[0]),
+                    np.sum(rhop[0]) * np.ones(rhop[1].shape),
                     rhop[1],
                     np.zeros(nw)
                 ])
@@ -452,7 +452,7 @@ class HierarchicalQP:
                 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
-            sigma = min(np.linalg.eig(H))   # convexity parameter
+            #sigma = min(np.linalg.eig(H))   # convexity parameter
             # ================== Compute C_tilde And D_tilde ================= #
 
             nC2 = np.concatenate(C[0:priority+1]).shape[0]

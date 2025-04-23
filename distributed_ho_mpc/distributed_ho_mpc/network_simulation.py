@@ -46,7 +46,12 @@ system_tasks = {
                 },
                 {'prio':3,             # priority
                  'name':"formation",   # task type
-                }  
+                },
+                {'prio':4,             # priority
+                 'name':"position",   # task type
+                 'goal': goals[0],         # [x,y] 
+                 'goal_index':0,          # index of the corrisponding list goal's element 
+                    },  
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -151,17 +156,26 @@ for i in range(st.n_nodes):
 #     iterate through the nodes, transmitting datas and the receiving them     #
 # ---------------------------------------------------------------------------- #
 
+for j in range(st.n_nodes):
+        nodes[j].update()    # Update primal solution and state evolution
+for j in range(st.n_nodes):
+    for ij in nodes[j].neigh:  # select my neighbours
+        msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
+        nodes[ij].receive_data(msg) # neighbour receives the message
+for j in range(st.n_nodes):
+    nodes[j].dual_update()    # linear update of dual problem
+
 for i in range(st.n_steps):
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
-            nodes[ij].receive(msg) # neighbour receives the message
+            nodes[ij].receive_data(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].update()    # Update primal solution and state evolution
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-            nodes[ij].receive(msg) # neighbour receives the message
+            nodes[ij].receive_data(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].dual_update()    # linear update of dual problem
 

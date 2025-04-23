@@ -8,7 +8,7 @@ from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
 
 from ho_mpc.ho_mpc import HOMPC
-from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType
+from ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType, TaskBiCoeff
 from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
 from distributed_ho_mpc.message import Message, MessageSender, MessageReceiver
 import settings as st
@@ -38,8 +38,8 @@ class Node():
         self.buffer_dual = [] # local buffer to receive dual variables
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
-        self.n_priority = 3 # number of priorities
-        self.n_xi = 2 # dimension of primal variables
+        self.n_priority = 4 # number of priorities
+        self.n_xi = 12 # dimension of primal variables
 
         # ======================== Variables updater ======================= #
         self.alpha = 1e-6 * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
@@ -121,16 +121,15 @@ class Node():
         "Define the tasks separately"
 
         #n_robots = [self.degree+1, 0] # n° of neighbours + self agent
+        self.robot_idx = [self.node_id] + self.neigh
 
-        self.tasks_creator = TasksCreatorHOMPCMultiRobot(
+        """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),
             self.u.tolist(),
             self.s_kp1.tolist(),
             st.dt,
             self.n_robots.tolist(),
         )
-        
-        self.robot_idx = [self.node_id] + self.neigh
 
         self.task_input_limits = self.tasks_creator.get_task_input_limits()
         self.aux, self.mapping, self.task_formation, self.task_formation_coeff = self.tasks_creator.get_task_formation()
@@ -157,7 +156,40 @@ class Node():
         # obstacle_size = st.formation_distance
         # self.task_obs_avoidance = self.tasks_creator.get_task_obs_avoidance(
         #                                             obstacle_pos, obstacle_size
-        #                                     )
+        #                                     )"""
+        # =========================== Define The Tasks ========================== #
+        
+        self.task_input_limits = RobCont(omni=ca.vertcat(
+              self.u.omni[0] - 5,
+            - self.u.omni[0] - 5,
+              self.u.omni[1] - 1,
+            - self.u.omni[1] - 1
+        ))
+        
+        # ======================================================================= #
+        self.task_pos       = [None for i in range(len(self.goals))]
+        self.task_pos_coeff = [None for i in range(len(self.goals))]
+        for i, g in enumerate(self.goals):
+            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+            self.task_pos_coeff[i] = RobCont(
+                omni=[[g] for _ in range(self.n_robots.omni)],
+            )
+        
+        # ======================================================================= #
+        
+        self.aux = ca.SX.sym('aux', 2, 2)
+        self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        self.task_formation = ca.vertcat(
+            (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
+        )
+        self.task_formation_coeff = [
+            TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+            #TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
+        ]
+
+        self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
+        
+    
 
 
     # ---------------------------------------------------------------------------- #
@@ -178,7 +210,7 @@ class Node():
                 self.hompc.create_task(
                                 name = "input_limits", prio = task['prio'],
                                 type = TaskType.Same,
-                                ineq_task_ls = self.task_input_limits,
+                                ineq_task_ls = self.task_input_limits.tolist(),
                                 robot_index= [[0]],
                                 #ineq_task_coeff= self.task_input_limits_coeffs
                                 )
@@ -186,29 +218,23 @@ class Node():
                 self.hompc.create_task(
                                 name = "position", prio = task['prio'],
                                 type = TaskType.Same,
-                                eq_task_ls = self.task_pos[task['goal_index']],
-                                eq_task_coeff = self.task_pos_coeff[task['goal_index']],
+                                eq_task_ls = self.task_pos[task['goal_index']].tolist(),
+                                eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
                                 time_index = TaskIndexes.All,
                                 robot_index= [[0]]
                                 )
             elif task['name'] == "input_minimization":
                 self.hompc.create_task(
                                 name = "input_minimization", prio = task['prio'],
-                                eq_task_ls = self.task_input_min,
-                                robot_index= [[0]]
-                                )          
-            elif task['name'] == "reference":
-                self.hompc.create_task(
-                                name = "reference", prio = task['prio'],
-                                eq_task_ls = self.task_vel_reference,
+                                eq_task_ls = self.task_input_min.tolist(),
                                 robot_index= [[0]]
                                 )
             elif task['name'] == 'input_smooth':
                 self.hompc.create_task(
                                 name = "input_smooth", prio = task['prio'],
                                 type = TaskType.SameTimeDiff,
-                                ineq_task_ls = self.task_input_smooth,
-                                ineq_task_coeff = self.task_input_smooth_coeffs,
+                                ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
+                                #ineq_task_coeff = np.array([0,0,0,0]),
                                 robot_index= [[0]]
                                         )
             elif task['name'] == 'formation':
@@ -216,7 +242,7 @@ class Node():
                                 name = "formation", prio = task['prio'],
                                 type = TaskType.Bi,
                                 aux = self.aux,
-                                mapping = self.mapping,
+                                mapping = self.mapping.tolist(),
                                 eq_task_ls = self.task_formation,
                                 eq_task_coeff = self.task_formation_coeff,
                                         )
@@ -241,7 +267,7 @@ class Node():
                     self.hompc.create_task(
                                     name = "input_limits", prio = task['prio'],
                                     type = TaskType.Same,
-                                    ineq_task_ls = self.task_input_limits,
+                                    ineq_task_ls = self.task_input_limits.tolist(),
                                     robot_index= [[robot_idx]],
                                     #ineq_task_coeff= self.task_input_limits_coeffs
                                     )
@@ -249,29 +275,23 @@ class Node():
                     self.hompc.create_task(
                                     name = "position", prio = task['prio'],
                                     type = TaskType.Same,
-                                    eq_task_ls = self.task_pos[task['goal_index']],
-                                    eq_task_coeff = self.task_pos_coeff[task['goal_index']],
+                                    eq_task_ls = self.task_pos[task['goal_index']].tolist(),
+                                    eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
                                     time_index = TaskIndexes.All,
                                     robot_index= [[robot_idx]]
                                     )
                 elif task['name'] == "input_minimization":
                     self.hompc.create_task(
                                     name = "input_minimization", prio = task['prio'],
-                                    eq_task_ls = self.task_input_min,
-                                    robot_index= [[robot_idx]]
-                                    )          
-                elif task['name'] == "reference":
-                    self.hompc.create_task(
-                                    name = "reference", prio = task['prio'],
-                                    eq_task_ls = self.task_vel_reference,
+                                    eq_task_ls = self.task_input_min.tolist(),
                                     robot_index= [[robot_idx]]
                                     )
                 elif task['name'] == 'input_smooth':
                     self.hompc.create_task(
                                     name = "input_smooth", prio = task['prio'],
                                     type = TaskType.SameTimeDiff,
-                                    ineq_task_ls = self.task_input_smooth,
-                                    ineq_task_coeff = self.task_input_smooth_coeffs,
+                                    ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
+                                    #ineq_task_coeff = np.array([0,0,0,0]),
                                     robot_index= [[robot_idx]]        
                                             )
                 elif task['name'] == 'formation':
@@ -279,7 +299,7 @@ class Node():
                                     name = "formation", prio = task['prio'],
                                     type = TaskType.Bi,
                                     aux = self.aux,
-                                    mapping = self.mapping,
+                                    mapping = self.mapping.tolist(),
                                     eq_task_ls = self.task_formation,
                                     eq_task_coeff = self.task_formation_coeff,
                                             )
@@ -346,13 +366,17 @@ class Node():
                 #         for k in range(st.n_control):
                 #             self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
                 #self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]] # update new value of s"""
-        self.rho_j = self.receiver.process_messages('D')
+        if self.step != 0:
+            self.rho_j = self.receiver.process_messages('D')
         
         if self.step < self.n_steps:
             print(self.step)
-            rho_delta = self.rho_i - self.rho_j #! to be controlled
+            if self.step != 0:
+                rho_delta = self.rho_i - self.rho_j #! to be controlled
+            else :
+                rho_delta = self.rho_i
             #self.u_star, self.u_opt, self.s_opt, Z= self.hompc(copy.deepcopy(self.s.tolist()), self.Z_neigh, copy.deepcopy(self.u_opt.tolist()), self.node_id)
-
+            
             self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, self.Z_neigh)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             

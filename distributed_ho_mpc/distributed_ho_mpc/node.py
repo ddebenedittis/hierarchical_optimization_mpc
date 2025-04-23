@@ -113,25 +113,6 @@ class Node():
         self.Z_old = []
         self.Z_neigh = {f'{i}': [[np.eye(30)]] for i in self.neigh} #np.empty([20,20])
 
-    def reorder_optvect(self, x_ji, x_jj, index):
-        """
-        p1 [[x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
-        p2  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...],
-        p3  [x^(j1)_i, x^(j1)_j, x^(j2)_i, x^(j2)_j...]]
-        """
-        # TODO 
-        for idx, j in np.ndenumerate(self.neigh):
-            if index == j:
-                self.primal_updater[:, 2*idx] = x_ji
-                self.primal_updater[:, 2*idx+1] = x_jj
-        return  
-    
-    def reorder_dual(self, rho_j, index):
-        # TODO 
-        for idx, j in np.ndenumerate(self.neigh):
-            if index == j:
-                self.dual_updater[:, 2*idx:2*idx+2] = rho_j
-        return  
     
     # ---------------------------------------------------------------------------- #
     #                                     Task                                     #

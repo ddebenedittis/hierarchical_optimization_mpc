@@ -51,16 +51,16 @@ class TasksCreatorHOMPCMultiRobot():
     def get_task_input_limits(self):
         return [
             ca.vertcat(
-                  self.u[0][0] - self.v_max,
-                - self.u[0][0] + self.v_min,
-                  self.u[0][1] - self.omega_max,
-                - self.u[0][1] + self.omega_min
+                  self.u[0] - self.v_max,
+                - self.u[0] + self.v_min,
+                  self.u[1] - self.omega_max,
+                - self.u[1] + self.omega_min
             ),
             ca.vertcat(
-                  self.u[1][0] - self.v_max,
-                - self.u[1][0] + self.v_min,
-                  self.u[1][1] - self.v_max,
-                - self.u[1][1] + self.v_min
+                  self.u[0] - self.v_max,
+                - self.u[0] + self.v_min,
+                  self.u[1] - self.v_max,
+                - self.u[1] + self.v_min
             ),
         ]
         
@@ -69,16 +69,16 @@ class TasksCreatorHOMPCMultiRobot():
     def get_task_input_smooth(self):
         task_input_smooth = [
             ca.vertcat(
-                  self.u[0][0],
-                - self.u[0][0],
-                  self.u[0][1],
-                - self.u[0][1]
+                  self.u[0],
+                - self.u[0],
+                  self.u[1],
+                - self.u[1]
             ),
             ca.vertcat(
-                  self.u[1][0],
-                - self.u[1][0],
-                  self.u[1][1],
-                - self.u[1][1]
+                  self.u[0],
+                - self.u[0],
+                  self.u[1],
+                - self.u[1]
             ),
         ]
         
@@ -96,12 +96,12 @@ class TasksCreatorHOMPCMultiRobot():
         
         return [
             ca.vertcat(
-                (self.s_kp1[0][0] - self.s[0][0]) / self.dt - ref[0],
-                (self.s_kp1[0][1] - self.s[0][1]) / self.dt - ref[1],
+                (self.s_kp1[0] - self.s[0]) / self.dt - ref[0],
+                (self.s_kp1[1] - self.s[1]) / self.dt - ref[1],
             ) / sum(self.n_robots),
             ca.vertcat(
-                (self.s_kp1[1][0] - self.s[1][0]) / self.dt - ref[0],
-                (self.s_kp1[1][1] - self.s[1][1]) / self.dt - ref[1],
+                (self.s_kp1[0] - self.s[0]) / self.dt - ref[0],
+                (self.s_kp1[1] - self.s[1]) / self.dt - ref[1],
             ) / sum(self.n_robots),
         ]
         
@@ -110,12 +110,12 @@ class TasksCreatorHOMPCMultiRobot():
     def get_task_vel_ref(self, ref):
         task_vel_ref = [
             ca.vertcat(
-                (self.s_kp1[0][0] - self.s[0][0]) / self.dt - ref[0],
-                (self.s_kp1[0][1] - self.s[0][1]) / self.dt - ref[1],
+                (self.s_kp1[0] - self.s[0]) / self.dt - ref[0],
+                (self.s_kp1[1] - self.s[1]) / self.dt - ref[1],
             ),
             ca.vertcat(
-                (self.s_kp1[1][0] - self.s[1][0]) / self.dt - ref[0],
-                (self.s_kp1[1][1] - self.s[1][1]) / self.dt - ref[1],
+                (self.s_kp1[0] - self.s[0]) / self.dt - ref[0],
+                (self.s_kp1[1] - self.s[1]) / self.dt - ref[1],
             ),
         ]
         
@@ -135,12 +135,12 @@ class TasksCreatorHOMPCMultiRobot():
     def get_task_pos_ref(self, pos_ref, robot_idx: list[list[int]] = None):
         task_pos_ref = [
             ca.vertcat(
-                self.s_kp1[0][0],
-                self.s_kp1[0][1],
+                self.s_kp1[0],
+                self.s_kp1[1],
             ),
             ca.vertcat(
-                self.s_kp1[1][0],
-                self.s_kp1[1][1],
+                self.s_kp1[0],
+                self.s_kp1[1],
             ),
         ]
         
@@ -193,14 +193,14 @@ class TasksCreatorHOMPCMultiRobot():
     def get_task_input_min(self, ):
         return [
             ca.vertcat(
-                self.u[0][0],
-                self.u[0][1],
+                self.u[0],
+                self.u[1],
             ),
             ca.vertcat(
-                  self.u[1][0],
-                - self.u[1][0],
-                  self.u[1][1],
-                - self.u[1][1]
+                  self.u[0],
+                - self.u[0],
+                  self.u[1],
+                - self.u[1]
             ),
         ]
         
@@ -211,8 +211,8 @@ class TasksCreatorHOMPCMultiRobot():
             raise ValueError("The obstacle position must be a vector of size 2.")
         
         return [
-            ca.vertcat(- (self.s[0][0] - (obstacle_pos[0]))**2 + threshold**2, - (self.s[0][1] - (obstacle_pos[1]))**2 + threshold**2),
-            ca.vertcat(- (self.s[1][0] - obstacle_pos[0])**2 + threshold**2, - (self.s[1][1] - obstacle_pos[1])**2 + threshold**2),
+            ca.vertcat(- (self.s[0] - (obstacle_pos[0]))**2 + threshold**2, - (self.s[1] - (obstacle_pos[1]))**2 + threshold**2),
+            ca.vertcat(- (self.s[0] - obstacle_pos[0])**2 + threshold**2, - (self.s[1] - obstacle_pos[1])**2 + threshold**2),
         ]
         
         
@@ -258,12 +258,12 @@ class TasksCreatorHOMPCMultiRobot():
     
         mapping = [
             ca.vertcat(
-                self.s[0][0],
-                self.s[0][1],
+                self.s[0],
+                self.s[1],
             ),
             ca.vertcat(
-                self.s[1][0],
-                self.s[1][1],
+                self.s[0],
+                self.s[1],
             ),
         ]
         

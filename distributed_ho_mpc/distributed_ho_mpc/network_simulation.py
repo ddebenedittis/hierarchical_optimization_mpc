@@ -31,19 +31,22 @@ system_tasks = {
                       },
                 {'prio':3,             # priority
                  'name':"position",   # task type
-                 'goal': goals[1],         # [x,y] 
-                 'goal_index':1,          # index of the corrisponding list goal's element 
+                 'goal': goals[0],         # [x,y] 
+                 'goal_index':0,          # index of the corrisponding list goal's element 
                     },
+                {'prio':4,             # priority
+                 'name':"formation",   # task type
+                },  
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
                     },
                 {'prio':2,             # priority
                  'name':"input_smooth",   # task type
-          },
+                },
                 {'prio':3,             # priority
-                 'name':"obstacle_avoidance",   # task type
-                 },  
+                 'name':"formation",   # task type
+                }  
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -54,13 +57,13 @@ system_tasks = {
                 {'prio':3,             # priority
                  'name':"position",   # task type
                  'goal': goals[1],         # [x,y] 
-                 'goal_index':2,          # index of the corrisponding list goal's element 
+                 'goal_index':1,          # index of the corrisponding list goal's element 
                 },
-                  {'prio':4,             # priority
-                 'name':"position",   # task type
+                {'prio':4,             # priority
+                 'name':"position",    # task type
                  'goal': goals[0],         # [x,y] 
-                 'goal_index':2,          # index of the corrisponding list goal's element 
-                }     
+                 'goal_index':0,          # index of the corrisponding list goal's element 
+                }
                 ],
     'agent_3': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -88,11 +91,10 @@ system_tasks = {
 
 # deterministic graphs = evolve(s, u_star, dt)
 if not st.random_graph:
-    graph_matrix = np.array([[0.,1.,1.,0.],
-                            [1.,0.,1.,0.],
-                            [1.,1.,0.,1.],    
-                            [0.,0.,1.,0.]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
+    graph_matrix = np.array([[0.,1.,0.],
+                             [1.,0.,1.],
+                             [0.,1.,0.]])
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 
 
 # random graph 🎲
@@ -155,7 +157,7 @@ for i in range(st.n_steps):
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
             nodes[ij].receive(msg) # neighbour receives the message
     for j in range(st.n_nodes):
-        nodes[j].update()    # Update state evolution
+        nodes[j].update()    # Update primal solution and state evolution
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable

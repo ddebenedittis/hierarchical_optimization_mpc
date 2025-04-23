@@ -1332,5 +1332,5 @@ class HOMPCMultiRobot(HOMPC):
         return np.arange(
             temp1 + temp2 + temp3 + k * n_s,
             temp1 + temp2 + temp3 + (k+1) * n_s
-        
+        )
         

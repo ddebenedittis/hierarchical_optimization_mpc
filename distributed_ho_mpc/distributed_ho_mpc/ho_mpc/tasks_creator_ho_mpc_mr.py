@@ -3,7 +3,7 @@ import numpy as np
 
 from ho_mpc.ho_mpc_multi_robot import TaskBiCoeff
 from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
-
+from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, RobCont
 
 
 class TasksCreatorHOMPCMultiRobot():
@@ -276,7 +276,7 @@ class TasksCreatorHOMPCMultiRobot():
         )
                 
         task_formation_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 0, 8**2)  
+            TaskBiCoeff(1, 0, 1, 1, 0, 2**2)  
         ]
         
         return aux, mapping, task_formation, task_formation_coeff

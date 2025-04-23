@@ -1191,11 +1191,11 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, Z = self.hqp(A, b, C, d, rho_delta, Null)
+            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star = self.hqp(A, b, C, d, rho_delta, Null ,we, wi)
+            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null ,we, wi)
         self.solve_times["Solve Problem"] += time.time() - start_time
         
         n_c = self._n_control
@@ -1206,7 +1206,7 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
 
-        u = [
+        '''u = [
             [self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     for k in range(n_c)
                 for j in range(self.n_robots[c])]
@@ -1218,32 +1218,8 @@ class HOMPCMultiRobot(HOMPC):
                     for k in range(n_c)
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
-        ]
-        
-        y = [
-            [[self._state_bar[c][j][k] + x_star[self._get_idx_state_kp1(c, j, k)], self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]]
-                    for k in range(n_c)
-                for j in range(self.n_robots[c])]
-            for c in range(len(self.n_robots))]
-        # u_1 = [
-        #     [self._input_bar[c][j][1] + x_star[self._get_idx_input_k(c, j, 1)]
-        #         for j in range(self.n_robots[c])]
-        #     for c in range(len(self.n_robots))
-        # ]
-                
-        # create optimization vector X to share with the neighbours and make consensus
-
-        # u_i = [
-        #     [[self._input_bar[c][0][k] + x_star[self._get_idx_input_k(c, 0, k)]
-        #         for k in range(n_c)] for j in range(self.n_robots[c])]
-        #     for c in range(len(self.n_robots))
-        # ]
-        # s_i = [
-        #     [[np.reshape(self._state_bar[c][0][k], 3) + x_star[self._get_idx_state_kp1(c, 0, k)]
-        #         for k in range(n_c)] for j in range(self.n_robots[c])]
-        #     for c in range(len(self.n_robots))
-        # ]
-        
+        ]'''
+              
         # # prepare vector to share with the neighbours 
         # x_neigh = []
         # for j in range(1,self.n_robots[1]):
@@ -1254,13 +1230,8 @@ class HOMPCMultiRobot(HOMPC):
         #     x_neigh.append((j, [s_j, u_j]))
             
         
+        y = self._y_extraction(x_star_p, n_c)
 
-        # s_1 = [
-        #     [self._state_bar[c][j][0][0] + x_star[self._get_idx_state_kp1(c, j, 0)]    # s = s_tilde + s_bar
-        #         for j in range(self.n_robots[c])]
-        #     for c in range(len(self.n_robots)) 
-        # ]
-        
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
                 for k in range(n_c):
@@ -1270,6 +1241,26 @@ class HOMPCMultiRobot(HOMPC):
     
     # ======================================================================== #
     
+    def _y_extraction(self, x_star_p, n_c) -> list[np.ndarray]:
+        """
+        Compose the correct y vector from the variational optimization vector
+        """
+        
+        p = 0
+        priority = len(x_star_p)
+        for c, n_r in enumerate(self.n_robots):
+            for j in range(n_r):
+                for k in range(n_c):
+                    x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
+                            [self._state_bar[c][j][k] + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
+                    x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
+                            [self._input_bar[c][j][k] + x_star_p[p][self._get_idx_input_k(c, j, k)]])
+            if p < priority:
+                p += 1
+                
+        return x_star_p
+
+
     def _get_n_x_opt(self) -> int:
         """
         Return the dimension of the optimization vector n_x_opt.
@@ -1341,5 +1332,5 @@ class HOMPCMultiRobot(HOMPC):
         return np.arange(
             temp1 + temp2 + temp3 + k * n_s,
             temp1 + temp2 + temp3 + (k+1) * n_s
-        )
+        
         

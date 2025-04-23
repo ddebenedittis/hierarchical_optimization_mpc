@@ -322,10 +322,9 @@ class Node():
     def update(self):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
-        for j in self.neigh:
+        """for j in self.neigh:
             data = self.buffer_dual.pop()
             if self.step >= 3 :
-                self.reorder_dual(data.rho_j, data.node_id)
                 #self.null_sharing(data.Z, data.node_id)
                 
                 # consensus on x[s,u] 
@@ -337,7 +336,7 @@ class Node():
                 #     for j in range(self.n_robots[c]):
                 #         for k in range(st.n_control):
                 #             self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
-                #self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]] # update new value of s
+                #self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]] # update new value of s"""
         self.rho_j = self.receiver.process_messages('D')
         
         if self.step < self.n_steps:

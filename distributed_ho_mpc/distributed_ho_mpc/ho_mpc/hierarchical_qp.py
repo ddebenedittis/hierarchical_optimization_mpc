@@ -367,6 +367,7 @@ class HierarchicalQP:
 
         # Optimization vector.
         x_star_bar = np.zeros(nx)
+        x_star_bar_p = []
         
         # History of the slack variables, stored as a list of np.arrays.
         w_star_bar = [np.empty(shape = [0,])]   
@@ -501,6 +502,7 @@ class HierarchicalQP:
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
+            x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
             
             # Store the history of w_star
             if priority == 0:
@@ -518,7 +520,7 @@ class HierarchicalQP:
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
                 return x_star_bar, Z_list
 
-        return x_star_bar, Z_list       # NOTE return also list of null matrix at each priority level
+        return x_star_bar, x_star_bar_p
     
     
     def _solve_weighted(

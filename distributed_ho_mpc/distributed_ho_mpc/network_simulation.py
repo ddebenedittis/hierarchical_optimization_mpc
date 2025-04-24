@@ -36,6 +36,7 @@ system_tasks = {
                     },
                 {'prio':4,             # priority
                  'name':"formation",   # task type
+                 'agents': [0,1]
                 },  
                 ],
     'agent_1': [{'prio':1,             # priority
@@ -46,6 +47,7 @@ system_tasks = {
                 },
                 {'prio':3,             # priority
                  'name':"formation",   # task type
+                 'agents': [1,2]
                 },
                 {'prio':4,             # priority
                  'name':"position",   # task type
@@ -157,7 +159,7 @@ for i in range(st.n_nodes):
 # ---------------------------------------------------------------------------- #
 
 for j in range(st.n_nodes):
-        nodes[j].update()    # Update primal solution and state evolution
+    nodes[j].update()    # Update primal solution and state evolution
 for j in range(st.n_nodes):
     for ij in nodes[j].neigh:  # select my neighbours
         msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable

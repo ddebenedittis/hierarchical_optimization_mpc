@@ -196,6 +196,8 @@ class Node():
     #                                      MPC                                     #
     # ---------------------------------------------------------------------------- #
     def MPC(self)->None:
+        is_formation_with_neigh = lambda agents, neigh: all(item in neigh for item in agents)  # check if neighour's formation is with current agent's neighbour 
+
         self.hompc = HOMPCMultiRobot(
             self.s.tolist(),
             self.u.tolist(),
@@ -295,14 +297,15 @@ class Node():
                                     robot_index= [[robot_idx]]        
                                             )
                 elif task['name'] == 'formation':
-                    self.hompc.create_task_bi(
-                                    name = "formation", prio = task['prio'],
-                                    type = TaskType.Bi,
-                                    aux = self.aux,
-                                    mapping = self.mapping.tolist(),
-                                    eq_task_ls = self.task_formation,
-                                    eq_task_coeff = self.task_formation_coeff,
-                                            )
+                    if is_formation_with_neigh(task['agents'], self.robot_idx):
+                        self.hompc.create_task_bi(
+                                        name = "formation", prio = task['prio'],
+                                        type = TaskType.Bi,
+                                        aux = self.aux,
+                                        mapping = self.mapping.tolist(),
+                                        eq_task_ls = self.task_formation,
+                                        eq_task_coeff = self.task_formation_coeff,
+                                                )
                 '''elif task['name'] == 'obstacle_avoidance':
                     self.hompc.create_task(
                                     name = "obstacle_avoidance", prio = task['prio'],

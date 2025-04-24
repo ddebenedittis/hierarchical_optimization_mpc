@@ -1168,23 +1168,36 @@ class HOMPCMultiRobot(HOMPC):
     def __call__(self, state_meas: np.ndarray = None, rho_delta: np.ndarray = None,Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
         start_time = time.time()
         self._initialize(state_meas, inputs)
+                
+        self._tasks = sorted(self._tasks, key=lambda x: x.prio) 
         
-        n_tasks = len(self._tasks)
+        n_prio = 0
+        for t in self._tasks: 
+            if t.prio > n_prio:
+                n_prio += 1
         
-        A = [None] * (1 + n_tasks)
-        b = [None] * (1 + n_tasks)
-        C = [None] * (1 + n_tasks)
-        d = [None] * (1 + n_tasks)
+        # Create matrices based on number of different priorities plus one for the dynamics consistency  
+        A = [None] * (1 + n_prio)
+        b = [None] * (1 + n_prio)
+        C = [None] * (1 + n_prio)
+        d = [None] * (1 + n_prio)
         
         A[0], b[0] = self._task_dynamics_consistency()
         
         self.solve_times["Create Problem"] += time.time() - start_time
         
-        self._tasks = sorted(self._tasks, key=lambda x: x.prio)
         
-        for k in range(n_tasks):
-            kp = k + 1
-            A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
+        for k in range(len(self._tasks)):
+            prio = self._tasks[k].prio 
+            if A[prio] is None:
+                A[prio], b[prio], C[prio], d[prio] = self._create_task_i_matrices(k)
+            else:
+                A_t, b_t, C_t, d_t = self._create_task_i_matrices(k)
+                A[prio] = np.vstack((A[prio], A_t))
+                b[prio] = np.vstack((b[prio], b_t))
+                C[prio] = np.vstack((C[prio], C_t)) 
+                d[prio] = np.vstack((d[prio], d_t))
+             
             
         # self.solve_times["Create Problem"] += time.time() - start_time
             
@@ -1248,15 +1261,16 @@ class HOMPCMultiRobot(HOMPC):
         
         p = 0
         priority = len(x_star_p)
-        for c, n_r in enumerate(self.n_robots):
-            for j in range(n_r):
-                for k in range(n_c):
-                    x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
-                            [self._state_bar[c][j][k] + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
-                    x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
-                            [self._input_bar[c][j][k] + x_star_p[p][self._get_idx_input_k(c, j, k)]])
-            if p < priority:
-                p += 1
+        while p < priority:
+            for c, n_r in enumerate(self.n_robots):
+                for j in range(n_r):
+                    for k in range(n_c):
+                        x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
+                                [self._state_bar[c][j][k].T + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
+                        x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
+                                [self._input_bar[c][j][k].T + x_star_p[p][self._get_idx_input_k(c, j, k)]])
+                if p < priority:
+                    p += 1
                 
         return x_star_p
 

@@ -502,7 +502,8 @@ class HierarchicalQP:
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
-            x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
+            if priority != 0:
+                x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
             
             # Store the history of w_star
             if priority == 0:

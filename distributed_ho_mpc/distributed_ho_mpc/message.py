@@ -53,8 +53,8 @@ class MessageSender:
             return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
         
         if update == 'D':
-            rho_i = self.rho[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi]
-            rho_j = self.rho[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi]
+            rho_i = self.rho[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
+            rho_j = self.rho[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
             
             return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
         
@@ -95,19 +95,21 @@ class MessageReceiver:
     def process_messages(self, update: str)-> np.ndarray:
         " Reorder the messages received and return the local variables y and rho using the correct agent's ordering"        
                 
-        while not self.messages :
+        while self.messages :
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
             if message.update == 'P' and update == 'P':
-                self.y_j[0, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_j
-                self.y_j[1, :, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi] = message.x_i
-                return self.y_j
+                self.y_j[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.x_j
+                self.y_j[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.x_i               
             if message.update == 'D' and update == 'D':
-                self.rho_j[0, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_j
-                self.rho_j[1, :, (receiver_idx -1) * self.n_xi: (receiver_idx) * self.n_xi] = message.rho_i
-                return self.rho_j
+                self.rho_j[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.rho_j
+                self.rho_j[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.rho_i                
             if message.update == 'P' and update == 'D':
                 raise ValueError("The update type must be the same")
             elif message.update == 'D' and update == 'P':
                 raise ValueError("The update type must be the same")
-            
+        
+        if update == 'P':
+            return self.y_j
+        elif update =='D':
+            return self.rho_j

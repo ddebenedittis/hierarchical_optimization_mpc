@@ -1273,7 +1273,7 @@ class HOMPCMultiRobot(HOMPC):
                 if p < priority:
                     p += 1
                 
-        return x_star_p
+        return np.array(x_star_p)
 
 
     def _get_n_x_opt(self) -> int:

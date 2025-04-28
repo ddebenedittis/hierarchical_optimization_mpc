@@ -38,7 +38,7 @@ class Node():
         self.buffer_dual = [] # local buffer to receive dual variables
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
-        self.n_priority = 4 # number of priorities
+        self.n_priority = 2 # number of priorities
         self.n_xi = 12 # dimension of primal variables
 
         # ======================== Variables updater ======================= #
@@ -50,7 +50,7 @@ class Node():
                                                                              # p1 [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
                                                                              # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
                                                                              # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
-        self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree+1))) # p1 [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+        self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1 [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
                                                                              # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
                                                                              # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
         self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1 [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
@@ -406,7 +406,7 @@ class Node():
         
         # linear update of rho_i
         self.rho_i[0, :, :] += self.alpha * (np.tile(self.y_i[:, 0:self.n_xi], self.degree) - self.y_j[0, :, :])
-        self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_xi+1:-1] - self.y_j[1, :, self.n_xi+1:-1])
+        self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_xi:] - self.y_j[1, :, :])
         
         self.sender.rho = copy.deepcopy(self.rho_i)   # update copy of the states to share
         

@@ -396,8 +396,7 @@ class HierarchicalQP:
             
             Ap = A[priority]
             bp = b[priority]
-            rhop = rho[:, priority-1, :] # extract both i and j for priority p for each neighbour
-            x_i = rhop[1].shape[0] // degree
+            
                         
             if we is not None:
                 if we[priority] is not None:
@@ -417,13 +416,6 @@ class HierarchicalQP:
             
             # Slack variable dimension at task p.
             nw = C[priority].shape[0]
-            
-            #! to be checked
-            rho_vector = np.block([
-                    np.sum(rhop[0]) * np.ones(x_i),
-                    rhop[1],
-                    np.zeros(nw)
-                ])
             
             # See Kinematic Control of Redundant Manipulators: Generalizing the
             # Task-Priority Framework to Inequality Task for the math behind it.
@@ -448,8 +440,17 @@ class HierarchicalQP:
 
                 p = np.zeros(nx+nw)
             
-            #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-            p += rho_vector
+            if priority > 2:
+                rhop = rho[:, priority-3, :] # extract both i and j for priority p for each neighbour
+                x_i = rhop[1].shape[0] // degree
+                #! to be checked
+                rho_vector = np.block([
+                        np.sum(rhop[0]) * np.ones(x_i),
+                        rhop[1],
+                        np.zeros(nw)
+                    ])
+                #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+                p += rho_vector
                 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
@@ -495,16 +496,16 @@ class HierarchicalQP:
             x_star = sol[0:nx]
             
             Z_list.append(Z)
-            if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
+            '''if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
                 for key in Z_n.keys():
                     if len(Z_n[key][-1]) > priority:           # check if neigh as same priority level's task
                         Z = Z @ Z_n[key][-1][priority]
                     else:
-                        Z = Z @ Z_n[key][-1][-1]
+                        Z = Z @ Z_n[key][-1][-1]'''
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
-            if priority != 0:
+            if priority > 2:
                 x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
             
             # Store the history of w_star

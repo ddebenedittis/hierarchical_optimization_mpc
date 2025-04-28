@@ -87,7 +87,7 @@ class HOMPCMultiRobot(HOMPC):
     # ======================================================================== #
     
     def __init__(
-        self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int],
+        self, states: list[ca.SX], inputs: list[ca.SX], fs: list[ca.SX], n_robots: list[int], n_neigh: int,
         solver: QPSolver = QPSolver.quadprog,
         hierarchical: bool = True,
         decay_rate: float = 1.0,
@@ -119,7 +119,7 @@ class HOMPCMultiRobot(HOMPC):
         
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
-        
+  
         self.regularization = 1e-6  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
@@ -137,6 +137,7 @@ class HOMPCMultiRobot(HOMPC):
         
         # Number of robots for every robot class.
         self.n_robots = n_robots
+        self.degree =n_neigh # number of neighbours
         
         # State and input variables of every robot class.
         self._n_states: list[int] = [state.numel() for state in states]
@@ -1204,11 +1205,11 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null)
+            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null, self.degree)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null ,we, wi)
+            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null ,we, wi, self.degree)
         self.solve_times["Solve Problem"] += time.time() - start_time
         
         n_c = self._n_control

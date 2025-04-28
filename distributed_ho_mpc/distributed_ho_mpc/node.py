@@ -203,6 +203,7 @@ class Node():
             self.u.tolist(),
             self.s_kp1.tolist(),
             self.n_robots.tolist(),
+            self.degree
         )
         self.hompc.n_control = st.n_control
         self.hompc.n_pred = st.n_pred
@@ -319,7 +320,7 @@ class Node():
         # ======================================================================== #
         
         self.s = RobCont(omni=
-        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
+        [np.array([0,0])
          for _ in range(self.n_robots.omni)],
         )
         #self.s = [[np.array([0,0,0]),np.array([0,0,0])]]
@@ -384,8 +385,8 @@ class Node():
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
             # put in message u and s
-            self.s = evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
-            
+            self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+     
             print(f's:\t{self.s}\n'
                   f'u:\t{self.u_star}\n')
             
@@ -409,6 +410,19 @@ class Node():
         
         self.sender.rho = copy.deepcopy(self.rho_i)   # update copy of the states to share
         
+    
+    def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
+        n_intervals = 10
+        
+        for j, _ in enumerate(s.omni):
+            
+            for _ in range(n_intervals):
+                s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
+                    u_star.omni[j][0],
+                    u_star.omni[j][1],
+                ])
+        
+        return s
         
     def null_sharing(self, Z, i):
         self.Z_neigh[f'{i}'].append(Z)

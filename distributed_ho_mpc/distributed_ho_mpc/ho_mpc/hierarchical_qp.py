@@ -333,7 +333,7 @@ class HierarchicalQP:
 
     
     def _solve_hierarchical(
-        self, A, b, C, d, rho, Z_n = None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho, Z_n = None, degree= None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -397,6 +397,7 @@ class HierarchicalQP:
             Ap = A[priority]
             bp = b[priority]
             rhop = rho[:, priority-1, :] # extract both i and j for priority p for each neighbour
+            x_i = rhop[1].shape[0] // degree
                         
             if we is not None:
                 if we[priority] is not None:
@@ -419,7 +420,7 @@ class HierarchicalQP:
             
             #! to be checked
             rho_vector = np.block([
-                    np.sum(rhop[0]) * np.ones(rhop[1].shape),
+                    np.sum(rhop[0]) * np.ones(x_i),
                     rhop[1],
                     np.zeros(nw)
                 ])
@@ -484,7 +485,8 @@ class HierarchicalQP:
 
             sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
-                return x_star_bar, Z_list           # NOTE: return also Z list updated until exit
+                x_star_bar_p.append(x_star_bar_p[-1])
+                return x_star_bar, x_star_bar_p           
 
 
             # ======================== Post-processing ======================= #
@@ -519,7 +521,7 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, Z_list
+                return x_star_bar, x_star_bar_p
 
         return x_star_bar, x_star_bar_p
     
@@ -594,7 +596,7 @@ class HierarchicalQP:
 
 
     def __call__(
-        self, A, b, C, d, rho = None, Z_n = None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho = None, Z_n = None, degree= None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -621,6 +623,6 @@ class HierarchicalQP:
         self._check_dimensions(A, b, C, d, we, wi, priorities)
         
         if self.hierarchical:
-            return self._solve_hierarchical(A, b, C, d, rho, Z_n, we, wi, priorities)
+            return self._solve_hierarchical(A, b, C, d, rho, Z_n, degree, we, wi, priorities)
         
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

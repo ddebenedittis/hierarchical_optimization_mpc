@@ -766,7 +766,7 @@ class HOMPCMultiRobot(HOMPC):
             ii = 0
             for c, n_r in enumerate(self.n_robots):
                 j_list = range(n_r) if t.robot_index is None else t.robot_index[c]
-                for j in j_list:
+                for j, _ in enumerate(j_list):    #! not j_list ma index on j_list
                     for k in timesteps:
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]
@@ -1019,7 +1019,13 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
         
-        eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
+        if t.eq_coeff is None:
+            eq_coeff = 0 
+        elif t.eq_coeff[c][j][k] is None:
+            eq_coeff = 0 
+        else:
+            eq_coeff = t.eq_coeff[c][j][k]  #! eq_coeff changed
+        #eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
         ineq_coeff = 0 if t.ineq_coeff is None else t.ineq_coeff[c][j][k]
                 
         return [

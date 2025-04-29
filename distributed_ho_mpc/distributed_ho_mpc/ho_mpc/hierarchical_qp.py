@@ -361,7 +361,7 @@ class HierarchicalQP:
 
         # Number of tasks.
         n_tasks = len(A)
-        # ! print(f'matrix A \n {A} \n')
+        
         # Dimension of the optimization vector.
         nx = A[0].shape[1] 
 
@@ -486,7 +486,10 @@ class HierarchicalQP:
 
             sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
-                x_star_bar_p.append(x_star_bar_p[-1])
+                if x_star_bar_p:
+                    x_star_bar_p.append(x_star_bar_p[-1])
+                else:
+                    x_star_bar_p.append(x_star_bar)
                 return x_star_bar, x_star_bar_p           
 
 

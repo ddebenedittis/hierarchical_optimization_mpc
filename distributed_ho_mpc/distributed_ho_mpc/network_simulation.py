@@ -3,8 +3,14 @@ import networkx as nx
 import numpy as np 
 import settings as st
 
-from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model
-from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
+from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
+#from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
+from ho_mpc.disp_het_multi_rob import (
+    display_animation,
+    MultiRobotArtists,
+    plot_distances,
+    save_snapshots
+)
 
 from distributed_ho_mpc.node import Node
 
@@ -34,10 +40,6 @@ system_tasks = {
                  'goal': goals[0],         # [x,y] 
                  'goal_index':0,          # index of the corrisponding list goal's element 
                     },
-                {'prio':4,             # priority
-                 'name':"formation",   # task type
-                 'agents': [0,1]
-                },  
                 ],
     'agent_1': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -47,13 +49,8 @@ system_tasks = {
                 },
                 {'prio':3,             # priority
                  'name':"formation",   # task type
-                 'agents': [1,2]
+                 'agents': [0,1]
                 },
-                {'prio':4,             # priority
-                 'name':"position",   # task type
-                 'goal': goals[0],         # [x,y] 
-                 'goal_index':0,          # index of the corrisponding list goal's element 
-                    },  
                 ],
     'agent_2': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -98,10 +95,9 @@ system_tasks = {
 
 # deterministic graphs = evolve(s, u_star, dt)
 if not st.random_graph:
-    graph_matrix = np.array([[0.,1.,0.],
-                             [1.,0.,1.],
-                             [0.,1.,0.]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
+    graph_matrix = np.array([[0.,1.],
+                             [1.,0.]])
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
 
 
 # random graph 🎲
@@ -201,4 +197,15 @@ s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(le
 
 '''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
 display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)'''
+artist_flags = MultiRobotArtists(
+        centroid=True, goals=True, obstacles=False,
+        past_trajectory=True,
+        omnidir=True,
+        unicycles=False,
+        #robots=RobCont(omni=True),
+        #robot_names=True,
+        voronoi=False,
+    )
+
+
 display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False)

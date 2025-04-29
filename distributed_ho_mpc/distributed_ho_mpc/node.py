@@ -39,7 +39,7 @@ class Node():
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
         self.n_priority = 2 # number of priorities
-        self.n_xi = 12 # dimension of primal variables
+        self.n_xi = st.n_control * 4 # dimension of primal variables
 
         # ======================== Variables updater ======================= #
         self.alpha = 1e-6 * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
@@ -183,7 +183,7 @@ class Node():
             (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
         )
         self.task_formation_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+            TaskBiCoeff(0, 0, 0, 1, 0, 9**2),
             #TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
         ]
 
@@ -214,7 +214,7 @@ class Node():
                                 name = "input_limits", prio = task['prio'],
                                 type = TaskType.Same,
                                 ineq_task_ls = self.task_input_limits.tolist(),
-                                robot_index= [[0]],
+                                robot_index= [self.robot_idx],
                                 #ineq_task_coeff= self.task_input_limits_coeffs
                                 )
             elif task['name'] == "position":
@@ -230,7 +230,7 @@ class Node():
                 self.hompc.create_task(
                                 name = "input_minimization", prio = task['prio'],
                                 eq_task_ls = self.task_input_min.tolist(),
-                                robot_index= [[0]]
+                                robot_index= [self.robot_idx]
                                 )
             elif task['name'] == 'input_smooth':
                 self.hompc.create_task(
@@ -238,7 +238,7 @@ class Node():
                                 type = TaskType.SameTimeDiff,
                                 ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
                                 #ineq_task_coeff = np.array([0,0,0,0]),
-                                robot_index= [[0]]
+                                robot_index= [self.robot_idx]
                                         )
             elif task['name'] == 'formation':
                 self.hompc.create_task_bi(
@@ -267,13 +267,13 @@ class Node():
                 raise ValueError(f"Could not find robot index for neighbor {neigh}")
             for task in self.neigh_tasks[neigh]:
                 if task['name'] == "input_limits":
-                    self.hompc.create_task(
+                    '''self.hompc.create_task(
                                     name = "input_limits", prio = task['prio'],
                                     type = TaskType.Same,
                                     ineq_task_ls = self.task_input_limits.tolist(),
                                     robot_index= [[robot_idx]],
                                     #ineq_task_coeff= self.task_input_limits_coeffs
-                                    )
+                                    )'''
                 elif task['name'] == "position":
                     self.hompc.create_task(
                                     name = "position", prio = task['prio'],
@@ -284,19 +284,19 @@ class Node():
                                     robot_index= [[robot_idx]]
                                     )
                 elif task['name'] == "input_minimization":
-                    self.hompc.create_task(
+                    '''self.hompc.create_task(
                                     name = "input_minimization", prio = task['prio'],
                                     eq_task_ls = self.task_input_min.tolist(),
                                     robot_index= [[robot_idx]]
-                                    )
+                                    )'''
                 elif task['name'] == 'input_smooth':
-                    self.hompc.create_task(
+                    '''self.hompc.create_task(
                                     name = "input_smooth", prio = task['prio'],
                                     type = TaskType.SameTimeDiff,
                                     ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
                                     #ineq_task_coeff = np.array([0,0,0,0]),
                                     robot_index= [[robot_idx]]        
-                                            )
+                                            )'''
                 elif task['name'] == 'formation':
                     if is_formation_with_neigh(task['agents'], self.robot_idx):
                         self.hompc.create_task_bi(
@@ -320,9 +320,9 @@ class Node():
         # ======================================================================== #
         
         self.s = RobCont(omni=
-        [np.array([0,0])
-         for _ in range(self.n_robots.omni)],
-        )
+            [np.array([0,0])
+            for _ in range(self.n_robots.omni)],
+            )
         #self.s = [[np.array([0,0,0]),np.array([0,0,0])]]
         
         self.s_history = [None for _ in range(self.n_steps)]
@@ -387,11 +387,11 @@ class Node():
             # put in message u and s
             self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
      
-            print(f's:\t{self.s}\n'
+            print(f's:\t{self.s.tolist()}\n'
                   f'u:\t{self.u_star}\n')
             
                
-            self.s_history[self.step] = copy.deepcopy(self.s)
+            self.s_history[self.step] = copy.deepcopy(self.s.tolist())
             #self.s_history[self.step, :] = copy.deepcopy(self.s)
             self.step += 1
         

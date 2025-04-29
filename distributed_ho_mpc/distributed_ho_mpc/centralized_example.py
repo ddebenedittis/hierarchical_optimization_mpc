@@ -76,7 +76,7 @@ def main():
         (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 0,
     )
     task_formation_coeff = [
-        TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+        TaskBiCoeff(0, 0, 0, 1, 0, 10**2),
         TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
     ]
     
@@ -114,13 +114,13 @@ def main():
     #     type=TaskType.Same,
     #     ineq_task_ls=task_input_limits.tolist(),
     # )
-    # hompc.create_task(
-    #     name="pos_ref_1", prio=2,
-    #     type=TaskType.Same,
-    #     eq_task_ls=task_pos_ref_1.tolist(),
-    #     eq_task_coeff=task_pos_ref_1_coeff.tolist(),
-    #     robot_index=[[0]],
-    # )
+    hompc.create_task(
+        name="pos_ref_1", prio=2,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_1.tolist(),
+        eq_task_coeff=task_pos_ref_1_coeff.tolist(),
+        robot_index=[[0]],
+    )
     hompc.create_task_bi(
         name="formation", prio=3,
         type=TaskType.Bi,

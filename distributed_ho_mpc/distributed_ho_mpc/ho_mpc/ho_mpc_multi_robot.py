@@ -979,9 +979,7 @@ class HOMPCMultiRobot(HOMPC):
                         d[ii:ii + ni_block] += coeff
 
                         ii += ni_block
-        '''if A.size > 0 :
-            print(f'A:\n{A}\n b:\n{b}\n C:\n{C}\n d:\n{d}\n ')'''
-
+        
         return A, b, C, d
     
     # ==================== _helper_create_task_i_matrices ==================== #

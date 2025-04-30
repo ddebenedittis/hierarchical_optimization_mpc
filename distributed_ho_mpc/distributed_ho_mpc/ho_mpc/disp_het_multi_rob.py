@@ -206,12 +206,12 @@ class Animation():
         # ====================== Initialize The Artists ====================== #
         
         self.artists = MultiRobotArtists
-        self.artists.unicycles = [None] * self.n_robots[0]
+        self.artists.unicycles = [None for _ in self.n_robots]
         self.artists.omnidir = [None] * self.n_robots[1]
         
         # We create one object for the unicycles because each of them needs to
         # have a different dimension.    
-        for i in range(self.n_robots[0]):
+        for i in range(len(self.n_robots)):
             self.artists.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
         
         self.artists.omnidir = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o',)
@@ -279,11 +279,11 @@ class Animation():
         legend_elements = []
         if self.n_robots[0] > 0:
             legend_elements.append(
-                Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Unicycle')
+                Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Agent_i')
             )
         if self.n_robots[1] > 0:
             legend_elements.append(
-                Line2D([], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot')
+                Line2D([], [], marker='o', color='C1', linestyle='None', label='Neigh_copy')
             )
         if sum(self.n_robots) > 1:
             legend_elements.append(
@@ -327,25 +327,44 @@ class Animation():
         
         # Current (frame) state.
         state = self.data[frame]
+        #x = [np.zeros((agent, 2)) for agent in self.n_robots]
+        
+        n_j = 0 - len(self.n_robots)
+        for n in self.n_robots:
+            n_j += n 
         
         x = [
-            np.zeros((self.n_robots[0], 3)),
-            np.zeros((self.n_robots[1], 2)),
+            np.zeros((len(self.n_robots), 2)),
+            np.zeros((n_j, 2)),
         ]
         
-        for c, state_c in enumerate(state):
-            for j, s_c_j in enumerate(state_c):
-                x[c][j, 0] = s_c_j[0]
-                x[c][j, 1] = s_c_j[1]
-                # if c == 0:
-                #     x[c][j, 2] = s_c_j[2]
+        # for c, state_c in enumerate(state):
+        #     for j, s_c_j in enumerate(state_c):
+        #         x[c][j, 0] = s_c_j[0]
+        #         x[c][j, 1] = s_c_j[1]
+        #         # if c == 0:
+        #         #     x[c][j, 2] = s_c_j[2]
+        p = 0
+        for i, state_c in enumerate(state):
+            for j, s_c_j in enumerate(state_c):    
+                if j == 0:
+                    x[0][i, 0] = s_c_j[0]
+                    x[0][i, 1] = s_c_j[1]
+                else:
+                    x[1][p, 0] = s_c_j[0]
+                    x[1][p, 1] = s_c_j[1]
+                    p += 1
+                    
+            
                     
         # State history.
         n_history = min(self.n_history, frame)
-        x_history = [
-            np.zeros((self.n_robots[0], n_history, 3)),
-            np.zeros((self.n_robots[1], n_history, 2)),
-        ]
+        #x_history = [
+        #    np.zeros((len(self.n_robots), n_history, 3)),
+        #    np.zeros((n_j, n_history, 2)),
+        #]
+        x_history = [np.zeros((agent, n_history, 2)) for agent in self.n_robots]
+        p = 0
         for k in range(n_history):
             for c in range(len(self.data[frame - k])):
                 for j, s_c_j in enumerate(self.data[frame - k][c]):
@@ -356,7 +375,7 @@ class Animation():
                         
         # ========================= Clean Old Artists ======================== #
         
-        for i in range(self.n_robots[0]):
+        for i in range(len(self.n_robots)):
             self.artists.unicycles[i].remove()
 
         self.artists.omnidir.remove()
@@ -364,8 +383,9 @@ class Animation():
         # ====================== Display Updated Artists ===================== #
         
         # Unicycles.
-        for i in range(self.n_robots[0]):
-            deg = x[0][i,2] * 180 / np.pi
+        for i in range(len(self.n_robots)):
+            #deg = x[0][i,2] * 180 / np.pi
+            deg = 1
             marker, scale = gen_arrow_head_marker(deg)
                         
             self.artists.unicycles[i] = plt.scatter(
@@ -373,37 +393,45 @@ class Animation():
                 s = 250 * scale**2, c = 'C0',
                 marker = marker,
             )
-        # TODO: handle myself robots (style) in plot
+        
+        '''# TODO: handle myself robots (style) in plot
         # real robot.
-        # self.artists.myself = plt.scatter(
-        #     x = x[0][i,0], y = x[0][i,1],
-        #     s = 250 * scale**2, c = 'C0',
-        #     marker = marker,
-        # )
+        for i in range(len(self.n_robots)):
+            #deg = x[0][i,2] * 180 / np.pi
+            deg = 1
+            marker, scale = gen_arrow_head_marker(deg)
+                        
+            self.artists.unicycles[i] = plt.scatter(
+                x = x[i][0,0], y = x[i][0,1],
+                s = 250 * scale**2, c = 'C0',
+                marker = marker,
+            )'''
         
             
-        # Omnidirectional robot.
+        #Omnidirectional robot.
         self.artists.omnidir = plt.scatter(
             x = x[1][:,0], y = x[1][:,1],
             s = 25, c = 'C1',
             marker = 'o',
         )
-        # TODO: handle neigh robots (style) in plot
+        
+        '''# TODO: handle neigh robots (style) in plot
         # neighbours robot.
-        # self.artists.neigh = plt.scatter(
-        #     x = x[1][:,0], y = x[1][:,1],
-        #     s = 25, c = 'C1',
-        #     marker = 'o',
-        # )
+        for i in range(len(self.n_robots)):
+            self.artists.omnidir = plt.scatter(
+                x = x[i][1:,0], y = x[i][1:,1],
+                s = 25, c = 'C1',
+                marker = 'o',
+            )'''
         
         
         # Fleet centroid. Plotted only if more than one robot.
-        if sum(self.n_robots) > 1:
-            self.artists.centroid.set_offsets(
-                sum([np.nan_to_num(np.mean(
-                    x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
-                ) / sum(self.n_robots)
-            )
+        # if sum(self.n_robots) > 1:
+        #     self.artists.centroid.set_offsets(
+        #         sum([np.nan_to_num(np.mean(
+        #             x[i][:,0:2],axis=0))*self.n_robots[i] for i in range(len(self.n_robots))]
+        #         ) / sum(self.n_robots)
+        #     )
         
         # Voronoi.
         if self.show_voronoi:

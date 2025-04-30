@@ -766,7 +766,9 @@ class HOMPCMultiRobot(HOMPC):
             ii = 0
             for c, n_r in enumerate(self.n_robots):
                 j_list = range(n_r) if t.robot_index is None else t.robot_index[c]
-                for j, _ in enumerate(j_list):    #! not j_list ma index on j_list
+                if j_list[0] >= n_r:
+                    j_list = range(n_r)
+                for j in j_list:    #! not j_list ma index on j_list-> for j, _ in enumerate(j_list):
                     for k in timesteps:
                         ne = t.eq_J_T_s[c].shape[0]
                         ni = t.ineq_J_T_s[c].shape[0]

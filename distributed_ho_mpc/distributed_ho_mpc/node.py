@@ -182,10 +182,16 @@ class Node():
         self.task_formation = ca.vertcat(
             (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
         )
-        self.task_formation_coeff = [
-            TaskBiCoeff(0, 0, 0, 1, 0, 9**2),
-            #TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
+        if self.node_id == 1:
+            self.task_formation_coeff = [
+                TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
+                TaskBiCoeff(0, 1, 0, 2, 0, 2**2),
         ]
+        else: 
+            self.task_formation_coeff = [
+                TaskBiCoeff(0, 0, 0, 1, 0, 2**2)
+            ]
+
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
         
@@ -428,3 +434,5 @@ class Node():
         self.Z_neigh[f'{i}'].append(Z)
 
     
+    def plot_dual(self):
+        return self.rho_i, self.neigh

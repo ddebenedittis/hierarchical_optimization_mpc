@@ -13,6 +13,7 @@ from ho_mpc.disp_het_multi_rob import (
 )
 
 from distributed_ho_mpc.node import Node
+import matplotlib.pyplot as plt
 
 model = {
    'unicycle': get_unicycle_model(st.dt),
@@ -24,8 +25,8 @@ model = {
 # =========================================================================== #
 
 goals = [
-        np.array([12, -10]),
-        np.array([11, 6]),
+        np.array([6, -5]),
+        np.array([5, 3]),
     ]
 
 system_tasks = {
@@ -62,12 +63,7 @@ system_tasks = {
                  'name':"position",   # task type
                  'goal': goals[1],         # [x,y] 
                  'goal_index':1,          # index of the corrisponding list goal's element 
-                },
-                {'prio':4,             # priority
-                 'name':"position",    # task type
-                 'goal': goals[0],         # [x,y] 
-                 'goal_index':0,          # index of the corrisponding list goal's element 
-                }
+                    },
                 ],
     'agent_3': [{'prio':1,             # priority
                  'name':"input_limits",   # task type
@@ -94,10 +90,15 @@ system_tasks = {
 
 
 # deterministic graphs = evolve(s, u_star, dt)
-if not st.random_graph:
+'''if not st.random_graph:
     graph_matrix = np.array([[0.,1.],
                              [1.,0.]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])'''
+if not st.random_graph:
+    graph_matrix = np.array([[0.,1., 0.],
+                             [1.,0., 1.],
+                             [0.,1., 0.]])
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 
 
 # random graph 🎲
@@ -192,14 +193,14 @@ s_hist_merged = [
     for i in range(len(nodes[0].s_history))
 ]
 #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
-s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
+s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
 
 
 '''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
 display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)'''
 artist_flags = MultiRobotArtists(
         centroid=True, goals=True, obstacles=False,
-        past_trajectory=True,
+        past_trajectory=False,
         omnidir=True,
         unicycles=False,
         #robots=RobCont(omni=True),
@@ -208,4 +209,18 @@ artist_flags = MultiRobotArtists(
     )
 
 
-display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False)
+display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
+
+
+# ---------------------------------------------------------------------------- #
+#            plot the comparison of dual variables of the agents               #
+# ---------------------------------------------------------------------------- #
+rho = [None] * st.n_nodes
+idx = [None] * st.n_nodes
+for i in range(st.n_nodes):
+    rho[i], idx[i] =nodes[i].plot_dual()
+for i in range(st.n_nodes):
+    for j in idx[i]:
+        for p in range(st.n_priority):
+            plt.plot(rho[i][0, p, (j * st.n_xi): (j + 1) * st.n_xi], label=f'agent {i}-{j} priority {p}')
+            plt.show()

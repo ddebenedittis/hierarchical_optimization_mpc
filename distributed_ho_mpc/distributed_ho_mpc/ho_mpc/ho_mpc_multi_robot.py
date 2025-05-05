@@ -1174,16 +1174,14 @@ class HOMPCMultiRobot(HOMPC):
     
     def __call__(self, state_meas: np.ndarray = None, rho_delta: np.ndarray = None,Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
         start_time = time.time()
+        
         self._initialize(state_meas, inputs)
-                
+        
+        # ================ Reorder Tasks And Create Matrices ================ #
+        
         self._tasks = sorted(self._tasks, key=lambda x: x.prio) 
         
-        n_prio = 0
-        for t in self._tasks: 
-            if t.prio > n_prio:
-                n_prio += 1
-        
-        # Create matrices based on number of different priorities plus one for the dynamics consistency  
+        n_prio = len({t.prio for t in self._tasks})     # set comprehension to get unique priorities
         A = [None] * (1 + n_prio)
         b = [None] * (1 + n_prio)
         C = [None] * (1 + n_prio)
@@ -1193,18 +1191,25 @@ class HOMPCMultiRobot(HOMPC):
         
         self.solve_times["Create Problem"] += time.time() - start_time
         
-        
-        for k in range(len(self._tasks)):
-            prio = self._tasks[k].prio 
-            if A[prio] is None:
-                A[prio], b[prio], C[prio], d[prio] = self._create_task_i_matrices(k)
+        p = 1
+        for k, t in enumerate(self._tasks):
+            if k == 0:  # otherwise self._tasks[k-1] creates problems
+                A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
+                p += 1
+                continue
+                
+            if t.prio != self._tasks[k-1].prio:
+                A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
+                p += 1
             else:
-                A_t, b_t, C_t, d_t = self._create_task_i_matrices(k)
-                A[prio] = np.vstack((A[prio], A_t))
-                b[prio] = np.vstack((b[prio], b_t))
-                C[prio] = np.vstack((C[prio], C_t)) 
-                d[prio] = np.vstack((d[prio], d_t))
-             
+                A_temp, b_temp, C_temp, d_temp = self._create_task_i_matrices(k)
+                A[p-1] = np.vstack((A[p-1], A_temp))
+                b[p-1] = np.vstack((b[p-1], b_temp))
+                C[p-1] = np.vstack((C[p-1], C_temp))
+                d[p-1] = np.vstack((d[p-1], d_temp))
+                # TODO: these tasks could potentially be reduced.
+                
+        # =================================================================== #
             
         # self.solve_times["Create Problem"] += time.time() - start_time
             

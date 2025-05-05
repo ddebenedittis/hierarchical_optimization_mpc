@@ -215,12 +215,13 @@ display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voro
 # ---------------------------------------------------------------------------- #
 #            plot the comparison of dual variables of the agents               #
 # ---------------------------------------------------------------------------- #
-rho = [None] * st.n_nodes
-idx = [None] * st.n_nodes
-for i in range(st.n_nodes):
-    rho[i], idx[i] =nodes[i].plot_dual()
-for i in range(st.n_nodes):
-    for j in idx[i]:
-        for p in range(st.n_priority):
-            plt.plot(rho[i][0, p, (j * st.n_xi): (j + 1) * st.n_xi], label=f'agent {i}-{j} priority {p}')
-            plt.show()
+if st.plot_dual:
+    rho = [None] * st.n_nodes
+    idx = [None] * st.n_nodes
+    for i in range(st.n_nodes):
+        rho[i], idx[i] =nodes[i].plot_dual()
+    for i in range(st.n_nodes):
+        for j in idx[i]:
+            for p in range(st.n_priority):
+                plt.plot(rho[i][0, p, (j * st.n_xi): (j + 1) * st.n_xi], label=f'agent {i}-{j} priority {p}')
+                plt.show()

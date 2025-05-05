@@ -12,6 +12,7 @@ dt = 0.1
 n_steps = 150
 
 formation_distance = 4
+plot_dual = False
 
 output = {
     'display':'plot', 

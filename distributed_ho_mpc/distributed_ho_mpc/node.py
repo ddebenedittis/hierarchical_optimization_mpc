@@ -187,6 +187,10 @@ class Node():
                 TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
                 TaskBiCoeff(0, 1, 0, 2, 0, 2**2),
         ]
+        elif self.node_id == 2:
+            self.task_formation_coeff = [
+                TaskBiCoeff(0, 1, 0, 2, 0, 2**2)
+            ]
         else: 
             self.task_formation_coeff = [
                 TaskBiCoeff(0, 0, 0, 1, 0, 2**2)

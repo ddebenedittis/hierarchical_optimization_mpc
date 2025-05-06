@@ -30,58 +30,15 @@ goals = [
     ]
 
 system_tasks = {
-    'agent_0': [{'prio':1,             # priority
-                 'name':"input_limits",   # task type
-                    },
-                {'prio':2,             # priority
-                 'name':"input_smooth",   # task type
-                      },
-                {'prio':3,             # priority
-                 'name':"position",   # task type
-                 'goal': goals[0],         # [x,y] 
-                 'goal_index':0,          # index of the corrisponding list goal's element 
-                    },
-                ],
-    'agent_1': [{'prio':1,             # priority
-                 'name':"input_limits",   # task type
-                    },
-                {'prio':2,             # priority
-                 'name':"input_smooth",   # task type
-                },
-                {'prio':3,             # priority
-                 'name':"formation",   # task type
-                 'agents': [0,1]
-                },
-                ],
-    'agent_2': [{'prio':1,             # priority
-                 'name':"input_limits",   # task type
-                },
-                {'prio':2,             # priority
-                 'name':"input_smooth",   # task type
-                },
-                {'prio':3,             # priority
-                 'name':"position",   # task type
-                 'goal': goals[1],         # [x,y] 
-                 'goal_index':1,          # index of the corrisponding list goal's element 
-                    },
-                ],
-    'agent_3': [{'prio':1,             # priority
-                 'name':"input_limits",   # task type
-                      },
-                {'prio':2,             # priority
-                 'name':"input_smooth",   # task type
-                      },
-                {'prio':3,             # priority
-                 'name':"position",   # task type
-                'goal': goals[0],         # [x,y]
-                'goal_index':0, 
-                      },
-                {'prio':4,             # priority
-                 'name':"position",   # task type
-                'goal': goals[1],         # [x,y]
-                'goal_index':0, 
-                      }
-                ],
+    'agent_0': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,}],
+    'agent_1': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]}],
+    'agent_2': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,}],
 }
 
 # ---------------------------------------------------------------------------- #

@@ -397,6 +397,7 @@ class HierarchicalQP:
             Ap = A[priority]
             bp = b[priority]
             
+            # reduce matrix A
                         
             if we is not None:
                 if we[priority] is not None:

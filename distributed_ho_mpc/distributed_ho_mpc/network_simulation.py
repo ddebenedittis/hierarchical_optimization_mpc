@@ -29,16 +29,33 @@ goals = [
         np.array([5, 3]),
     ]
 
+'''system_tasks = {
+    'agent_0': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},                
+                {'prio':3, 'name':"formation", 'agents': [[0,1]]},],
+                #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},],
+    'agent_1': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},                
+                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':4, 'name':"formation", 'agents': [[0,1]]}],
+    'agent_2': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},                
+                {'prio':3, 'name':"formation", 'agents': [[1,2]]},
+                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},],
+}'''
 system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,}],
+                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':4, 'name':"formation", 'agents': [[0,1]]}],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]}],
+                {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},],
+                #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,}],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,}],
+                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
+                {'prio':4, 'name':"formation", 'agents': [[1,2]]}],
 }
 
 # ---------------------------------------------------------------------------- #
@@ -47,11 +64,11 @@ system_tasks = {
 
 
 # deterministic graphs = evolve(s, u_star, dt)
-'''if not st.random_graph:
+if st.n_nodes == 2:
     graph_matrix = np.array([[0.,1.],
                              [1.,0.]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])'''
-if not st.random_graph:
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
+if st.n_nodes == 3:
     graph_matrix = np.array([[0.,1., 0.],
                              [1.,0., 1.],
                              [0.,1., 0.]])
@@ -149,8 +166,12 @@ s_hist_merged = [
             sum((node.s_history[i][:1] for node in nodes), []) 
     for i in range(len(nodes[0].s_history))
 ]
+
 #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
-s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
+if st.n_nodes == 2:
+    s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
+if st.n_nodes == 3:
+    s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
 
 
 '''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)

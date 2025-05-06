@@ -42,7 +42,7 @@ class Node():
         self.n_xi = st.n_control * 4 # dimension of primal variables
 
         # ======================== Variables updater ======================= #
-        self.alpha = 1e-6 * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
+        self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
@@ -184,16 +184,16 @@ class Node():
         )
         if self.node_id == 1:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
-                TaskBiCoeff(0, 1, 0, 2, 0, 2**2),
+                TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+                TaskBiCoeff(0, 0, 0, 2, 0, 5**2),
         ]
         elif self.node_id == 2:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 1, 0, 2, 0, 2**2)
+                TaskBiCoeff(0, 0, 0, 1, 0, 5**2)
             ]
         else: 
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 2**2)
+                TaskBiCoeff(0, 0, 0, 1, 0, 5**2)
             ]
 
 

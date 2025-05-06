@@ -25,7 +25,9 @@ n_priority = 2
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 4 # mpc control step
+n_control = 1 # mpc control step
 n_pred = 0 # mpc prediction step
 
 n_xi = n_control * 2
+
+step_size = 1e-7

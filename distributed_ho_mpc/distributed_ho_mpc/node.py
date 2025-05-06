@@ -114,6 +114,19 @@ class Node():
         self.Z_neigh = {f'{i}': [[np.eye(30)]] for i in self.neigh} #np.empty([20,20])
 
     
+    def index_local_to_global(self, r) -> int:
+        """
+        Convert the local index of the node to the global index in the adjacency vector.
+        """
+        return self.robot_idx_global[r]
+    def index_global_to_local(self, r) -> int:
+        """
+        Convert the global index of the node to the local index in the adjacency vector.
+        """
+        return self.robot_idx_global.index(r)
+
+    
+    
     # ---------------------------------------------------------------------------- #
     #                                     Task                                     #
     # ---------------------------------------------------------------------------- #
@@ -121,7 +134,8 @@ class Node():
         "Define the tasks separately"
 
         #n_robots = [self.degree+1, 0] # n° of neighbours + self agent
-        self.robot_idx = [self.node_id] + self.neigh
+        self.robot_idx_global = [self.node_id] + self.neigh
+        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
 
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),
@@ -184,12 +198,13 @@ class Node():
         )
         if self.node_id == 1:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+                TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
                 TaskBiCoeff(0, 0, 0, 2, 0, 5**2),
         ]
         elif self.node_id == 2:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 5**2)
+                TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+                TaskBiCoeff(0, 0, 0, 2, 0, 2**2),
             ]
         else: 
             self.task_formation_coeff = [
@@ -271,7 +286,7 @@ class Node():
             robot_idx = None
             for i in self.neigh:
                 if neigh == f'agent_{i}':
-                    robot_idx = self.robot_idx.index(i)
+                    robot_idx = self.robot_idx_global.index(i)
                     break
             if robot_idx is None:
                 raise ValueError(f"Could not find robot index for neighbor {neigh}")

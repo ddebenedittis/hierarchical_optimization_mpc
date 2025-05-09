@@ -440,13 +440,16 @@ class HierarchicalQP:
                 ])
 
                 p = np.zeros(nx+nw)
-            
+            #TODO hard coded brutto
             if priority > 2:
                 rhop = rho[:, priority-3, :] # extract both i and j for priority p for each neighbour
                 x_i = rhop[1].shape[0] // degree
                 #! to be checked
+                r = np.zeros(x_i)
+                for i in range(degree):
+                    r += rhop[0][i*x_i:(i+1)*x_i]
                 rho_vector = np.block([
-                        np.sum(rhop[0]) * np.ones(x_i),
+                        r,
                         rhop[1],
                         np.zeros(nw)
                     ])

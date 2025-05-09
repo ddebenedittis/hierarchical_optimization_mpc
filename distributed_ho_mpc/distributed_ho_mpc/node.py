@@ -4,6 +4,9 @@ import time
 import numpy as np
 import casadi as ca
 
+import csv
+from datetime import datetime, timedelta
+
 from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
 
@@ -75,6 +78,29 @@ class Node():
             self.n_xi
         )
         
+        self.filename = f"node_{self.node_id}_data.csv"
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            # Write the header
+            header = ['Time']
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_p3_j{j}_{i}')
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_p4_j{j}_{i}') 
+            header.append(f'stateX_{self.node_id}')
+            header.append(f'stateY_{self.node_id}')
+            for j in self.neigh:
+                header.append(f'stateX_{j}')
+                header.append(f'stateY_{j}')
+            header.append(f'inputX_{self.node_id}')
+            header.append(f'inputY_{self.node_id}')
+            for j in self.neigh:
+                header.append(f'inputX_{j}')
+                header.append(f'inputY_{j}') 
+            # Write the header
+            writer.writerow(header)      
         
         # ======================== Define The System Model ======================= #
     
@@ -198,13 +224,13 @@ class Node():
         )
         if self.node_id == 1:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
-                TaskBiCoeff(0, 0, 0, 2, 0, 5**2),
-        ]
+                TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
+                TaskBiCoeff(0, 0, 0, 2, 0, 9**2),
+            ]
         elif self.node_id == 2:
             self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 5**2),
-                TaskBiCoeff(0, 0, 0, 2, 0, 2**2),
+                TaskBiCoeff(0, 0, 0, 1, 0, 9**2),
+                #TaskBiCoeff(0, 0, 0, 2, 0, 2**2),
             ]
         else: 
             self.task_formation_coeff = [
@@ -241,7 +267,7 @@ class Node():
                     ineq_task_ls = self.task_input_limits.tolist(),
                     robot_index= [self.robot_idx],
                     #ineq_task_coeff= self.task_input_limits_coeffs
-                    )
+                )
             elif task['name'] == "position":
                 self.hompc.create_task(
                     name = "position", prio = task['prio'],
@@ -250,13 +276,13 @@ class Node():
                     eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
                     time_index = TaskIndexes.All,
                     robot_index= [[0]]
-                    )
+                )
             elif task['name'] == "input_minimization":
                 self.hompc.create_task(
                     name = "input_minimization", prio = task['prio'],
                     eq_task_ls = self.task_input_min.tolist(),
                     robot_index= [self.robot_idx]
-                    )
+                )
             elif task['name'] == 'input_smooth':
                 self.hompc.create_task(
                     name = "input_smooth", prio = task['prio'],
@@ -264,7 +290,7 @@ class Node():
                     ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
                     #ineq_task_coeff = np.array([0,0,0,0]),
                     robot_index= [self.robot_idx]
-                            )
+                )
             elif task['name'] == 'formation':
                 self.hompc.create_task_bi(
                     name = "formation", prio = task['prio'],
@@ -273,7 +299,7 @@ class Node():
                     mapping = self.mapping.tolist(),
                     eq_task_ls = self.task_formation,
                     eq_task_coeff = self.task_formation_coeff,
-                            )
+                )
             '''elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
                                 name = "obstacle_avoidance", prio = task['prio'],
@@ -307,7 +333,7 @@ class Node():
                         eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
                         time_index = TaskIndexes.All,
                         robot_index= [[robot_idx]]
-                        )
+                    )   
                 elif task['name'] == "input_minimization":
                     '''self.hompc.create_task(
                                     name = "input_minimization", prio = task['prio'],
@@ -332,7 +358,7 @@ class Node():
                                 mapping = self.mapping.tolist(),
                                 eq_task_ls = self.task_formation,
                                 eq_task_coeff = self.task_formation_coeff,
-                                        )
+                            )
                 '''elif task['name'] == 'obstacle_avoidance':
                     self.hompc.create_task(
                                     name = "obstacle_avoidance", prio = task['prio'],
@@ -372,30 +398,10 @@ class Node():
         
         return self.sender.send_message(receiver_id, update)
         
-        # modify message 
-        # message = []
-        # for jj in self.x_neigh:
-        #     message.append(Message(self.node_id, self.x_i, jj))
-        # return message, self.neigh
 
     def update(self):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
-        """for j in self.neigh:
-            data = self.buffer_dual.pop()
-            if self.step >= 3 :
-                #self.null_sharing(data.Z, data.node_id)
-                
-                # consensus on x[s,u] 
-                # for c, n_r in enumerate(self.n_robots):
-                #     for j in range(self.n_robots[c]):
-                #         for k in range(st.n_control):
-                #             self.s_opt[c][j][k] = copy.deepcopy((self.s_opt[c][j][k] + data.s[c][np.abs(j-1)][k])/(self.degree+1))  #incrocio i due vettori di ottimizzazione
-                # for c, n_r in enumerate(self.n_robots):
-                #     for j in range(self.n_robots[c]):
-                #         for k in range(st.n_control):
-                #             self.u_opt[c][j][k] = copy.deepcopy((self.u_opt[c][j][k] + data.u[c][np.abs(j-1)][k])/(self.degree+1))
-                #self.s[0] = [self.s_opt[0][0][0],self.s_opt[0][1][0]] # update new value of s"""
         if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
         
@@ -420,9 +426,6 @@ class Node():
             self.s_history[self.step] = copy.deepcopy(self.s.tolist())
             #self.s_history[self.step, :] = copy.deepcopy(self.s)
             self.step += 1
-        
-        if self.step > 2:
-            self.hompc.null_consensus_start()
                 
         return 
         
@@ -435,6 +438,8 @@ class Node():
         self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_xi:] - self.y_j[1, :, :])
         
         self.sender.rho = copy.deepcopy(self.rho_i)   # update copy of the states to share
+        if self.step > 1:
+            self.save_data()
         
     
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
@@ -449,10 +454,23 @@ class Node():
                 ])
         
         return s
-        
-    def null_sharing(self, Z, i):
-        self.Z_neigh[f'{i}'].append(Z)
-
     
     def plot_dual(self):
         return self.rho_i, self.neigh
+    
+    def save_data(self):
+        
+        with open(self.filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            # Write the data
+            row = [self.step]
+            row.extend(self.rho_i[0, 0, :])
+            row.extend(self.rho_i[0, 1, :])
+            for s in self.s.tolist():
+                for ss in s:
+                    row.extend(ss)
+            for u in self.u_star[0]:
+                row.extend(list(u))
+            #row = [self.step, list(self.rho_i[0, 0, :]), list(self.rho_i[0, 1, :]), self.s.tolist(), self.u_star], 
+            
+            writer.writerow(row)

@@ -449,10 +449,10 @@ class HierarchicalQP:
                 for i in range(degree):
                     r += rhop[0][i*x_i:(i+1)*x_i]
                 rho_vector = np.block([
-                        r,
-                        rhop[1],
-                        np.zeros(nw)
-                    ])
+                    r,
+                    rhop[1],
+                    np.zeros(nw)
+                ])
                 #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
                 p += rho_vector
                 

@@ -1285,8 +1285,9 @@ class HOMPCMultiRobot(HOMPC):
                                 [self._input_bar[c][j][k].T + x_star_p[p][self._get_idx_input_k(c, j, k)]])'''
                         x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
                                 [x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
-                        x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
-                                [x_star_p[p][self._get_idx_input_k(c, j, k)]])
+                        #x_star_p[p][self._get_idx_input_k(c, j, k)] = 0
+                        # x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
+                        #         [x_star_p[p][self._get_idx_input_k(c, j, k)]])
                 if p < priority:
                     p += 1
                 

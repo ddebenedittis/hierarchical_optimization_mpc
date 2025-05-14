@@ -189,7 +189,14 @@ class Animation():
         self.y_lim = [-20., 20.]
         
         self.n_robots = [len(data_i) for data_i in data[0]]
-        
+        #positional reference of neighbour estimation inside the data
+        self.pos_neigh = [ None for i in range(len(self.n_robots))]
+        for p, l in enumerate(self.n_robots):
+            if p == 0:
+                self.pos_neigh[p] = 0
+            else: 
+                self.pos_neigh[p] = sum(self.n_robots[:p])-1*p
+                
         self.artists = None
         
         self.show_trajectory = True
@@ -207,14 +214,14 @@ class Animation():
         
         self.artists = MultiRobotArtists
         self.artists.unicycles = [None for _ in self.n_robots]
-        self.artists.omnidir = [None] * self.n_robots[1]
+        self.artists.omnidir = [None for _ in self.n_robots]
         
         # We create one object for the unicycles because each of them needs to
         # have a different dimension.    
         for i in range(len(self.n_robots)):
             self.artists.unicycles[i] = self.ax.scatter([], [], 25, 'C0')
         
-        self.artists.omnidir = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o',)
+            self.artists.omnidir[i] = self.ax.scatter([], [], s = 25, c = 'C1', marker = 'o',)
             
         self.artists.centroid = self.ax.scatter([], [], 25, 'C2')
         
@@ -278,17 +285,18 @@ class Animation():
         marker, scale = gen_arrow_head_marker(0)
         legend_elements = []
         if self.n_robots[0] > 0:
+            for i in range(len(self.n_robots)):
+                legend_elements.append(
+                    Line2D([], [], marker=marker, markersize=20*scale, color=f'C{i}', linestyle='None', label=f'Agent_{i}')
+                )
+        '''if self.n_robots[1] > 0:
             legend_elements.append(
-                Line2D([], [], marker=marker, markersize=20*scale, color='C0', linestyle='None', label='Agent_i')
-            )
-        if self.n_robots[1] > 0:
-            legend_elements.append(
-                Line2D([], [], marker='o', color='C1', linestyle='None', label='Neigh_copy')
-            )
-        if sum(self.n_robots) > 1:
+                Line2D([], [], marker='o', color=f'C{i}', linestyle='None', label='Neigh_copy')
+            )'''
+        '''if sum(self.n_robots) > 1:
             legend_elements.append(
                 Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
-            )
+            )'''
         if self.goals is not None:
             if len(self.goals) > 0:
                 legend_elements.append(
@@ -378,7 +386,7 @@ class Animation():
         for i in range(len(self.n_robots)):
             self.artists.unicycles[i].remove()
 
-        self.artists.omnidir.remove()
+            self.artists.omnidir[i].remove()
         
         # ====================== Display Updated Artists ===================== #
         
@@ -390,8 +398,15 @@ class Animation():
                         
             self.artists.unicycles[i] = plt.scatter(
                 x = x[0][i,0], y = x[0][i,1],
-                s = 250 * scale**2, c = 'C0',
+                s = 250 * scale**2, c = f'C{i}',
                 marker = marker,
+            )
+            
+            #Omnidirectional robot.
+            self.artists.omnidir[i] = plt.scatter(
+                x = x[1][self.pos_neigh[i]:(self.pos_neigh[i]+self.n_robots[i]-1),0], y = x[1][self.pos_neigh[i]:(self.pos_neigh[i]+self.n_robots[i]-1),1],
+                s = 25, c = f'C{i}',
+                marker = 'o',
             )
         
         '''# TODO: handle myself robots (style) in plot
@@ -408,12 +423,12 @@ class Animation():
             )'''
         
             
-        #Omnidirectional robot.
+        '''#Omnidirectional robot.
         self.artists.omnidir = plt.scatter(
             x = x[1][:,0], y = x[1][:,1],
             s = 25, c = 'C1',
             marker = 'o',
-        )
+        )'''
         
         '''# TODO: handle neigh robots (style) in plot
         # neighbours robot.

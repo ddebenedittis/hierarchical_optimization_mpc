@@ -135,7 +135,7 @@ class HierarchicalQP:
         hierarchical = True,
     ):
         # Small number used to make H positive definite.
-        self._regularization = 1e-6
+        self._regularization = 1e-2
         
         self._solver = solver
         if not TORCH_AVAILABLE and self._solver.to_string() == "reluqp":
@@ -490,13 +490,20 @@ class HierarchicalQP:
 
             sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
-                if x_star_bar_p:
-                    x_star_bar_p.append(x_star_bar_p[-1])
+                '''if x_star_bar_p: # check if empty
+                    x_star_bar_p.append(x_star_bar_p[-1]) # take last solution found
                 else:
-                    x_star_bar_p.append(x_star_bar)
-                return x_star_bar, x_star_bar_p           
-
-
+                    x_star_bar_p.append(x_star_bar) # if empty put zero vector
+                if priority < (n_tasks-1): 
+                    for i in range(n_tasks-priority-1):
+                        x_star_bar_p.append(x_star_bar_p[-1])'''        
+                for i in range(n_tasks-priority):
+                    if x_star_bar_p:
+                       x_star_bar_p.append(x_star_bar_p[-1])
+                    else:
+                        x_star_bar_p.append(x_star_bar)
+                return x_star_bar, x_star_bar_p      
+                    
             # ======================== Post-processing ======================= #
 
             # Extract x_star from the solution.

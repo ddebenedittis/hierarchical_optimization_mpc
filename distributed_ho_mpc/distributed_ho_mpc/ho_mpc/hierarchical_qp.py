@@ -135,7 +135,7 @@ class HierarchicalQP:
         hierarchical = True,
     ):
         # Small number used to make H positive definite.
-        self._regularization = 1e-2
+        self._regularization = 1e-6
         
         self._solver = solver
         if not TORCH_AVAILABLE and self._solver.to_string() == "reluqp":

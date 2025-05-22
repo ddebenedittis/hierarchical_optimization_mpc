@@ -25,7 +25,7 @@ model = {
 # =========================================================================== #
 
 goals = [
-        np.array([5, 6]),
+        np.array([6, 7]),
         np.array([-4, -5]),
     ]
 
@@ -46,49 +46,55 @@ goals = [
                 {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
 }'''
-system_tasks = {
-    'agent_0': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
-                ],
-    'agent_1': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,}
-                ],
-    'agent_2': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
-                ]
-}
 '''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
+                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
                 ],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},
+                #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,}
+                ],
+    'agent_2': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
+                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
+                ]
+}'''
+system_tasks = {
+    'agent_0': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                #{'prio':3, 'name':"collision_avoidance"},
+                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                ],
+    'agent_1': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
+                #{'prio':3, 'name':"collision_avoidance"},
+                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
                 {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"formation", 'agents': [[1,2],[2,3]]},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
+                #{'prio':3, 'name':"collision_avoidance"},
+                {'prio':3, 'name':"formation", 'agents': [[2,3]]},
+                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
     'agent_3': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
+                #{'prio':3, 'name':"collision_avoidance"},
                 {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':4, 'name':"formation", 'agents': [[2,3]]}
+                {'prio':4, 'name':"formation", 'agents': [[3,4]]}
                 ],
     'agent_4': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
+                #{'prio':3, 'name':"collision_avoidance"},
                 {'prio':3, 'name':"formation", 'agents': [[3,4]]},
+                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
                 ]
-}'''
+}
 
 # ---------------------------------------------------------------------------- #
 #               Create the network and connection between agents               #
@@ -178,18 +184,18 @@ for i in range(st.n_nodes):
 state = [None] * st.n_nodes # list of x for inizialization of optimization
 
 for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage eterogeneous robots
+        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
 for j in range(st.n_nodes):
     nodes[j].reorder_s_init(state)
     nodes[j].update()    # Update primal solution and state evolution
 for j in range(st.n_nodes):
-    state[j] = nodes[j].s.omni[0] # TODO manage eterogeneous robots
+    state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
     for ij in nodes[j].neigh:  # select my neighbours
         msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
         nodes[ij].receive_data(msg) # neighbour receives the message
 for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
-
+    
 for i in range(st.n_steps):
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
@@ -199,61 +205,49 @@ for i in range(st.n_steps):
         nodes[j].reorder_s_init(state) 
         nodes[j].update()    # Update primal solution and state evolution
     for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage eterogeneous robots
+        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
             nodes[ij].receive_data(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].dual_update()    # linear update of dual problem
 
-# ---------------------------------------------------------------------------- #
-#                          plot the states evolutions                          #
-# ---------------------------------------------------------------------------- #
-# s_hist_merged = [
-#     [
-#         sum((node.s_history[i][j][:1] for node in nodes), []) 
-#         for j in range(len(nodes[0].s_history[i]))
-#     ]
-#     for i in range(len(nodes[0].s_history))
-# ]
-s_hist_merged = [
-    sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
-]
 
-#s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
-if st.n_nodes == 2:
-    s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
-if st.n_nodes == 3:
-    s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
-if st.n_nodes == 4: 
-    s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] for i in range(len(nodes[0].s_history))]
+if st.simulation:
+    # ---------------------------------------------------------------------------- #
+    #                          plot the states evolutions                          #
+    # ---------------------------------------------------------------------------- #
+    # s_hist_merged = [
+    #     [
+    #         sum((node.s_history[i][j][:1] for node in nodes), []) 
+    #         for j in range(len(nodes[0].s_history[i]))
+    #     ]
+    #     for i in range(len(nodes[0].s_history))
+    # ]
+    s_hist_merged = [
+        sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
+    ]
 
-'''display_animation(nodes[0].s_history, goals, None, st.dt, st.visual_method)
-display_animation(nodes[1].s_history, goals, None, st.dt, st.visual_method)'''
-artist_flags = MultiRobotArtists(
-    centroid=True, goals=True, obstacles=False,
-    past_trajectory=False,
-    omnidir=True,
-    unicycles=False,
-    #robots=RobCont(omni=True),
-    #robot_names=True,
-    voronoi=False,
-)
+    #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
+    if st.n_nodes == 2:
+        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
+    if st.n_nodes == 3:
+        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
+    if st.n_nodes == 4: 
+        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] for i in range(len(nodes[0].s_history))]
+    if st.n_nodes == 5:
+        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] + nodes[4].s_history[i] for i in range(len(nodes[0].s_history))]
+        
+
+    artist_flags = MultiRobotArtists(
+        centroid=True, goals=True, obstacles=False,
+        past_trajectory=False,
+        omnidir=True,
+        unicycles=False,
+        #robots=RobCont(omni=True),
+        #robot_names=True,
+        voronoi=False,
+    )
 
 
-display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
-
-
-# ---------------------------------------------------------------------------- #
-#            plot the comparison of dual variables of the agents               #
-# ---------------------------------------------------------------------------- #
-if st.plot_dual:
-    rho = [None] * st.n_nodes
-    idx = [None] * st.n_nodes
-    for i in range(st.n_nodes):
-        rho[i], idx[i] =nodes[i].plot_dual()
-    for i in range(st.n_nodes):
-        for j in idx[i]:
-            for p in range(st.n_priority):
-                plt.plot(rho[i][0, p, (j * st.n_xi): (j + 1) * st.n_xi], label=f'agent {i}-{j} priority {p}')
-                plt.show()
+    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)

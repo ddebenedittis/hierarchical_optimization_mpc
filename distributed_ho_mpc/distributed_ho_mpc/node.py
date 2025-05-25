@@ -37,8 +37,6 @@ class Node():
         self.neigh = np.nonzero(adjacency_vector)[0].tolist() # index of neighbours
         self.degree = len(self.neigh) # numbers of neighbours
          
-        self.buffer = [] # local buffer to receive primal variables
-        self.buffer_dual = [] # local buffer to receive dual variables
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
         self.n_priority = st.n_priority # number of priorities

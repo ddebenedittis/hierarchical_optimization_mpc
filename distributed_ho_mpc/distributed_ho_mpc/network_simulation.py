@@ -25,27 +25,27 @@ model = {
 # =========================================================================== #
 
 goals = [
-        np.array([6, 7]),
+        np.array([4, 5]),
         np.array([-4, -5]),
     ]
 
-'''system_tasks = {
+system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
-                {'prio':3, 'name':"formation", 'agents': [[0,1]]},],
-                #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
+                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
                 ],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
                 {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
+                #{'prio':4, 'name':"formation", 'agents': [[0,1]]},
                 ],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
                 {'prio':3, 'name':"formation", 'agents': [[1,2]]},
                 {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
-}'''
+}
 '''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
@@ -63,7 +63,7 @@ goals = [
                 {'prio':3, 'name':"formation", 'agents': [[0,1]]},
                 ]
 }'''
-system_tasks = {
+'''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 #{'prio':3, 'name':"collision_avoidance"},
@@ -94,7 +94,7 @@ system_tasks = {
                 {'prio':3, 'name':"formation", 'agents': [[3,4]]},
                 {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
                 ]
-}
+}'''
 
 # ---------------------------------------------------------------------------- #
 #               Create the network and connection between agents               #

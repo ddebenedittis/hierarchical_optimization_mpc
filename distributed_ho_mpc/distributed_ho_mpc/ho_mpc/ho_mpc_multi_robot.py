@@ -11,6 +11,8 @@ from scipy.special import binom
 from ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
 from ho_mpc.ho_mpc import HOMPC, subs
 
+from sympy import Matrix
+
 np.set_printoptions(threshold=np.inf)
 
 class TaskIndexes(Enum):
@@ -1207,7 +1209,15 @@ class HOMPCMultiRobot(HOMPC):
                 b[p-1] = np.vstack((b[p-1], b_temp))
                 C[p-1] = np.vstack((C[p-1], C_temp))
                 d[p-1] = np.vstack((d[p-1], d_temp))
-                # TODO: these tasks could potentially be reduced.
+                
+                # reduce tasks
+                Ab = np.hstack((A[p-1], b[p-1]))
+                Ab_sym = Matrix(Ab)
+                basis_rows = Ab_sym.rref()[0] 
+                #A[p-1] = copy.deepcopy(basis_rows[:, :-1])
+                A[p-1] = copy.deepcopy(np.array(basis_rows[:,:-1].tolist(), dtype=float))
+                b[p-1] = copy.deepcopy(np.array(basis_rows[:,-1:].tolist(), dtype=float))
+                
                 
         # =================================================================== #
             

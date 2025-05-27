@@ -122,7 +122,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-6  # regularization factor
+        self.regularization = 1e-4  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -1213,8 +1213,7 @@ class HOMPCMultiRobot(HOMPC):
                 # reduce tasks
                 Ab = np.hstack((A[p-1], b[p-1]))
                 Ab_sym = Matrix(Ab)
-                basis_rows = Ab_sym.rref()[0] 
-                #A[p-1] = copy.deepcopy(basis_rows[:, :-1])
+                basis_rows = Ab_sym.rref()[0]  # reduced row echelon form
                 A[p-1] = copy.deepcopy(np.array(basis_rows[:,:-1].tolist(), dtype=float))
                 b[p-1] = copy.deepcopy(np.array(basis_rows[:,-1:].tolist(), dtype=float))
                 
@@ -1226,7 +1225,7 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null, self.degree)
+            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, Null, self.degree)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
@@ -1272,7 +1271,7 @@ class HOMPCMultiRobot(HOMPC):
                 for k in range(n_c):
                     self._input_bar[c][j][k] = copy.deepcopy(self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)])
                 
-        return u_0, y
+        return u_0, y, cost
     
     # ======================================================================== #
     
@@ -1282,28 +1281,49 @@ class HOMPCMultiRobot(HOMPC):
         ! the consensus vector is x_tilde not x 
         
         """
-        
+        y_ordering = self._get_n_x_opt_indexing(n_c)
         p = 0
         priority = len(x_star_p)
         while p < priority:
             for c, n_r in enumerate(self.n_robots):
                 for j in range(n_r):
                     for k in range(n_c):
-                        '''x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
-                                [self._state_bar[c][j][k].T + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
-                        x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
-                                [self._input_bar[c][j][k].T + x_star_p[p][self._get_idx_input_k(c, j, k)]])'''
+                        # x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
+                        #         [self._state_bar[c][j][k].T + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
+                        # x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
+                        #         [self._input_bar[c][j][k].T + x_star_p[p][self._get_idx_input_k(c, j, k)]])
+                        
                         x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
                                 [x_star_p[p][self._get_idx_state_kp1(c, j, k)]])
                         # x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
                         #         [x_star_p[p][self._get_idx_input_k(c, j, k)]])
                         #print(f'k: {copy.deepcopy([self._state_bar[c][j][k].T + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])}')        
-                        
+
+                x_star_p[p] = x_star_p[p][y_ordering]       
                 if p < priority:
                     p += 1
         
         return np.array(x_star_p)
 
+    def _get_n_x_opt_indexing(self, n_c) -> np.ndarray:
+        """
+        Return the desired order of the elements of each robot inside the optimization vector.
+        """
+        index = np.array([], dtype=int)
+        for c, n_r in enumerate(self.n_robots):
+            for j in range(n_r):
+                for k in range(n_c):
+                    index = np.concatenate((
+                        index,
+                        self._get_idx_state_kp1(c, j, k),
+                    ))
+                for k in range(n_c):
+                    index = np.concatenate((
+                        index,
+                        self._get_idx_input_k(c, j, k),
+                    ))
+        
+        return index
 
     def _get_n_x_opt(self) -> int:
         """

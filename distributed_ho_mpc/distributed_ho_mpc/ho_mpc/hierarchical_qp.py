@@ -376,7 +376,8 @@ class HierarchicalQP:
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
         
-        
+        t_cost = 0.0
+        cost = 0.0
         # ==================================================================== #
                 
         if self.x is None or len(self.x) != n_tasks:
@@ -487,8 +488,8 @@ class HierarchicalQP:
             # Quadprog library QP problem formulation
             #   min  1/2 x^T H x - p^T x
             #   s.t. CI^T x >= ci0
-
-            sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
+            p_cost = cost 
+            sol, cost = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
                 '''if x_star_bar_p: # check if empty
                     x_star_bar_p.append(x_star_bar_p[-1]) # take last solution found
@@ -502,8 +503,11 @@ class HierarchicalQP:
                        x_star_bar_p.append(x_star_bar_p[-1])
                     else:
                         x_star_bar_p.append(x_star_bar)
-                return x_star_bar, x_star_bar_p      
-                    
+                    t_cost += p_cost
+                return x_star_bar, x_star_bar_p, t_cost     
+            t_cost += cost
+            
+            
             # ======================== Post-processing ======================= #
 
             # Extract x_star from the solution.
@@ -535,10 +539,10 @@ class HierarchicalQP:
                 #self.Z_old = Z
 
             # End the loop if Z is the null matrix.
-            if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p
+            if not np.any((Z > self.regularization) | (Z < -self.regularization)):      
+                return x_star_bar, x_star_bar_p, t_cost
 
-        return x_star_bar, x_star_bar_p
+        return x_star_bar, x_star_bar_p, t_cost
     
     
     def _solve_weighted(

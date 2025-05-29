@@ -37,12 +37,12 @@ def main():
     
     # ============================== Parameters ============================= #
     
-    dt = 0.1
+    dt = 0.01
     
-    n_robots = RobCont(omni=4)
+    n_robots = RobCont(omni=5)
     
     v_max = 5
-    v_min = -5
+    v_min = -1
     
     # ======================= Define The System Model ======================= #
     
@@ -50,7 +50,7 @@ def main():
     u = RobCont(omni=None)
     s_kp1 = RobCont(omni=None)
     
-    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt)
+    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt*10)
     
     # =========================== Define The Tasks ========================== #
     
@@ -65,10 +65,10 @@ def main():
     
     task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_1_coeff = RobCont(
-        omni=[[np.array([-10, 5])] for _ in range(n_robots.omni)],
+        omni=[[np.array([4, 5])] for _ in range(n_robots.omni)],
     )
     
-    # ======================================================================= #
+    # =========================== prio 3 ======================================= #
     
     aux = ca.SX.sym('aux', 2, 2)
     mapping = RobCont(omni=ca.vertcat(s.omni[0], s.omni[1]))
@@ -76,15 +76,16 @@ def main():
         (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 0,
     )
     task_formation_coeff = [
-        TaskBiCoeff(0, 0, 0, 1, 0, 10**2),
-        TaskBiCoeff(0, 2, 0, 3, 0, 5**2),
+        TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
+        TaskBiCoeff(0, 2, 0, 3, 0, 2**2),
+        TaskBiCoeff(0, 3, 0, 4, 0, 2**2),
     ]
-    
+        
     # ======================================================================= #
     
     task_pos_ref_2 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_2_coeff = RobCont(
-        omni=[[np.array([-10, 5])] for _ in range(n_robots.omni)]
+        omni=[[np.array([-4, -5])] for _ in range(n_robots.omni)]
     )
     
     # ======================================================================= #
@@ -109,13 +110,13 @@ def main():
     hompc.n_control = 1
     hompc.n_pred = 0
     
-    # hompc.create_task(
-    #     name="input_limits", prio=1,
-    #     type=TaskType.Same,
-    #     ineq_task_ls=task_input_limits.tolist(),
-    # )
     hompc.create_task(
-        name="pos_ref_1", prio=2,
+        name="input_limits", prio=1,
+        type=TaskType.Same,
+        ineq_task_ls=task_input_limits.tolist(),
+    )
+    hompc.create_task(
+        name="pos_ref_1", prio=3,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_1.tolist(),
         eq_task_coeff=task_pos_ref_1_coeff.tolist(),
@@ -129,13 +130,13 @@ def main():
         eq_task_ls=task_formation,
         eq_task_coeff=task_formation_coeff,
     )
-    # hompc.create_task(
-    #     name="pos_ref_2", prio=4,
-    #     type=TaskType.Same,
-    #     eq_task_ls=task_pos_ref_2.tolist(),
-    #     eq_task_coeff=task_pos_ref_2_coeff.tolist(),
-    #     robot_index=[[1]]
-    # )
+    hompc.create_task(
+        name="pos_ref_2", prio=3,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_2.tolist(),
+        eq_task_coeff=task_pos_ref_2_coeff.tolist(),
+        robot_index=[[3]]
+    )
     # hompc.create_task(
     #     name="pos_ref_3", prio=5,
     #     type=TaskType.Same,
@@ -156,7 +157,7 @@ def main():
          for _ in range(n_robots.omni)],
     )
     
-    n_steps = 100
+    n_steps = 500
     
     s_history = [None for _ in range(n_steps)]
     
@@ -185,12 +186,12 @@ def main():
     # ========================= Visualization Options ======================== #
     
     visual_method = 'plot'
-    charging_stations = [None]
     
-    s_history = [s.tolist() for s in s_history]
+                
+    s_history = [[[]]+s.tolist() for s in s_history]
     
     artist_flags = MultiRobotArtists(
-        centroid=True, goals=True, obstacles=False,
+        centroid=False, goals=True, obstacles=False,
         past_trajectory=True,
         omnidir=RobCont(omni=True),
         unicycles=False,
@@ -201,13 +202,13 @@ def main():
     
     if visual_method is not None and visual_method != 'none':
         display_animation(
-            s_history, charging_stations[0], None, dt, visual_method,
+            s_history, [[4,5],[-4, -5]], None, dt, visual_method,
             artist_flags,
         )
         
     if visual_method == 'save':
         save_snapshots(
-            s_history, charging_stations[0], None, dt, [0, 10, 25], 'snapshot',
+            s_history, None, dt, [0, 10, 25], 'snapshot',
             artist_flags,
         )
         

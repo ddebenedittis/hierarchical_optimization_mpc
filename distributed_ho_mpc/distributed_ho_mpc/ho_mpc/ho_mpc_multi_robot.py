@@ -122,7 +122,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-4  # regularization factor
+        self.regularization = 1e-2  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -1174,10 +1174,14 @@ class HOMPCMultiRobot(HOMPC):
         
     # ======================================================================== #
     
-    def __call__(self, state_meas: np.ndarray = None, rho_delta: np.ndarray = None,Null: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
+    def __call__(self, state_meas: np.ndarray = None, rho_delta: np.ndarray = None, inputs: list[np.ndarray] = None, id: int = None) -> np.ndarray:
         start_time = time.time()
         
+        n_c = self._n_control
+        
         self._initialize(state_meas, inputs)
+        
+        rho_delta = self.rho_ordering(rho_delta , self.degree)
         
         # ================ Reorder Tasks And Create Matrices ================ #
         
@@ -1225,15 +1229,15 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, Null, self.degree)
+            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, self.degree)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, Null ,we, wi, self.degree)
+            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, self.degree, we, wi)
         self.solve_times["Solve Problem"] += time.time() - start_time
         
-        n_c = self._n_control
         
+    
         u_0 = [
             [self._input_bar[c][j][0] + x_star[self._get_idx_input_k(c, j, 0)]
                 for j in range(self.n_robots[c])]
@@ -1274,6 +1278,17 @@ class HOMPCMultiRobot(HOMPC):
         return u_0, y, cost
     
     # ======================================================================== #
+    
+    def rho_ordering(self, rho_delta: np.ndarray, n_neigh: int) -> np.ndarray:
+        dim = rho_delta.shape[-1]
+        index = np.arange(dim)
+        n_xi = int(dim / n_neigh)
+        reorder_index = np.concatenate([
+                    index[i::n_xi] for i in range(2, n_xi)
+                ] + [
+                    index[i::n_xi] for i in range(2)
+        ])
+        return rho_delta[..., reorder_index]
     
     def _y_extraction(self, x_star_p, n_c) -> list[np.ndarray]:
         """

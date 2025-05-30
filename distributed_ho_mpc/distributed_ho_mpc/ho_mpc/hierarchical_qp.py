@@ -333,7 +333,7 @@ class HierarchicalQP:
 
     
     def _solve_hierarchical(
-        self, A, b, C, d, rho, Z_n = None, degree= None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho, degree= None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -615,7 +615,7 @@ class HierarchicalQP:
 
 
     def __call__(
-        self, A, b, C, d, rho = None, Z_n = None, degree= None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho = None, degree= None, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -642,6 +642,6 @@ class HierarchicalQP:
         self._check_dimensions(A, b, C, d, we, wi, priorities)
         
         if self.hierarchical:
-            return self._solve_hierarchical(A, b, C, d, rho, Z_n, degree, we, wi, priorities)
+            return self._solve_hierarchical(A, b, C, d, rho, degree, we, wi, priorities)
         
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

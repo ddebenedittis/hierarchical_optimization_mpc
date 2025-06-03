@@ -333,7 +333,7 @@ class HierarchicalQP:
 
     
     def _solve_hierarchical(
-        self, A, b, C, d, rho, degree= None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho, degree= None, n_c = 1 ,we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -443,15 +443,11 @@ class HierarchicalQP:
                 p = np.zeros(nx+nw)
             #TODO hard coded brutto
             if priority > 2:
+                n_c = 1
                 rhop = rho[:, priority-3, :] # extract both i and j for priority p for each neighbour
-                x_i = rhop[1].shape[0] // degree
-                #! to be checked
-                r = np.zeros(x_i)
-                for i in range(degree):
-                    r += rhop[0][i*x_i:(i+1)*x_i]
+                rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                 rho_vector = np.block([
-                    r,
-                    rhop[1],
+                    rho_vector,
                     np.zeros(nw)
                 ])
                 #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
@@ -544,6 +540,28 @@ class HierarchicalQP:
 
         return x_star_bar, x_star_bar_p, t_cost
     
+    def rho_vector(self, rho, degree, n_c):
+        x_i = rho[1].shape[0] // degree
+        #! to be checked
+        r = np.zeros(x_i)
+        for i in range(degree):
+            r += rho[0][i*x_i:(i+1)*x_i]
+        rho_vector = np.block([
+            r,
+            rho[1],
+        ])
+
+        dim = rho_vector.shape[0]
+        index = np.arange(dim)
+        xdim = int(x_i / n_c)
+        u = np.concatenate([[
+                    index[i:i+2:1] for i in range(2+(c*xdim), dim, x_i)
+                ] for c in range(n_c)])
+        s = np.concatenate([[
+                    index[i:i+2:1] for i in range(0+(c*xdim), dim, x_i)
+                ]for c in range(n_c)])
+        reorder = np.concatenate([np.hstack(u), np.hstack(s)])
+        return rho_vector[reorder]
     
     def _solve_weighted(
         self, A, b, C, d, we = None, wi = None, priorities = None
@@ -615,7 +633,7 @@ class HierarchicalQP:
 
 
     def __call__(
-        self, A, b, C, d, rho = None, degree= None, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho = None, degree= None, n_c = 1, we = None, wi = None, priorities = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -642,6 +660,6 @@ class HierarchicalQP:
         self._check_dimensions(A, b, C, d, we, wi, priorities)
         
         if self.hierarchical:
-            return self._solve_hierarchical(A, b, C, d, rho, degree, we, wi, priorities)
+            return self._solve_hierarchical(A, b, C, d, rho, degree, n_c, we, wi, priorities)
         
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

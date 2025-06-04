@@ -29,7 +29,7 @@ goals = [
         np.array([-4, -5]),
     ]
 
-system_tasks = {
+'''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
                 {'prio':3, 'name':"formation", 'agents': [[0,1]]},
@@ -37,20 +37,20 @@ system_tasks = {
                 ],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
+                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
                 {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                #{'prio':4, 'name':"formation", 'agents': [[0,1]]},
                 ],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},                
                 {'prio':3, 'name':"formation", 'agents': [[1,2]]},
                 {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
-}
+}'''
 '''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
+                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                #{'prio':3, 'name':"formation", 'agents': [[0,1]]},
                 ],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
@@ -59,42 +59,47 @@ system_tasks = {
                 ],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
+                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
+                #{'prio':4, 'name':"formation", 'agents': [[2,3]]},
+                ],
+    'agent_3': [{'prio':1, 'name':"input_limits"},
+                {'prio':2, 'name':"input_smooth"},
                 {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
+                {'prio':3, 'name':"formation", 'agents': [[2,3]]},
                 ]
 }'''
-'''system_tasks = {
+system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
-                #{'prio':3, 'name':"collision_avoidance"},
+                #{'prio':4, 'name':"obstacle_avoidance"},
                 {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
     'agent_1': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
+                {'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 5},
                 {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
                 ],
     'agent_2': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"formation", 'agents': [[2,3]]},
-                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
+                {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 5},
+                {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 3}
                 ],
     'agent_3': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 #{'prio':3, 'name':"collision_avoidance"},
                 {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':4, 'name':"formation", 'agents': [[3,4]]}
+                {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3}
                 ],
     'agent_4': [{'prio':1, 'name':"input_limits"},
                 {'prio':2, 'name':"input_smooth"},
                 #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"formation", 'agents': [[3,4]]},
+                {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 5},
                 {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
                 ]
-}'''
+}
 
 # ---------------------------------------------------------------------------- #
 #               Create the network and connection between agents               #
@@ -113,7 +118,7 @@ if st.n_nodes == 3:
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
     graph_matrix = np.array([[0.,1., 0., 0.],
-                             [1.,0., 1., 0],
+                             [1.,0., 1., 0.],
                              [0.,1., 0., 1.],
                              [0.,0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
@@ -123,6 +128,11 @@ if st.n_nodes == 5:
                              [0.,1., 0., 1., 0.],
                              [0.,0., 1., 0., 1.],
                              [0.,0., 0., 1., 0.]])
+    '''graph_matrix = np.array([[0., 1., 1., 1., 1.],
+                            [1., 0., 1., 1., 1.],
+                            [1., 1., 0., 1., 1.],
+                            [1., 1., 1., 0., 1.],
+                            [1., 1., 1., 1., 0.]])'''
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
 
 

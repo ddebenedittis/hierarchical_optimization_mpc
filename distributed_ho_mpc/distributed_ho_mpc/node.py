@@ -46,7 +46,7 @@ class Node():
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
-        self.a = 50
+        self.a = 20
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
@@ -143,7 +143,7 @@ class Node():
         self.s_opt = []
         self.u_opt = []
 
-        self.u_next = [[np.array([0,0]),np.array([0,0])]]
+        #self.u_next = [[np.array([0,0]),np.array([0,0])]]
         self.Z_old = []
         self.Z_neigh = {f'{i}': [[np.eye(30)]] for i in self.neigh} #np.empty([20,20])
 
@@ -170,7 +170,9 @@ class Node():
         #n_robots = [self.degree+1, 0] # n° of neighbours + self agent
         self.robot_idx_global = [self.node_id] + self.neigh
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
-
+        
+        
+        
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),
             self.u.tolist(),
@@ -208,9 +210,9 @@ class Node():
         # =========================== Define The Tasks ========================== #
         
         self.task_input_limits = RobCont(omni=ca.vertcat(
-              self.u.omni[0] - 5,   #vmax
+              self.u.omni[0] - 4,   #vmax
             - self.u.omni[0] - 1,   #vmin
-              self.u.omni[1] - 5,   #vmax
+              self.u.omni[1] - 4,   #vmax
             - self.u.omni[1] - 1    #vmin
         ))
         
@@ -226,56 +228,81 @@ class Node():
             )
         
         # ========================Formation============================================ #
+        if 0:
+            self.aux = ca.SX.sym('aux', 2, 2)
+            self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+            self.task_formation = ca.vertcat(
+                (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
+            )
+            if self.node_id == 0:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 0, 0, 3**2),
+                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 1:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 0, 0, 1, 0, 3**2),
+                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
+                ]    
+            elif self.node_id == 2:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 0, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),               
+                ]
+            elif self.node_id == 3:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 4: 
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 4, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
+                ]
         
-        self.aux = ca.SX.sym('aux', 2, 2)
-        self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
-        self.task_formation = ca.vertcat(
-            (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
-        )
-        if self.node_id == 1:
-            self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 4**2),
-                #TaskBiCoeff(0, 0, 0, 2, 0, 2**2),
-            ]
-        elif self.node_id == 2:
-            self.task_formation_coeff = [
-                #TaskBiCoeff(0, 0, 0, 1, 0, 1**2),
-                TaskBiCoeff(0, 0, 0, 1, 0, 3**2),
-            ]
-        elif self.node_id == 0:
-            self.task_formation_coeff = [
-                #TaskBiCoeff(0, 0, 0, 1, 0, 1**2),
-                TaskBiCoeff(0, 1, 0, 0, 0, 4**2),
-            ]
-        else: 
-            self.task_formation_coeff = [
-                TaskBiCoeff(0, 0, 0, 1, 0, 2**2),
-                TaskBiCoeff(0, 1, 0, 0, 0, 2**2)
-            ]
-
         
         # =====================Collision Avoidance=================================== #
-        threshold = 1
-        self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
-        self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
-        self.task_avoid_collision = ca.vertcat(
-            (self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 + (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2 - 0,
-        )
-        self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -threshold**2) for j in self.robot_idx[1:]
-        ]
-        self.task_avoid_collision_coeffj = [
-            TaskBiCoeff(0, j, 0, 0, 0, -threshold**2) for j in self.robot_idx[1:]
-        ]
+        # threshold = 1
+        # self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
+        # self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        # self.task_avoid_collision = ca.vertcat(
+        #     (self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 + (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2 - 0,
+        # )
+        # self.task_avoid_collision_coeff = [
+        #     TaskBiCoeff(0, 0, 0, j, 0, -threshold**2) for j in self.robot_idx[1:]
+        # ]
+        # self.task_avoid_collision_coeffj = [
+        #     TaskBiCoeff(0, j, 0, 0, 0, -threshold**2) for j in self.robot_idx[1:]
+        # ]
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([3, 3])
-        self.obstacle_size = 0.5
-        self.task_obs_avoidance = [ 
-            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
-        ]
+        # self.obstacle_pos = np.array([3, 3])
+        # self.obstacle_size = 0.5
+        # self.task_obs_avoidance = [ 
+        #     ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[0] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+        # ]
+        # if self.node_id == 1: 
+        #     self.task_obs_avoidance = [ 
+        #         ca.vertcat(- (self.s.omni[1] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + 2**2)
+        #     ]
     
-
+    def task_formation_method(self, agents, distance):
+        aux = ca.SX.sym('aux', 2, 2)
+        mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        task_formation = ca.vertcat(
+            (aux[0,0] - aux[1,0])**2 + (aux[0,1] - aux[1,1])**2 - 0,
+        )
+        agents[0][0] = self.index_global_to_local(agents[0][0])  # convert global index to local index
+        agents[0][1] = self.index_global_to_local(agents[0][1])  # convert global index to local index   
+        task_formation_coeff = [
+            TaskBiCoeff(0, agents[0][0], 0, agents[0][1], 0, distance**2),
+        ]
+        return aux, mapping, task_formation, task_formation_coeff
 
     # ---------------------------------------------------------------------------- #
     #                                      MPC                                     #
@@ -326,13 +353,16 @@ class Node():
                     robot_index= [self.robot_idx]
                 )
             elif task['name'] == 'formation':
+                aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                    task['agents'], task['distance']
+                )
                 self.hompc.create_task_bi(
                     name = "formation", prio = task['prio'],
                     type = TaskType.Bi,
-                    aux = self.aux,
-                    mapping = self.mapping.tolist(),
-                    eq_task_ls = self.task_formation,
-                    eq_task_coeff = self.task_formation_coeff,
+                    aux = aux,
+                    mapping = mapping.tolist(),
+                    eq_task_ls = task_formation,
+                    eq_task_coeff = task_formation_coeff,
                 )
             elif task['name'] == 'collision_avoidance':
                 self.hompc.create_task_bi(
@@ -370,14 +400,17 @@ class Node():
                     )   
                 elif task['name'] == 'formation':
                     for t in task['agents']:
-                        if is_formation_with_neigh(t, self.robot_idx):
+                        if is_formation_with_neigh(t, self.robot_idx_global):
+                            aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                                    task['agents'], task['distance']
+                            )
                             self.hompc.create_task_bi(
                                 name = "formation", prio = task['prio'],
                                 type = TaskType.Bi,
-                                aux = self.aux,
-                                mapping = self.mapping.tolist(),
-                                eq_task_ls = self.task_formation,
-                                eq_task_coeff = self.task_formation_coeff,
+                                aux = aux,
+                                mapping = mapping.tolist(),
+                                eq_task_ls = task_formation,
+                                eq_task_coeff = task_formation_coeff,
                             )
                 elif task['name'] == 'collision_avoidance':
                     self.hompc.create_task_bi(
@@ -388,22 +421,21 @@ class Node():
                         ineq_task_ls= self.task_avoid_collision,
                         ineq_task_coeff= self.task_avoid_collision_coeffj,
                     )
-                elif task['name'] == 'obstacle_avoidance':
+                '''elif task['name'] == 'obstacle_avoidance':
                     self.hompc.create_task(
                         name = "obstacle_avoidance", prio = task['prio'],
                         type = TaskType.Same,
                         ineq_task_ls = self.task_obs_avoidance,
-                    )
+                    )'''
             
 
         # ======================================================================== #
         
         self.s = RobCont(omni=
-            [np.array([1,1]) * self.node_id
+            [np.array([0.5,0]) * 0
             for _ in range(self.n_robots.omni)],
             )
-        #self.s.omni[0] = np.random.randint(-2, 2, size=2)
-        
+
         self.s_history = [None for _ in range(self.n_steps)]
         
         self.s_init = copy.deepcopy(self.s)
@@ -418,14 +450,18 @@ class Node():
             if j in self.robot_idx_global:
                 self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j) # TODO manage eterogeneous robots
 
-        
         # update position of other robots (not neigh) seen as obstacles
-        self.obstacle_pos = state_meas[3]
-        self.task_obs_avoidance = [ 
-            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
-        ]
+        # self.obstacle_pos = state_meas[1]
+        # self.task_obs_avoidance = [ 
+        #     ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[0] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+        # ]
             
-        
+        # if self.node_id == 5 or self.node_id == 6:
+        #         self.hompc.update_task(
+        #                     name = "obstacle_avoidance",
+        #                     ineq_task_ls = self.task_obs_avoidance,
+        #                     # robot_index = cov_rob_idx,
+        #                 )
         
     def receive_data(self, message)->None:
         " Append the received information in a local buffer"
@@ -449,12 +485,9 @@ class Node():
         if self.step < self.n_steps:
             
             print(self.step)
-            #if self.step != 0:
             rho_delta = self.rho_i - self.rho_j #! to be controlled
-            # else :
-            #     rho_delta = self.rho_i
             
-            self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, self.Z_neigh)
+            self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
             self.cost_history.append(cost)
@@ -465,12 +498,6 @@ class Node():
             else:
                 self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
             
-            if self.node_id == 0 or self.node_id == 1:
-                self.hompc.update_task(
-                            name = "obstacle_avoidance",
-                            ineq_task_ls = self.task_obs_avoidance,
-                            # robot_index = cov_rob_idx,
-                        )
             
             '''if self.step == 900 and (self.node_id==0):# or self.node_id==1):
                     self.goals = [
@@ -491,10 +518,8 @@ class Node():
                         
             print(f's:\t{self.s.tolist()}\n'
                   f'u:\t{self.u_star}\n')
-            #print(f'delta_s: {np.array(self.s.omni[:]) - np.array(self.s_init.omni[:])}\n')
                
             self.s_history[self.step] = copy.deepcopy(self.s.tolist())
-            #self.s_history[self.step, :] = copy.deepcopy(self.s)
             self.step += 1
                 
         return 

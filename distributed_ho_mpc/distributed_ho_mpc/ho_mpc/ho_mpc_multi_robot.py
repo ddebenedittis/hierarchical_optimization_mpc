@@ -15,6 +15,8 @@ from sympy import Matrix
 
 np.set_printoptions(threshold=np.inf)
 
+stack = True
+
 class TaskIndexes(Enum):
     All = auto()
     Last = auto()
@@ -122,7 +124,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-3  # regularization factor
+        self.regularization = 1e-6  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -1182,43 +1184,60 @@ class HOMPCMultiRobot(HOMPC):
         self._initialize(state_meas, inputs)
                 
         # ================ Reorder Tasks And Create Matrices ================ #
-        
-        self._tasks = sorted(self._tasks, key=lambda x: x.prio) 
-        
-        n_prio = len({t.prio for t in self._tasks})     # set comprehension to get unique priorities
-        A = [None] * (1 + n_prio)
-        b = [None] * (1 + n_prio)
-        C = [None] * (1 + n_prio)
-        d = [None] * (1 + n_prio)
-        
-        A[0], b[0] = self._task_dynamics_consistency()
-        
-        self.solve_times["Create Problem"] += time.time() - start_time
-        
-        p = 1
-        for k, t in enumerate(self._tasks):
-            if k == 0:  # otherwise self._tasks[k-1] creates problems
-                A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
-                p += 1
-                continue
-                
-            if t.prio != self._tasks[k-1].prio:
-                A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
-                p += 1
-            else:
-                A_temp, b_temp, C_temp, d_temp = self._create_task_i_matrices(k)
-                A[p-1] = np.vstack((A[p-1], A_temp))
-                b[p-1] = np.vstack((b[p-1], b_temp))
-                C[p-1] = np.vstack((C[p-1], C_temp))
-                d[p-1] = np.vstack((d[p-1], d_temp))
-                
-                # reduce tasks
-                Ab = np.hstack((A[p-1], b[p-1]))
-                Ab_sym = Matrix(Ab)
-                basis_rows = Ab_sym.rref()[0]  # reduced row echelon form
-                A[p-1] = copy.deepcopy(np.array(basis_rows[:,:-1].tolist(), dtype=float))
-                b[p-1] = copy.deepcopy(np.array(basis_rows[:,-1:].tolist(), dtype=float))
-                
+        if not stack:
+            n_tasks = len(self._tasks)
+            
+            A = [None] * (1 + n_tasks)
+            b = [None] * (1 + n_tasks)
+            C = [None] * (1 + n_tasks)
+            d = [None] * (1 + n_tasks)
+            
+            A[0], b[0] = self._task_dynamics_consistency()
+            
+            self.solve_times["Create Problem"] += time.time() - start_time
+            
+            self._tasks = sorted(self._tasks, key=lambda x: x.prio)
+            
+            for k in range(n_tasks):
+                kp = k + 1
+                A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
+        else:    
+            self._tasks = sorted(self._tasks, key=lambda x: x.prio) 
+            
+            n_prio = len({t.prio for t in self._tasks})     # set comprehension to get unique priorities
+            A = [None] * (1 + n_prio)
+            b = [None] * (1 + n_prio)
+            C = [None] * (1 + n_prio)
+            d = [None] * (1 + n_prio)
+            
+            A[0], b[0] = self._task_dynamics_consistency()
+            
+            self.solve_times["Create Problem"] += time.time() - start_time
+            
+            p = 1
+            for k, t in enumerate(self._tasks):
+                if k == 0:  # otherwise self._tasks[k-1] creates problems
+                    A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
+                    p += 1
+                    continue
+                    
+                if t.prio != self._tasks[k-1].prio:
+                    A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
+                    p += 1
+                else:
+                    A_temp, b_temp, C_temp, d_temp = self._create_task_i_matrices(k)
+                    A[p-1] = np.vstack((A[p-1], A_temp))
+                    b[p-1] = np.vstack((b[p-1], b_temp))
+                    C[p-1] = np.vstack((C[p-1], C_temp))
+                    d[p-1] = np.vstack((d[p-1], d_temp))
+                    
+                    # # reduce tasks
+                    # Ab = np.hstack((A[p-1], b[p-1]))
+                    # Ab_sym = Matrix(Ab)
+                    # basis_rows = Ab_sym.rref()[0]  # reduced row echelon form
+                    # A[p-1] = copy.deepcopy(np.array(basis_rows[:,:-1].tolist(), dtype=float))
+                    # b[p-1] = copy.deepcopy(np.array(basis_rows[:,-1:].tolist(), dtype=float))
+                    
                 
         # =================================================================== #
             

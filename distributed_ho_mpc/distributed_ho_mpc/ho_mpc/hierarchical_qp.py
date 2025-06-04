@@ -356,6 +356,7 @@ class HierarchicalQP:
             np.ndarray: optimal solution vector
         """
         
+        stack = True    # flag for multi priority matrix handling
         
         # ========================== Initialization ========================== #
 
@@ -398,7 +399,6 @@ class HierarchicalQP:
             Ap = A[priority]
             bp = b[priority]
             
-            # reduce matrix A
                         
             if we is not None:
                 if we[priority] is not None:
@@ -442,9 +442,12 @@ class HierarchicalQP:
 
                 p = np.zeros(nx+nw)
             #TODO hard coded brutto
+            prio = [0, 1, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4]
             if priority > 2:
-                n_c = 1
-                rhop = rho[:, priority-3, :] # extract both i and j for priority p for each neighbour
+                if stack:
+                    rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
+                else:    
+                    rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
                 rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                 rho_vector = np.block([
                     rho_vector,
@@ -486,20 +489,21 @@ class HierarchicalQP:
             #   s.t. CI^T x >= ci0
             p_cost = cost 
             sol, cost = self._solve_qp(H, p, C_tilde, d_tilde, priority)
-            if sol is None:
-                '''if x_star_bar_p: # check if empty
-                    x_star_bar_p.append(x_star_bar_p[-1]) # take last solution found
-                else:
-                    x_star_bar_p.append(x_star_bar) # if empty put zero vector
-                if priority < (n_tasks-1): 
-                    for i in range(n_tasks-priority-1):
-                        x_star_bar_p.append(x_star_bar_p[-1])'''        
+            if sol is None:     
                 for i in range(n_tasks-priority):
-                    if x_star_bar_p:
-                       x_star_bar_p.append(x_star_bar_p[-1])
+                    if stack:
+                        if x_star_bar_p:
+                           x_star_bar_p.append(x_star_bar_p[-1])
+                        else:
+                            x_star_bar_p.append(x_star_bar)
                     else:
-                        x_star_bar_p.append(x_star_bar)
-                    t_cost += p_cost
+                        if not x_star_bar_p: 
+                            x_star_bar_p.append(x_star_bar)
+                        elif prio[priority+i] == prio[priority+i-1]:
+                            continue
+                        else:
+                            x_star_bar_p.append(x_star_bar_p[-1])    
+                        t_cost += p_cost
                 return x_star_bar, x_star_bar_p, t_cost     
             t_cost += cost
             
@@ -520,8 +524,15 @@ class HierarchicalQP:
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
             if priority > 2:
-                x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
-            
+                if not stack:
+                    if prio[priority] == prio[priority-1]:
+                        x_star_bar_p[-1] = x_star_bar     # collect the solution for each priority level
+                    else:                    
+                        x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
+                else:
+                    x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
+
+
             # Store the history of w_star
             if priority == 0:
                 w_star_bar = [sol[nx:]]

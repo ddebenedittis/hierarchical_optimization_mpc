@@ -4,24 +4,26 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1   # probability of arc of communication
-n_nodes = 5 # numbers of nodes
+n_nodes = 2 # numbers of nodes
 random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
-MAX_iter = 40 # Number of iteration 
-dt = 0.01
-n_steps = 2000
+
+dt = 0.1
+n_steps = 60
 
 formation_distance = 4
-simulation = True
 
+# ---------------------------------------------------------------------------- #
+#                              Flags for simulation                            #
+# ---------------------------------------------------------------------------- #
 output = {
     'display':'plot', 
     'save': 'save', 
     'nothing' :'none'
 }
 visual_method = output['display'] # change the key to decide the output visualization
-
-n_priority = 2
+save_data = True
+simulation = True
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
@@ -30,4 +32,9 @@ n_pred = 0 # mpc prediction step
 
 n_xi = n_control * 2
 
+# ---------------------------------------------------------------------------- #
+#                                 PDD settings                               #
+# ---------------------------------------------------------------------------- #
+
+n_priority = 2
 step_size = 1e-7

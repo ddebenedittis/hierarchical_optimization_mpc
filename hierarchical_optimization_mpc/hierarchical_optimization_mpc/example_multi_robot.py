@@ -231,8 +231,8 @@ def main_formation(
     
     task_input_smooth, task_input_smooth_coeffs = tasks_creator.get_task_input_smooth()
     
-    obstacle_pos = np.array([10, 0.5])
-    obstacle_size = 3
+    obstacle_pos = np.array([10, -3])
+    obstacle_size = 5
     task_obs_avoidance = tasks_creator.get_task_obs_avoidance(
         obstacle_pos, obstacle_size
     )

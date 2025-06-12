@@ -82,6 +82,8 @@ class HOMPCMultiRobot(HOMPC):
         
         time_index: TaskIndexes = TaskIndexes.All
         robot_index: list[list[int]] = None
+
+        active_task: bool = True
         
     class ConstraintType(Enum):
         Both = auto()
@@ -124,7 +126,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-6  # regularization factor
+        self.regularization = 1e-5  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -431,6 +433,7 @@ class HOMPCMultiRobot(HOMPC):
         ineq_weight: float = 1.0,
         time_index: TaskIndexes = TaskIndexes.All,
         robot_index: list[list[int]] | None = None,
+        active_task: bool = True
     ):
         """
         Create a HOMPC.Task.
@@ -506,6 +509,7 @@ class HOMPCMultiRobot(HOMPC):
             ineq_weight=ineq_weight,
             time_index = time_index,
             robot_index = robot_index,
+            active_task = active_task,
         ))
         
     # ============================== Update_task ============================= #
@@ -520,7 +524,8 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: list[ca.SX]| None = None,
         ineq_task_coeff: list[list[list[np.ndarray]]]| None = None,
         time_index: TaskIndexes| None = None,
-        robot_index: TaskIndexes| None = None
+        robot_index: TaskIndexes| None = None,
+        active_task: bool | None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
@@ -568,6 +573,8 @@ class HOMPCMultiRobot(HOMPC):
             time_index = self._tasks[id].time_index
         if robot_index is None:
             robot_index = self._tasks[id].robot_index
+        if active_task is None:
+            active_task = self._tasks[id].active_task
             
         self._tasks[i] = self.Task(
             name = name,
@@ -595,6 +602,7 @@ class HOMPCMultiRobot(HOMPC):
             ],
             time_index = time_index,
             robot_index = robot_index,
+            active_task = active_task
         )
         
     # ======================================================================== #
@@ -612,7 +620,9 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
-        time_index: TaskIndexes = TaskIndexes.All
+        time_index: TaskIndexes = TaskIndexes.All,
+        robot_index: list[int] | None = None,
+        active_task: bool = True
     ):
         """
         Create a HOMPC.Task of type TaskType.Bi.
@@ -651,7 +661,9 @@ class HOMPCMultiRobot(HOMPC):
             ineq_weight=ineq_weight,
             aux_var = aux,
             mapping = mapping,
-            time_index = time_index
+            time_index = time_index, 
+            robot_index= robot_index,
+            active_task = active_task
         ))
     
     # ! new function
@@ -669,7 +681,9 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
-        time_index: TaskIndexes = TaskIndexes.All
+        time_index: TaskIndexes = TaskIndexes.All,
+        robot_index: list[int] | None = None,
+        active_task: bool | None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
@@ -698,6 +712,10 @@ class HOMPCMultiRobot(HOMPC):
             time_index = self._tasks[id].time_index
         if ineq_weight is None:
             ineq_weight = self._tasks[id].ineq_weight
+        if robot_index is None:
+            robot_index = self._tasks[id].robot_index
+        if active_task is None:
+            active_task = self._tasks[id].active_task
             
         self._tasks[i] = self.Task(
             name = name,
@@ -715,7 +733,9 @@ class HOMPCMultiRobot(HOMPC):
             ineq_weight=ineq_weight,
             aux_var = aux,
             mapping = mapping,
-            time_index = time_index
+            time_index = time_index,
+            robot_index = robot_index,
+            active_task = active_task,
         )
     
     # ======================================================================== #
@@ -1216,6 +1236,9 @@ class HOMPCMultiRobot(HOMPC):
             
             p = 1
             for k, t in enumerate(self._tasks):
+                if t.active_task is False:
+                    continue
+                    
                 if k == 0:  # otherwise self._tasks[k-1] creates problems
                     A[p], b[p], C[p], d[p] = self._create_task_i_matrices(k)
                     p += 1

@@ -16,7 +16,42 @@ from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from distributed_ho_mpc.message import Message, MessageSender, MessageReceiver
 import settings as st
 
+class Connection():
+    """
+    Representing the active connection between nodes, managing the update of the state and the transmission of messages
 
+    Class method:
+    -> check distance: check if the distance between two nodes is less than a threshold for communication and cooperation
+    -> active_neighours: return the neighbours of the node that are within the communication range
+    """
+
+    def __init__(self, node_id: int, adjacency_vector: np.array, communication_range: int, robot_idx: list[int]):
+        self.node_id = node_id
+        self.adjacency_vector = adjacency_vector
+        self.communication_range = communication_range
+        self.active_connection =  np.array([], dtype=bool)
+        self.changing_connection = np.array([], dtype=bool)
+        self.robot_idx = robot_idx  
+
+    def distance(self, a: np.array, b: np.array) -> float:
+        """
+        Calculate the Euclidean distance between two points.
+        """
+        return np.linalg.norm(a - b)
+
+    def check_distance(self, states: np.array):
+        """
+        Check if the distance between two nodes is less than the communication range.
+        """
+        result = np.array([])
+        for state in states:
+            distance = self.distance(states[self.node_id], state)
+            np.append(result, distance < self.communication_range)
+        result = result[self.robot_idx]
+        self.changing_connection = np.logical_xor(self.active_connection, result)
+        self.active_connection = copy.deepcopy(result)
+            
+    
 class Node():
     """
     Representing the node and its actions and attributes
@@ -43,6 +78,8 @@ class Node():
         self.n_xi = st.n_control * 4 # dimension of primal variables
 
         self.cost_history = [] # history of cost function values
+
+        self.communication_range = st.communication_distance # communication range of the node
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
@@ -146,7 +183,8 @@ class Node():
         self.Z_old = []
         self.Z_neigh = {f'{i}': [[np.eye(30)]] for i in self.neigh} #np.empty([20,20])
 
-    
+        # ---------------------------------------------------------------------------- #
+
     def index_local_to_global(self, r) -> int:
         """
         Convert the local index of the node to the global index in the adjacency vector.
@@ -171,7 +209,13 @@ class Node():
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
         
         
-        
+        self.connection = Connection(
+                self.node_id, 
+                self.adjacency_vector,
+                self.communication_range, 
+                self.robot_idx
+            )
+
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),
             self.u.tolist(),
@@ -286,7 +330,7 @@ class Node():
         
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([2,2])
+        self.obstacle_pos = np.array([0,0])
         self.obstacle_size = 3
         # self.task_obs_avoidance = [ 
         #     ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[0] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
@@ -376,12 +420,14 @@ class Node():
                     mapping = self.mapping_avoid_collision.tolist(),
                     ineq_task_ls= self.task_avoid_collision,
                     ineq_task_coeff= self.task_avoid_collision_coeff,
+                    robot_index= [0]
                 )
             elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
                     name = "obstacle_avoidance", prio = task['prio'],
                     type = TaskType.Same,
                     ineq_task_ls = self.task_obs_avoidance,
+                    robot_index= [0]
                 )
         
         for neigh in self.neigh_tasks:
@@ -415,6 +461,7 @@ class Node():
                                 mapping = mapping.tolist(),
                                 eq_task_ls = task_formation,
                                 eq_task_coeff = task_formation_coeff,
+                                robot_index= [robot_idx]
                             )
                 elif task['name'] == 'collision_avoidance':
                     self.hompc.create_task_bi(
@@ -424,25 +471,24 @@ class Node():
                         mapping = self.mapping_avoid_collision.tolist(),
                         ineq_task_ls= self.task_avoid_collision,
                         ineq_task_coeff= self.task_avoid_collision_coeff,
+                        robot_index= [robot_idx]
                     )
                 elif task['name'] == 'obstacle_avoidance':
                     self.hompc.create_task(
                         name = "obstacle_avoidance", prio = task['prio'],
                         type = TaskType.Same,
                         ineq_task_ls = self.task_obs_avoidance,
+                        robot_index= [robot_idx]
                     )
             
 
         # ======================================================================== #
         
         self.s = RobCont(omni=
-            [np.array([1,1]) * (-2*self.node_id)
+            [np.array([0,0]) 
             for _ in range(self.n_robots.omni)],
             )
-        if self.node_id == 1:
-            self.s = RobCont(omni=
-            [np.array([-1,-1]), np.array([0,0]) ],
-            )
+        
 
         self.s_history = [None for _ in range(self.n_steps)]
         
@@ -453,16 +499,43 @@ class Node():
     #                                Node's Methods                                #
     # ---------------------------------------------------------------------------- #
 
+    def tasks_manager(self):
+        """
+        Manage the tasks of the node based on the active connection.
+        """
+        for i, action in enumerate(self.connection.changing_connection):
+            if action:
+                # If the flag is True, the task need to be activated or deactivated
+                if self.connection.active_connection[i]: #activate
+                    for task in self.hompc._tasks:
+                        if task.robot_index == i:
+                            self.hompc.update_task(
+                                name = task.name,
+                                active_task= True,
+                            )   
+                else: #deactivate
+                    for task in self.hompc._tasks:
+                        if task.robot_index == i:
+                            self.hompc.update_task(
+                                name = task.name,
+                                active_task= False,
+                            ) 
+            
+
+
     def reorder_s_init(self, state_meas: list[float]):
         for j, s_j in enumerate(state_meas):
             if j in self.robot_idx_global:
                 self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j) # TODO manage eterogeneous robots
+        
+        self.connection.check_distance(state_meas)  # update the active connection based on the relative position between the robots
+
 
         #update position of other robots (not neigh) seen as obstacles
-        # self.obstacle_pos = state_meas[2]
-        # self.task_obs_avoidance = [ 
-        #     ca.vertcat(- (self.s.omni[0][0] - self.obstacle_pos[0])**2 - (self.s.omni[0][1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
-        # ]
+        # self.obstacle_pos = copy.deepcopy(state_meas[0])
+        # # self.task_obs_avoidance = [ 
+        # #     ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+        # # ]
             
         # if self.node_id == 1 or self.node_id == 2 or self.node_id == 0:
         #         self.hompc.update_task(
@@ -487,7 +560,7 @@ class Node():
     def update(self):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
-        if self.step != 1:
+        if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
         
         if self.step < self.n_steps:
@@ -495,6 +568,8 @@ class Node():
             print(self.step)
             rho_delta = self.rho_i - self.rho_j #! to be controlled
             
+            self.tasks_manager()
+
             self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             

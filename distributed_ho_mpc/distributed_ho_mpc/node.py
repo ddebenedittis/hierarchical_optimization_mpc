@@ -29,7 +29,7 @@ class Connection():
         self.node_id = node_id
         self.adjacency_vector = adjacency_vector
         self.communication_range = communication_range
-        self.active_connection =  np.array([], dtype=bool)
+        self.active_connection =  np.array([True for i in range(len(adjacency_vector))])
         self.changing_connection = np.array([], dtype=bool)
         self.robot_idx = robot_idx  
 
@@ -46,7 +46,7 @@ class Connection():
         result = np.array([])
         for state in states:
             distance = self.distance(states[self.node_id], state)
-            np.append(result, distance < self.communication_range)
+            result = np.append(result, distance < self.communication_range)
         result = result[self.robot_idx]
         self.changing_connection = np.logical_xor(self.active_connection, result)
         self.active_connection = copy.deepcopy(result)
@@ -420,14 +420,14 @@ class Node():
                     mapping = self.mapping_avoid_collision.tolist(),
                     ineq_task_ls= self.task_avoid_collision,
                     ineq_task_coeff= self.task_avoid_collision_coeff,
-                    robot_index= [0]
+                    robot_index= [[0]]
                 )
             elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
                     name = "obstacle_avoidance", prio = task['prio'],
                     type = TaskType.Same,
                     ineq_task_ls = self.task_obs_avoidance,
-                    robot_index= [0]
+                    robot_index= [[0]]
                 )
         
         for neigh in self.neigh_tasks:
@@ -461,7 +461,7 @@ class Node():
                                 mapping = mapping.tolist(),
                                 eq_task_ls = task_formation,
                                 eq_task_coeff = task_formation_coeff,
-                                robot_index= [robot_idx]
+                                robot_index= [[robot_idx]]
                             )
                 elif task['name'] == 'collision_avoidance':
                     self.hompc.create_task_bi(
@@ -471,14 +471,14 @@ class Node():
                         mapping = self.mapping_avoid_collision.tolist(),
                         ineq_task_ls= self.task_avoid_collision,
                         ineq_task_coeff= self.task_avoid_collision_coeff,
-                        robot_index= [robot_idx]
+                        robot_index= [[robot_idx]]
                     )
                 elif task['name'] == 'obstacle_avoidance':
                     self.hompc.create_task(
                         name = "obstacle_avoidance", prio = task['prio'],
                         type = TaskType.Same,
                         ineq_task_ls = self.task_obs_avoidance,
-                        robot_index= [robot_idx]
+                        robot_index= [[robot_idx]]
                     )
             
 
@@ -487,8 +487,15 @@ class Node():
         self.s = RobCont(omni=
             [np.array([0,0]) 
             for _ in range(self.n_robots.omni)],
+        )
+        if self.node_id == 0:
+            self.s = RobCont(omni=
+                [np.array([4,5]), np.array([0,0])]
             )
-        
+        elif self.node_id == 1:
+            self.s = RobCont(omni=
+                [np.array([-4,-5]), np.array([0,0])]
+            )
 
         self.s_history = [None for _ in range(self.n_steps)]
         
@@ -505,21 +512,38 @@ class Node():
         """
         for i, action in enumerate(self.connection.changing_connection):
             if action:
+                i = self.index_global_to_local(i)  
                 # If the flag is True, the task need to be activated or deactivated
                 if self.connection.active_connection[i]: #activate
                     for task in self.hompc._tasks:
-                        if task.robot_index == i:
-                            self.hompc.update_task(
+                        if task.robot_index == [[i]]:
+                            if task.type == TaskType.Bi:
+                                self.hompc.update_task_bi(
                                 name = task.name,
                                 active_task= True,
+                                robot_index= [[i]]
+                            )
+                            else:
+                                self.hompc.update_task(
+                                name = task.name,
+                                active_task= True,
+                                robot_index= [[i]]
                             )   
                 else: #deactivate
                     for task in self.hompc._tasks:
-                        if task.robot_index == i:
-                            self.hompc.update_task(
-                                name = task.name,
-                                active_task= False,
-                            ) 
+                        if task.robot_index == [[i]]:
+                            if task.type == TaskType.Bi:
+                                self.hompc.update_task_bi(
+                                    name = task.name,
+                                    active_task= False,
+                                    robot_index= [[i]]
+                                )
+                            else:
+                                self.hompc.update_task(
+                                    name = task.name,
+                                    active_task= False,
+                                    robot_index= [[i]]
+                                )   
             
 
 

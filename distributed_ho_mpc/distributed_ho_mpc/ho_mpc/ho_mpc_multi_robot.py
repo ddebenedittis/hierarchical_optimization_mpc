@@ -528,7 +528,7 @@ class HOMPCMultiRobot(HOMPC):
         active_task: bool | None = None
     ):
         for i, t in enumerate(self._tasks):
-            if t.name == name:
+            if t.name == name and t.robot_index == robot_index:
                 id = i
                 break
             
@@ -686,7 +686,7 @@ class HOMPCMultiRobot(HOMPC):
         active_task: bool | None = None
     ):
         for i, t in enumerate(self._tasks):
-            if t.name == name:
+            if t.name == name and t.robot_index == robot_index:
                 id = i
                 break
                            

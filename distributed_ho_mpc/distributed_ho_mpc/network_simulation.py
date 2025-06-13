@@ -107,7 +107,7 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':3, 'name':"collision_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
 }
@@ -134,16 +134,16 @@ if st.n_nodes == 4:
                              [0.,0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
-    graph_matrix = np.array([[0.,1., 0., 0., 0.],
+    '''graph_matrix = np.array([[0.,1., 0., 0., 0.],
                              [1.,0., 1., 0., 0.],
                              [0.,1., 0., 1., 0.],
                              [0.,0., 1., 0., 1.],
-                             [0.,0., 0., 1., 0.]])
-    '''graph_matrix = np.array([[0., 1., 1., 1., 1.],
+                             [0.,0., 0., 1., 0.]])'''
+    graph_matrix = np.array([[0., 1., 1., 1., 1.],
                             [1., 0., 1., 1., 1.],
                             [1., 1., 0., 1., 1.],
                             [1., 1., 1., 0., 1.],
-                            [1., 1., 1., 1., 0.]])'''
+                            [1., 1., 1., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
 
 
@@ -259,7 +259,7 @@ if st.simulation:
     if st.n_nodes == 5:
         s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] + nodes[4].s_history[i] for i in range(len(nodes[0].s_history))]
         
-    
+
     artist_flags = MultiRobotArtists(
         centroid=True, goals=True, obstacles=False,
         past_trajectory=False,

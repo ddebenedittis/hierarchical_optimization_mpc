@@ -9,9 +9,9 @@ random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.1
-n_steps = 60
+n_steps = 100
 
-formation_distance = 4
+communication_distance = 2
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -37,4 +37,4 @@ n_xi = n_control * 2
 # ---------------------------------------------------------------------------- #
 
 n_priority = 2
-step_size = 1e-7
+step_size = 1e-6

@@ -47,7 +47,7 @@ class Connection():
         for state in states:
             distance = self.distance(states[self.node_id], state)
             result = np.append(result, distance < self.communication_range)
-        result = result[self.robot_idx]
+        result = result[self.robot_idx]  # filter the result based on the robot_idx_global
         self.changing_connection = np.logical_xor(self.active_connection, result)
         self.active_connection = copy.deepcopy(result)
             
@@ -213,7 +213,7 @@ class Node():
                 self.node_id, 
                 self.adjacency_vector,
                 self.communication_range, 
-                self.robot_idx
+                self.robot_idx_global
             )
 
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
@@ -420,14 +420,14 @@ class Node():
                     mapping = self.mapping_avoid_collision.tolist(),
                     ineq_task_ls= self.task_avoid_collision,
                     ineq_task_coeff= self.task_avoid_collision_coeff,
-                    robot_index= [[0]]
+                    robot_index= [[1]]
                 )
             elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
                     name = "obstacle_avoidance", prio = task['prio'],
                     type = TaskType.Same,
                     ineq_task_ls = self.task_obs_avoidance,
-                    robot_index= [[0]]
+                    robot_index= [[1]]
                 )
         
         for neigh in self.neigh_tasks:
@@ -490,11 +490,11 @@ class Node():
         )
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([4,5]), np.array([0,0])]
+                [np.array([6,7]), np.array([-6,-7])]
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([-4,-5]), np.array([0,0])]
+                [np.array([-6,-7]), np.array([6,7])]
             )
 
         self.s_history = [None for _ in range(self.n_steps)]
@@ -512,7 +512,7 @@ class Node():
         """
         for i, action in enumerate(self.connection.changing_connection):
             if action:
-                i = self.index_global_to_local(i)  
+                #i = self.index_global_to_local(i)  
                 # If the flag is True, the task need to be activated or deactivated
                 if self.connection.active_connection[i]: #activate
                     for task in self.hompc._tasks:

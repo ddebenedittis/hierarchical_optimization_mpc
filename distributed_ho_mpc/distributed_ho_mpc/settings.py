@@ -11,7 +11,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 dt = 0.1
 n_steps = 60
 
-formation_distance = 4
+communication_range = 3
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #

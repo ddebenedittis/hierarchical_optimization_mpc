@@ -442,19 +442,20 @@ class HierarchicalQP:
 
                 p = np.zeros(nx+nw)
             #TODO hard coded brutto
-            prio = [0, 1, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4]
-            if priority > 2:
-                if stack:
-                    rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
-                else:    
-                    rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
-                rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
-                rho_vector = np.block([
-                    rho_vector,
-                    np.zeros(nw)
-                ])
-                #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                p += rho_vector
+            if degree != 0:
+                prio = [0, 1, 2, 3, 3, 4, 4]
+                if priority > 2:
+                    if stack:
+                        rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
+                    else:    
+                        rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
+                    rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
+                    rho_vector = np.block([
+                        rho_vector,
+                        np.zeros(nw)
+                    ])
+                    #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+                    p += rho_vector
                 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])

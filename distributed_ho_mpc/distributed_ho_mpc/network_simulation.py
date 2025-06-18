@@ -20,6 +20,38 @@ model = {
    'omnidirectional': get_omnidirectional_model(st.dt)
 }
 
+def neigh_connection(states, nodes, graph_matrix, communication_range):
+    """
+        Check if the distance between two nodes is less than the communication range, 
+        and if so create a connection between the two nodes which become neighbours
+        and cooperate one with the other
+    """
+
+    for i, node in enumerate(nodes):
+        for idx ,state in enumerate(states):
+            if i == idx:  
+                continue
+            if np.linalg.norm(states[i] - state) < communication_range: # Calculate the Euclidean distance between two points and compare with comm range
+                if graph_matrix[i][idx] == 0.:
+                    graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
+                
+                # update task manifold with the neighbours tasks of the new neighbours
+                neigh_tasks = {}
+                
+                id = 0
+                neigh_tasks[f'agent_{i}'] = {} 
+                for j in graph_matrix[i]:
+                    if int(j) != 0:
+                        neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
+                    id += 1
+
+                # modify the inner structure of the node        
+                nodes[i].update_connection(
+                    graph_matrix[i],  # Update the neighbours of the node
+                    neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
+                    states[np.nonzero(graph_matrix[i])[0][0]]
+                )
+
 # =========================================================================== #
 #                                TASK SCHEDULER                               #
 # =========================================================================== #
@@ -103,12 +135,12 @@ goals = [
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
 }
 
@@ -118,10 +150,10 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
 
 graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 # deterministic graphs
-if st.n_nodes == 2:
-    graph_matrix = np.array([[0.,1.],
-                             [1.,0.]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
+# if st.n_nodes == 2:
+#     graph_matrix = np.array([[0.,1.],
+#                              [1.,0.]])
+#     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
 if st.n_nodes == 3:
     graph_matrix = np.array([[0.,1., 0.],
                              [1.,0., 1.],
@@ -217,6 +249,7 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
+    neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
@@ -265,32 +298,3 @@ if st.simulation:
 
     display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
 
-def neigh_connection(states, nodes, graph_matrix, communication_range):
-    """
-        Check if the distance between two nodes is less than the communication range, 
-        and if so create a connection between the two nodes which become neighbours
-        and cooperate one with the other
-    """
-
-    for i in nodes:
-        for idx ,state in enumerate(states):
-            if i == idx:  
-                continue
-            if np.linalg.norm(states[i] - state) < communication_range: # Calculate the Euclidean distance between two points and compare with comm range
-                if graph_matrix[i][idx] == 0.:
-                    graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
-        # update task manifold with the neighbours tasks of the new neighbours
-        neigh_tasks = {}
-        for i in range(st.n_nodes):
-            id = 0
-            neigh_tasks[f'agent_{i}'] = {} 
-            for j in graph_matrix[i]:
-                if int(j) != 0:
-                    neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
-                id += 1
-
-        # modify the inner structure of the node        
-        nodes[i].update_connection(
-            graph_matrix[i],  # Update the neighbours of the node
-            neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
-        )

@@ -57,7 +57,18 @@ class MessageSender:
             rho_j = self.rho[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
             
             return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
-        
+    
+    def update(self,
+            adjacency_vector: np.ndarray,
+            y: np.ndarray,
+            rho: np.ndarray,
+        ):
+
+        self.adjacency_vector = adjacency_vector
+        self.y = y
+        self.rho = rho
+
+
         
 
 class MessageReceiver:
@@ -113,3 +124,13 @@ class MessageReceiver:
             return self.y_j
         elif update =='D':
             return self.rho_j
+    
+    def update(self,
+            adjacency_vector: np.ndarray,
+            y: np.ndarray,
+            rho: np.ndarray,
+        ):
+        
+        self.adjacency_vector = adjacency_vector
+        self.y = y
+        self.rho = rho

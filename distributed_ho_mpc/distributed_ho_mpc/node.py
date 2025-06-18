@@ -312,7 +312,6 @@ class Node():
     #                                      MPC                                     #
     # ---------------------------------------------------------------------------- #
     def MPC(self)->None:
-        is_formation_with_neigh = lambda agents, neigh: all(item in neigh for item in agents)  # check if neighour's formation is with current agent's neighbour 
 
         self.hompc = HOMPCMultiRobot(
             self.s.tolist(),
@@ -324,7 +323,10 @@ class Node():
         self.hompc.n_control = st.n_control
         self.hompc.n_pred = st.n_pred
         
-        for task in self.tasks:
+        # ======================================================================== #
+
+        self.create_tasks()
+        '''for task in self.tasks:
             if task['name'] == "input_limits":
                 self.hompc.create_task(
                     name = "input_limits", prio = task['prio'],
@@ -430,9 +432,8 @@ class Node():
                         name = "obstacle_avoidance", prio = task['prio'],
                         type = TaskType.Same,
                         ineq_task_ls = self.task_obs_avoidance,
-                    )
+                    )'''
             
-
         # ======================================================================== #
         
         self.s = RobCont(omni=
@@ -586,3 +587,150 @@ class Node():
              
             
             writer.writerow(row)
+
+
+    def create_tasks(self):
+        """
+            Create the tasks for the HOMPCMultiRobot instance
+        """
+        is_formation_with_neigh = lambda agents, neigh: all(item in neigh for item in agents)  # check if neighour's formation is with current agent's neighbour 
+
+
+        for task in self.tasks:
+            if task['name'] == "input_limits":
+                self.hompc.create_task(
+                    name = "input_limits", prio = task['prio'],
+                    type = TaskType.Same,
+                    ineq_task_ls = self.task_input_limits.tolist(),
+                    robot_index= [self.robot_idx],
+                    #ineq_task_coeff= self.task_input_limits_coeffs
+                )
+            elif task['name'] == "position":
+                self.hompc.create_task(
+                    name = "position", prio = task['prio'],
+                    type = TaskType.Same,
+                    eq_task_ls = self.task_pos[task['goal_index']].tolist(),
+                    eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
+                    time_index = TaskIndexes.All,
+                    robot_index= [[0]]
+                )
+            elif task['name'] == "input_minimization":
+                self.hompc.create_task(
+                    name = "input_minimization", prio = task['prio'],
+                    eq_task_ls = self.task_input_min.tolist(),
+                    robot_index= [self.robot_idx]
+                )
+            elif task['name'] == 'input_smooth':
+                self.hompc.create_task(
+                    name = "input_smooth", prio = task['prio'],
+                    type = TaskType.SameTimeDiff,
+                    ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
+                    #ineq_task_coeff = np.array([0,0,0,0]),
+                    robot_index= [self.robot_idx]
+                )
+            elif task['name'] == 'formation':
+                aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                    task['agents'], task['distance']
+                )
+                self.hompc.create_task_bi(
+                    name = "formation", prio = task['prio'],
+                    type = TaskType.Bi,
+                    aux = aux,
+                    mapping = mapping.tolist(),
+                    eq_task_ls = task_formation,
+                    eq_task_coeff = task_formation_coeff,
+                )
+            elif task['name'] == 'collision_avoidance':
+                self.hompc.create_task_bi(
+                    name = "collision", prio = task['prio'],
+                    type = TaskType.Bi,
+                    aux = self.aux_avoid_collision,
+                    mapping = self.mapping_avoid_collision.tolist(),
+                    ineq_task_ls= self.task_avoid_collision,
+                    ineq_task_coeff= self.task_avoid_collision_coeff,
+                )
+            elif task['name'] == 'obstacle_avoidance':
+                self.hompc.create_task(
+                    name = "obstacle_avoidance", prio = task['prio'],
+                    type = TaskType.Same,
+                    ineq_task_ls = self.task_obs_avoidance,
+                )
+        
+        for neigh in self.neigh_tasks:
+            robot_idx = None
+            for i in self.neigh:
+                if neigh == f'agent_{i}':
+                    robot_idx = self.robot_idx_global.index(i)
+                    break
+            if robot_idx is None:
+                raise ValueError(f"Could not find robot index for neighbor {neigh}")
+            for task in self.neigh_tasks[neigh]:
+                if task['name'] == "position":
+                    self.hompc.create_task(
+                        name = "position", prio = task['prio'],
+                        type = TaskType.Same,
+                        eq_task_ls = self.task_pos[task['goal_index']].tolist(),
+                        eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
+                        time_index = TaskIndexes.All,
+                        robot_index= [[robot_idx]]
+                    )   
+                elif task['name'] == 'formation':
+                    for t in task['agents']:
+                        if is_formation_with_neigh(t, self.robot_idx_global):
+                            aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                                    task['agents'], task['distance']
+                            )
+                            self.hompc.create_task_bi(
+                                name = "formation", prio = task['prio'],
+                                type = TaskType.Bi,
+                                aux = aux,
+                                mapping = mapping.tolist(),
+                                eq_task_ls = task_formation,
+                                eq_task_coeff = task_formation_coeff,
+                            )
+                elif task['name'] == 'collision_avoidance':
+                    self.hompc.create_task_bi(
+                        name = "collision", prio = task['prio'],
+                        type = TaskType.Bi,
+                        aux = self.aux_avoid_collision,
+                        mapping = self.mapping_avoid_collision.tolist(),
+                        ineq_task_ls= self.task_avoid_collision,
+                        ineq_task_coeff= self.task_avoid_collision_coeff,
+                    )
+                elif task['name'] == 'obstacle_avoidance':
+                    self.hompc.create_task(
+                        name = "obstacle_avoidance", prio = task['prio'],
+                        type = TaskType.Same,
+                        ineq_task_ls = self.task_obs_avoidance,
+                    )
+
+
+    def update_connection(self, adjacency_vector: np.array, neigh_tasks: dict):
+        """
+        Update the adjacency vector and the neighbour tasks.
+        """
+        
+        self.adjacency_vector = adjacency_vector
+        self.neigh = np.nonzero(adjacency_vector)[0].tolist()
+        self.degree = len(self.neigh)
+        self.n_robots = RobCont(omni=self.degree + 1)
+
+        # expand the consensus variables
+        self.y_i = np.pad(self.y_i, ((0, 0), (0, self.n_xi*(self.degree+1) - self.y_i.shape[1])), mode='constant', constant_values=0)
+        self.rho_i = np.pad(self.rho_i, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
+        self.rho_j = np.pad(self.rho_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
+        self.y_j = np.pad(self.y_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
+        #self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
+        #self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
+        #np.random.rand(2, self.n_priority, self.n_xi*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
+                                                                             # p1  [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
+        #self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree)))   # p1  [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
+        #self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+                                                                             # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+                                                                             # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
+        
+        self.neigh_tasks.update(neigh_tasks) # expand dictionary with neighbour tasks

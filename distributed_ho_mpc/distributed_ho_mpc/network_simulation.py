@@ -116,8 +116,8 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
 #               Create the network and connection between agents               #
 # ---------------------------------------------------------------------------- #
 
-
-# deterministic graphs = evolve(s, u_star, dt)
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+# deterministic graphs
 if st.n_nodes == 2:
     graph_matrix = np.array([[0.,1.],
                              [1.,0.]])
@@ -170,8 +170,7 @@ for i in range(st.n_nodes):
     neigh_tasks[f'agent_{i}'] = {} 
     for j in graph_matrix[i]:
         if int(j) != 0:
-            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}'])
-            #neigh_tasks[f'agent_{i}'].append({'neigh_ID': id})  
+            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
         id += 1
                                                          
 #----------------------------------------------------------------------------- #
@@ -238,13 +237,6 @@ if st.simulation:
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
     # ---------------------------------------------------------------------------- #
-    # s_hist_merged = [
-    #     [
-    #         sum((node.s_history[i][j][:1] for node in nodes), []) 
-    #         for j in range(len(nodes[0].s_history[i]))
-    #     ]
-    #     for i in range(len(nodes[0].s_history))
-    # ]
     s_hist_merged = [
         sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
     ]
@@ -272,3 +264,33 @@ if st.simulation:
 
 
     display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
+
+def neigh_connection(states, nodes, graph_matrix, communication_range):
+    """
+        Check if the distance between two nodes is less than the communication range, 
+        and if so create a connection between the two nodes which become neighbours
+        and cooperate one with the other
+    """
+
+    for i in nodes:
+        for idx ,state in enumerate(states):
+            if i == idx:  
+                continue
+            if np.linalg.norm(states[i] - state) < communication_range: # Calculate the Euclidean distance between two points and compare with comm range
+                if graph_matrix[i][idx] == 0.:
+                    graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
+        # update task manifold with the neighbours tasks of the new neighbours
+        neigh_tasks = {}
+        for i in range(st.n_nodes):
+            id = 0
+            neigh_tasks[f'agent_{i}'] = {} 
+            for j in graph_matrix[i]:
+                if int(j) != 0:
+                    neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
+                id += 1
+
+        # modify the inner structure of the node        
+        nodes[i].update_connection(
+            graph_matrix[i],  # Update the neighbours of the node
+            neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
+        )

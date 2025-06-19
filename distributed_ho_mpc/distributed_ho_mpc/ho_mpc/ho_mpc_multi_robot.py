@@ -406,14 +406,19 @@ class HOMPCMultiRobot(HOMPC):
             if n_robots[c] < 0:
                 raise ValueError(f'The {c}-th class of robots has a negative number of robots.')
             n_r += n_robots[c]
+            _state_bar_new = [
+                [[None] * (self.n_control + self.n_pred)] * n_robots[c]
+                for i in range(len(self._states))
+            ]
+            _input_bar_new = [
+                [np.zeros(self._n_inputs[i]) * self.n_control] * n_robots[c]
+                for i in range(len(self._inputs))
+            ]
+            self._state_bar[c].extend(_state_bar_new)
+            self._input_bar[c].extend(_input_bar_new)        
+
+            self.n_robots[c] = n_r
             
-            state_bar_c = [np.zeros(0) for _ in range(n_r)]
-            for j, state_bar_c_j in enumerate(state_bar_c):
-                state_bar_c_j = [states_meas[c][j] for k in range(self.n_control+self.n_pred)]
-            self._state_bar[c][j] += state_bar_c
-            
-            inputs_bar_c = [np.zeros(self._n_inputs[c]) for j in range(n_r)]
-            self._input_bar[c] += inputs_bar_c
         
             
     # ============================== Create_task ============================= #

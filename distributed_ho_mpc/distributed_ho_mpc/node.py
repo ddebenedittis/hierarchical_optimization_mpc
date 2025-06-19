@@ -506,7 +506,7 @@ class Node():
             )
 
         self.s_history = [None for _ in range(self.n_steps)]
-        
+        self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
         return
     
@@ -587,8 +587,10 @@ class Node():
                         
             print(f's:\t{self.s.tolist()}\n'
                   f'u:\t{self.u_star}\n')
-               
+
+
             self.s_history[self.step] = copy.deepcopy(self.s.tolist())
+            self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
             self.step += 1
                 
         return 
@@ -726,8 +728,8 @@ class Node():
             # expand the consensus variables
             self.y_i = np.pad(self.y_i, ((0, 0), (0, self.n_xi*(self.degree+1) - self.y_i.shape[1])), mode='constant', constant_values=0)
             self.rho_i = np.pad(self.rho_i, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
-            self.rho_j = np.pad(self.rho_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
-            self.y_j = np.pad(self.y_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
+            self.rho_j = np.pad(self.rho_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_j.shape[2])), mode='constant', constant_values=0)
+            self.y_j = np.pad(self.y_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.y_j.shape[2])), mode='constant', constant_values=0)
             #self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
             #self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
             #np.random.rand(2, self.n_priority, self.n_xi*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
@@ -740,6 +742,8 @@ class Node():
             #self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
                                                                                 # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
                                                                                 # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
+            self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
+
             self.hompc.add_robots([added_robot], state_meas)
 
             self.s.expand(state_meas)
@@ -757,5 +761,13 @@ class Node():
                 ineq_task_coeff= self.task_avoid_collision_coeff,
             )
 
-            self.sender.update(self.adjacency_vector, self.y_i, self.rho_i)
-            self.receiver.update(self.adjacency_vector, self.y_j, self.rho_j)
+            self.hompc.update_task(
+                name = "input_limits", prio = 1,
+                robot_index= [self.robot_idx]
+            )
+            self.hompc.update_task(
+                name = "input_smooth", prio = 2,
+                robot_index= [self.robot_idx]
+            )
+            self.sender.update(self.neigh, self.y_i, self.rho_i)
+            self.receiver.update(self.neigh, self.y_j, self.rho_j)

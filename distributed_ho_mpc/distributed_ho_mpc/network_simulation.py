@@ -149,7 +149,7 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
 # ---------------------------------------------------------------------------- #
 
 graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
-# deterministic graphs
+#deterministic graphs
 # if st.n_nodes == 2:
 #     graph_matrix = np.array([[0.,1.],
 #                              [1.,0.]])
@@ -276,7 +276,8 @@ if st.simulation:
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
     if st.n_nodes == 2:
-        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
+        s_hist_merged = [[nodes[0].s_history_p[i] + nodes[1].s_history_p[i]] for i in range(len(nodes[0].s_history))]
+        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(23, len(nodes[0].s_history))]
     if st.n_nodes == 3:
         s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
     if st.n_nodes == 4: 

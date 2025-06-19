@@ -27,8 +27,8 @@ class RobCont:
         Args:
             n (int): number of robots
         """
-        for s in state_meas:
-            self.omni = self.omni.append(s)
+        #for s in state_meas:
+        self.omni.append(state_meas)
 
 
 def get_unicycle_model(dt: float):

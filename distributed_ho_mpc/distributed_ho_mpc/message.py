@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
+import copy
 
 @dataclass
 class Message:
@@ -65,8 +66,8 @@ class MessageSender:
         ):
 
         self.adjacency_vector = adjacency_vector
-        self.y = y
-        self.rho = rho
+        self.y = copy.deepcopy(y)
+        self.rho = copy.deepcopy(rho)
 
 
         
@@ -132,5 +133,5 @@ class MessageReceiver:
         ):
         
         self.adjacency_vector = adjacency_vector
-        self.y = y
-        self.rho = rho
+        self.y_j = copy.deepcopy(y)
+        self.rho_j = copy.deepcopy(rho)

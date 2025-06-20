@@ -124,7 +124,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-6  # regularization factor
+        self.regularization = 1e-4  # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         

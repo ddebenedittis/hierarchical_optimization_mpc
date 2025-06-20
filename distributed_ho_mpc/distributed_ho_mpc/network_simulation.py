@@ -35,23 +35,24 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                 if graph_matrix[i][idx] == 0.:
                     graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
                 
-                # update task manifold with the neighbours tasks of the new neighbours
-                neigh_tasks = {}
+                    # update task manifold with the neighbours tasks of the new neighbours
+                    neigh_tasks = {}
+                    
+                    id = 0
+                    neigh_tasks[f'agent_{i}'] = {} 
+                    for j in graph_matrix[i]:
+                        if int(j) != 0:
+                            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
+                        id += 1
+
+                    # modify the inner structure of the node        
+                    nodes[i].update_connection(
+                        graph_matrix[i],  # Update the neighbours of the node
+                        neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
+                        states[np.nonzero(graph_matrix[i])[0][0]]
+                    )
+            
                 
-                id = 0
-                neigh_tasks[f'agent_{i}'] = {} 
-                for j in graph_matrix[i]:
-                    if int(j) != 0:
-                        neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
-                    id += 1
-
-                # modify the inner structure of the node        
-                nodes[i].update_connection(
-                    graph_matrix[i],  # Update the neighbours of the node
-                    neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
-                    states[np.nonzero(graph_matrix[i])[0][0]]
-                )
-
 # =========================================================================== #
 #                                TASK SCHEDULER                               #
 # =========================================================================== #
@@ -134,12 +135,12 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
+                            #{'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
                             {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
+                            #{'prio':3, 'name':"collision_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
 }

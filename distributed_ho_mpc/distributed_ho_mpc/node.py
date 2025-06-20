@@ -79,36 +79,36 @@ class Node():
             self.n_xi
         )
         
-        self.filename = f"node_{self.node_id}_data.csv"
-        with open(self.filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # Write the header
-            header = ['Time']
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p4_{i}') 
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p4_{i}') 
-            header.append(f'stateX_{self.node_id}')
-            header.append(f'stateY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'stateX_{j}')
-                header.append(f'stateY_{j}')
-            header.append(f'inputX_{self.node_id}')
-            header.append(f'inputY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'inputX_{j}')
-                header.append(f'inputY_{j}') 
-            header.append('cost')
-            # Write the header
-            writer.writerow(header)      
+        # self.filename = f"node_{self.node_id}_data.csv"
+        # with open(self.filename, mode='w', newline='') as file:
+        #     writer = csv.writer(file)
+        #     # Write the header
+        #     header = ['Time']
+        #     for j in self.neigh:
+        #         for i in range(self.n_xi):
+        #             header.append(f'rho_(i{j})_i_p3_{i}')
+        #     for j in self.neigh:
+        #         for i in range(self.n_xi):
+        #             header.append(f'rho_(i{j})_i_p4_{i}') 
+        #     for j in self.neigh:
+        #         for i in range(self.n_xi):
+        #             header.append(f'rho_({j}i)_i_p3_{i}')
+        #     for j in self.neigh:
+        #         for i in range(self.n_xi):
+        #             header.append(f'rho_({j}i)_i_p4_{i}') 
+        #     header.append(f'stateX_{self.node_id}')
+        #     header.append(f'stateY_{self.node_id}')
+        #     for j in self.neigh:
+        #         header.append(f'stateX_{j}')
+        #         header.append(f'stateY_{j}')
+        #     header.append(f'inputX_{self.node_id}')
+        #     header.append(f'inputY_{self.node_id}')
+        #     for j in self.neigh:
+        #         header.append(f'inputX_{j}')
+        #         header.append(f'inputY_{j}') 
+        #     header.append('cost')
+        #     # Write the header
+        #     writer.writerow(header)      
         
         # ======================== Define The System Model ======================= #
     
@@ -263,7 +263,7 @@ class Node():
                     TaskBiCoeff(0, 4, 0, 3, 0, 3**2),
                     TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
                 ]
-        
+        self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
         # =====================Collision Avoidance=================================== #
         threshold = 4
@@ -630,7 +630,7 @@ class Node():
         return self.rho_i, self.neigh
     
     def save_data(self):
-        if not st.save_data:
+        if not st.save_data or self.step <= 20:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -752,6 +752,7 @@ class Node():
 
             self.create_neigh_tasks()  
 
+            
             self.hompc.create_task_bi(
                 name = "collision", prio = 3,
                 type = TaskType.Bi,
@@ -760,6 +761,30 @@ class Node():
                 ineq_task_ls= self.task_avoid_collision,
                 ineq_task_coeff= self.task_avoid_collision_coeff,
             )
+                # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                #                 [[0,1]], 4
+                #         )
+                # self.hompc.create_task_bi(
+                #     name = "formation", prio = 4,
+                #     type = TaskType.Bi,
+                #     aux = aux,
+                #     mapping = mapping.tolist(),
+                #     eq_task_ls = task_formation,
+                #     eq_task_coeff = task_formation_coeff,
+                # )
+
+            # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+            #         [[0,1]], 3
+            #     )
+            # self.hompc.create_task_bi(
+            #     name = "formation", prio = 3,
+            #     type = TaskType.Bi,
+            #     aux = aux,
+            #     mapping = self.mapping.tolist(),
+            #     eq_task_ls = task_formation,
+            #     eq_task_coeff = task_formation_coeff,
+            # )
+            
 
             self.hompc.update_task(
                 name = "input_limits", prio = 1,
@@ -771,3 +796,34 @@ class Node():
             )
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
+
+            self.filename = f"node_{self.node_id}_data.csv"
+            with open(self.filename, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                # Write the header
+                header = ['Time']
+                for j in self.neigh:
+                    for i in range(self.n_xi):
+                        header.append(f'rho_(i{j})_i_p3_{i}')
+                for j in self.neigh:
+                    for i in range(self.n_xi):
+                        header.append(f'rho_(i{j})_i_p4_{i}') 
+                for j in self.neigh:
+                    for i in range(self.n_xi):
+                        header.append(f'rho_({j}i)_i_p3_{i}')
+                for j in self.neigh:
+                    for i in range(self.n_xi):
+                        header.append(f'rho_({j}i)_i_p4_{i}') 
+                header.append(f'stateX_{self.node_id}')
+                header.append(f'stateY_{self.node_id}')
+                for j in self.neigh:
+                    header.append(f'stateX_{j}')
+                    header.append(f'stateY_{j}')
+                header.append(f'inputX_{self.node_id}')
+                header.append(f'inputY_{self.node_id}')
+                for j in self.neigh:
+                    header.append(f'inputX_{j}')
+                    header.append(f'inputY_{j}') 
+                header.append('cost')
+                # Write the header
+                writer.writerow(header) 

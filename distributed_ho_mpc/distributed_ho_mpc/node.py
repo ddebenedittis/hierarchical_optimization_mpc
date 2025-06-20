@@ -706,9 +706,9 @@ class Node():
                     )
 
 
-    def update_connection(self, adjacency_vector: np.array, neigh_tasks: dict, state_meas: list[float]):
+    def create_connection(self, adjacency_vector: np.array, neigh_tasks: dict, state_meas: list[float]):
         """
-        Update the adjacency vector and the neighbour tasks.
+        .
         """
         #TODO: add_robot, create/update tasks  
         
@@ -827,3 +827,29 @@ class Node():
                 header.append('cost')
                 # Write the header
                 writer.writerow(header) 
+
+
+    def remove_connection(self, adjacency_vector: np.array, neigh_tasks: str, neigh_id: int):
+        """
+        .
+        """
+        id_to_remove = self.index_global_to_local(neigh_id)
+
+        self.neigh_tasks.pop(neigh_tasks)
+
+        self.hompc.remove_robots([id_to_remove])
+
+        # remove element from consensus variables
+        self.y_i = np.delete(self.y_i, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 1)
+        self.rho_i = np.delete(self.rho_i, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
+        self.rho_j = np.delete(self.rho_j, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
+        self.y_j = np.delete(self.y_j, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
+
+        # adjust dimension of variables 
+        self.neigh = np.nonzero(adjacency_vector)[0].tolist()
+        self.adjacency_vector = adjacency_vector
+        self.degree = len(self.neigh)
+        self.n_robots = RobCont(omni=self.degree + 1)    
+        self.robot_idx_global = [self.node_id] + self.neigh
+        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+        

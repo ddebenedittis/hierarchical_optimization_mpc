@@ -31,7 +31,8 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
         for idx ,state in enumerate(states):
             if i == idx:  
                 continue
-            if np.linalg.norm(states[i] - state) < communication_range: # Calculate the Euclidean distance between two points and compare with comm range
+            # Calculate the Euclidean distance between two points and compare with comm range
+            if np.linalg.norm(states[i] - state) < communication_range: 
                 if graph_matrix[i][idx] == 0.:
                     graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
                 
@@ -46,11 +47,26 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                         id += 1
 
                     # modify the inner structure of the node        
-                    nodes[i].update_connection(
+                    nodes[i].create_connection(
                         graph_matrix[i],  # Update the neighbours of the node
                         neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
-                        states[np.nonzero(graph_matrix[i])[0][0]]
+                        states[np.nonzero(graph_matrix[i])[0][0]] # pass state of the new neighbour
                     )
+            else:
+                if graph_matrix[i][idx] == 1.0:  # If the distance is greater than the communication range, remove the connection
+                    graph_matrix[i][idx] = 0.0
+
+                    # modify the inner structure of the node        
+                    nodes[i].remove_connection(
+                        graph_matrix[i],  # Update the neighbours of the node
+                        f'agent_{i}',  # Update the neighbours tasks
+                        idx,  # Index of the neighbour to remove
+                        #states[np.nonzero(graph_matrix[i])[0][0]]
+                    )
+
+
+
+
             
                 
 # =========================================================================== #

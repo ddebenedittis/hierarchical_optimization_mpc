@@ -617,7 +617,8 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
-        time_index: TaskIndexes = TaskIndexes.All
+        time_index: TaskIndexes = TaskIndexes.All,
+        robot_index: list[list[int]] | None = None
     ):
         """
         Create a HOMPC.Task of type TaskType.Bi.
@@ -656,7 +657,8 @@ class HOMPCMultiRobot(HOMPC):
             ineq_weight=ineq_weight,
             aux_var = aux,
             mapping = mapping,
-            time_index = time_index
+            time_index = time_index,
+            robot_index= robot_index
         ))
     
     # ! new function
@@ -674,7 +676,8 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
-        time_index: TaskIndexes = TaskIndexes.All
+        time_index: TaskIndexes = TaskIndexes.All,
+        robot_index: TaskIndexes | None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
@@ -703,6 +706,8 @@ class HOMPCMultiRobot(HOMPC):
             time_index = self._tasks[id].time_index
         if ineq_weight is None:
             ineq_weight = self._tasks[id].ineq_weight
+        if robot_index is None:
+            robot_index = self._tasks[id].robot_index
             
         self._tasks[i] = self.Task(
             name = name,
@@ -720,7 +725,8 @@ class HOMPCMultiRobot(HOMPC):
             ineq_weight=ineq_weight,
             aux_var = aux,
             mapping = mapping,
-            time_index = time_index
+            time_index = time_index,
+            robot_index= robot_index
         )
     
     # ======================================================================== #

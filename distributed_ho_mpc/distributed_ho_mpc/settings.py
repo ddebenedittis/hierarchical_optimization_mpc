@@ -11,7 +11,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 dt = 0.1
 n_steps = 100
 
-communication_range = 3
+communication_range = 4
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -37,4 +37,4 @@ n_xi = n_control * 2
 # ---------------------------------------------------------------------------- #
 
 n_priority = 2
-step_size = 1e-7
+step_size = 5e-5

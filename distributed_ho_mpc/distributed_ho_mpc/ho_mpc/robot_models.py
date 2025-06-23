@@ -29,6 +29,16 @@ class RobCont:
         """
         #for s in state_meas:
         self.omni.append(state_meas)
+    def reduce(self, idx: int):
+        """
+        Reduce the container to hold only the robot that still have a connection.
+        Args:
+            index (int): index of the robot to remove
+        """
+        if self.omni is not None:
+            self.omni.pop(idx)
+        else:
+            raise ValueError("RobCont is empty, cannot reduce.")
 
 
 def get_unicycle_model(dt: float):

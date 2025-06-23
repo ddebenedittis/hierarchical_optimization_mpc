@@ -266,7 +266,7 @@ class Node():
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
         # =====================Collision Avoidance=================================== #
-        threshold = 4
+        threshold = 5
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -497,12 +497,13 @@ class Node():
         # ======================================================================== #
         
         self.s = RobCont(omni=
-            [np.array([-5,-6])
+            [np.array([-1.5,-1.5])
             for _ in range(self.n_robots.omni)],
             )
         if self.node_id == 1:
             self.s = RobCont(omni=
-            [np.array([5,6])]
+            [np.array([1.5,1.5])
+            for _ in range(self.n_robots.omni)]
             )
 
         self.s_history = [None for _ in range(self.n_steps)]
@@ -720,9 +721,11 @@ class Node():
             self.n_robots = RobCont(omni=self.degree + 1)
 
             #self.robot_idx_global = [self.node_id] + self.neigh
-            self.robot_idx_global.extend(list(set(neigh) - set(self.neigh)))
+            new_neigh = list(set(neigh) - set(self.neigh)) #index of the new connected neighbours
+            self.robot_idx_global.extend(new_neigh)
             self.neigh = neigh
             self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+            neigh_local_idx = [self.index_global_to_local(r) for r in new_neigh]  
             
 
             # expand the consensus variables
@@ -760,6 +763,7 @@ class Node():
                 mapping = self.mapping_avoid_collision.tolist(),
                 ineq_task_ls= self.task_avoid_collision,
                 ineq_task_coeff= self.task_avoid_collision_coeff,
+                robot_index= [neigh_local_idx]
             )
                 # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
                 #                 [[0,1]], 4
@@ -834,16 +838,19 @@ class Node():
         .
         """
         id_to_remove = self.index_global_to_local(neigh_id)
-
+        
         self.neigh_tasks.pop(neigh_tasks)
 
-        self.hompc.remove_robots([id_to_remove])
+        self.hompc.remove_robots([[id_to_remove]])
+
+        self.s.reduce(id_to_remove)  # remove the state of the robot to be removed
+        rho_idx = list(self.neigh).index(neigh_id)
 
         # remove element from consensus variables
         self.y_i = np.delete(self.y_i, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 1)
-        self.rho_i = np.delete(self.rho_i, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
-        self.rho_j = np.delete(self.rho_j, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
-        self.y_j = np.delete(self.y_j, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 2)
+        self.rho_i = np.delete(self.rho_i, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
+        self.rho_j = np.delete(self.rho_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
+        self.y_j = np.delete(self.y_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
 
         # adjust dimension of variables 
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()
@@ -852,4 +859,17 @@ class Node():
         self.n_robots = RobCont(omni=self.degree + 1)    
         self.robot_idx_global = [self.node_id] + self.neigh
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+
+        self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
         
+        self.hompc._tasks = [task for task in self.hompc._tasks if task.robot_index[0][0] != id_to_remove] # remove tasks related to the removed robot
+        self.hompc.update_task(
+                name = "input_limits", prio = 1,
+                robot_index= [self.robot_idx]
+            )
+        self.hompc.update_task(
+            name = "input_smooth", prio = 2,
+            robot_index= [self.robot_idx]
+        )
+        self.sender.update(self.neigh, self.y_i, self.rho_i)
+        self.receiver.update(self.neigh, self.y_j, self.rho_j)

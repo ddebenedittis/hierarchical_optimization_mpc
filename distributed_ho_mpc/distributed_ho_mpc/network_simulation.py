@@ -53,13 +53,13 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                         states[np.nonzero(graph_matrix[i])[0][0]] # pass state of the new neighbour
                     )
             else:
-                if graph_matrix[i][idx] == 3.0:  # If the distance is greater than the communication range, remove the connection
+                if graph_matrix[i][idx] == 1.0:  # If the distance is greater than the communication range, remove the connection
                     graph_matrix[i][idx] = 0.0
 
                     # modify the inner structure of the node        
                     nodes[i].remove_connection(
                         graph_matrix[i],  # Update the neighbours of the node
-                        f'agent_{i}',  # Update the neighbours tasks
+                        f'agent_{idx}',  # Update the neighbours tasks
                         idx,  # Index of the neighbour to remove
                         #states[np.nonzero(graph_matrix[i])[0][0]]
                     )
@@ -291,9 +291,12 @@ if st.simulation:
         sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
     ]
 
+    # handle different lenght of the states due to add/remove of nodes
     for i in nodes:
         for n in range(len(i.s_history)):
-            if len(i.s_history[n][0]) != len(i.s_history[-1][0]):
+            if len(i.s_history[n][0]) < len(i.s_history[-1][0]):
+                i.s_history[n][0].append(np.array([0,0]))
+            elif len(i.s_history[n][0]) < len(i.s_history[2][0]):
                 i.s_history[n][0].append(np.array([0,0]))
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]

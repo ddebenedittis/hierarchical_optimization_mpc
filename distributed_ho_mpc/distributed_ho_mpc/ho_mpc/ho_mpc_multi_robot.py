@@ -233,10 +233,10 @@ class HOMPCMultiRobot(HOMPC):
             idx_robots (dict[list[int]]): dictionary of the indices of the robots to be removed.
         """
         
-        for c, js in idx_robots.items():
+        for c, js in enumerate(idx_robots):
             self.n_robots[c] -= len(js)
             
-            for j in js.reverse():
+            for j in js:
                 
                 self._state_bar[c].pop(j)
                 self._input_bar[c].pop(j)

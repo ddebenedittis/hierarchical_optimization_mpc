@@ -124,7 +124,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-4  # regularization factor
+        self.regularization = 1e-5 # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -525,12 +525,18 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_ls: list[ca.SX]| None = None,
         ineq_task_coeff: list[list[list[np.ndarray]]]| None = None,
         time_index: TaskIndexes| None = None,
-        robot_index: TaskIndexes| None = None
+        robot_index: TaskIndexes| None = None,
+        pos: int | None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
-                id = i
-                break
+                if pos is not None and i == pos:
+                    id = i
+                    break
+                elif pos is None:
+                    id = i
+                    break
+                
             
         if robot_index is not None:
             if eq_task_coeff is not None:
@@ -618,7 +624,7 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
         time_index: TaskIndexes = TaskIndexes.All,
-        robot_index: list[list[int]] | None = None
+        robot_index: list[list[int]] | None = None,
     ):
         """
         Create a HOMPC.Task of type TaskType.Bi.
@@ -658,7 +664,7 @@ class HOMPCMultiRobot(HOMPC):
             aux_var = aux,
             mapping = mapping,
             time_index = time_index,
-            robot_index= robot_index
+            robot_index= robot_index,
         ))
     
     # ! new function
@@ -677,12 +683,14 @@ class HOMPCMultiRobot(HOMPC):
         ineq_task_coeff: list[np.ndarray] | None = None,
         ineq_weight: float = 1.0,
         time_index: TaskIndexes = TaskIndexes.All,
-        robot_index: TaskIndexes | None = None
+        robot_index: TaskIndexes | None = None,
+        pos : int | None = None
     ):
         for i, t in enumerate(self._tasks):
             if t.name == name:
-                id = i
-                break
+                if pos is not None and i == pos:
+                    id = i
+                    break
                            
         if prio is None:
             prio = self._tasks[id].prio

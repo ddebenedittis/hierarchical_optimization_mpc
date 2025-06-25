@@ -39,12 +39,12 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                     # update task manifold with the neighbours tasks of the new neighbours
                     neigh_tasks = {}
                     
-                    id = 0
+                    
                     neigh_tasks[f'agent_{i}'] = {} 
-                    for j in graph_matrix[i]:
-                        if int(j) != 0:
-                            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}']) 
-                        id += 1
+                    
+                    if graph_matrix[i][idx] != 0:
+                        neigh_tasks[f'agent_{i}'][f'agent_{idx}'] = copy.deepcopy(system_tasks[f'agent_{idx}']) 
+                    
 
                     # modify the inner structure of the node        
                     nodes[i].create_connection(
@@ -74,8 +74,8 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
 # =========================================================================== #
 
 goals = [
-        np.array([4, 5]),
-        np.array([-4, -5]),
+        np.array([8, 10]),
+        np.array([-6, -8]),
     ]
 
 '''system_tasks = {
@@ -152,11 +152,16 @@ goals = [
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
-                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                ],
+                'agent_2': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            {'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 3},
                             {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
 }
@@ -165,7 +170,6 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
 #               Create the network and connection between agents               #
 # ---------------------------------------------------------------------------- #
 
-graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 #deterministic graphs
 # if st.n_nodes == 2:
 #     graph_matrix = np.array([[0.,1.],
@@ -188,12 +192,8 @@ if st.n_nodes == 5:
                              [0.,1., 0., 1., 0.],
                              [0.,0., 1., 0., 1.],
                              [0.,0., 0., 1., 0.]])
-    '''graph_matrix = np.array([[0., 1., 1., 1., 1.],
-                            [1., 0., 1., 1., 1.],
-                            [1., 1., 0., 1., 1.],
-                            [1., 1., 1., 0., 1.],
-                            [1., 1., 1., 1., 0.]])'''
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
+#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -254,6 +254,7 @@ state = [None] * st.n_nodes # list of x for inizialization of optimization
 
 for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+#neigh_connection(state, nodes, graph_matrix, st.communication_range) 
 for j in range(st.n_nodes):
     nodes[j].reorder_s_init(state)
     nodes[j].update()    # Update primal solution and state evolution
@@ -266,6 +267,8 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
+    if i == 20:
+        None
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
@@ -295,9 +298,17 @@ if st.simulation:
     for i in nodes:
         for n in range(len(i.s_history)):
             if len(i.s_history[n][0]) < len(i.s_history[-1][0]):
-                i.s_history[n][0].append(np.array([0,0]))
-            elif len(i.s_history[n][0]) < len(i.s_history[2][0]):
-                i.s_history[n][0].append(np.array([0,0]))
+                dd = len(i.s_history[-1][0]) - len(i.s_history[n][0])
+                for d in range(dd): 
+                    i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+            elif len(i.s_history[n][0]) < len(i.s_history[1][0]):
+                dd = len(i.s_history[1][0]) - len(i.s_history[n][0])
+                for d in range(dd):
+                    if n == 0:
+                        i.s_history[n][0].append(i.s_history[1][0][d+1])
+                    else:
+                        i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
     if st.n_nodes == 2:

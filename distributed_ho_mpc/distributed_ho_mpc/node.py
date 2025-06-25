@@ -735,7 +735,8 @@ class Node():
             #self.robot_idx_global = [self.node_id] + self.neigh
             new_neigh = list(set(neigh) - set(self.neigh)) #index of the new connected neighbours
             self.robot_idx_global.extend(new_neigh)
-            self.neigh = neigh
+            #self.neigh = neigh
+            self.neigh.extend(new_neigh)
             self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
             neigh_local_idx = [self.index_global_to_local(r) for r in new_neigh]  
             
@@ -868,7 +869,8 @@ class Node():
         self.y_j = np.delete(self.y_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
 
         # adjust dimension of variables 
-        self.neigh = np.nonzero(adjacency_vector)[0].tolist()
+        #self.neigh = np.nonzero(adjacency_vector)[0].tolist()
+        self.neigh.pop(rho_idx)
         self.adjacency_vector = adjacency_vector
         self.degree = len(self.neigh)
         self.n_robots = RobCont(omni=self.degree + 1)    

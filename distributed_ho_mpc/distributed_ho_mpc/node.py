@@ -735,7 +735,6 @@ class Node():
             #self.robot_idx_global = [self.node_id] + self.neigh
             new_neigh = list(set(neigh) - set(self.neigh)) #index of the new connected neighbours
             self.robot_idx_global.extend(new_neigh)
-            #self.neigh = neigh
             self.neigh.extend(new_neigh)
             self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
             neigh_local_idx = [self.index_global_to_local(r) for r in new_neigh]  
@@ -869,7 +868,6 @@ class Node():
         self.y_j = np.delete(self.y_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
 
         # adjust dimension of variables 
-        #self.neigh = np.nonzero(adjacency_vector)[0].tolist()
         self.neigh.pop(rho_idx)
         self.adjacency_vector = adjacency_vector
         self.degree = len(self.neigh)
@@ -902,7 +900,7 @@ class Node():
                 c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
 
                 aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-                            [[robot_idx_global_old[j0], robot_idx_global_old[j1]]], 2
+                            [[robot_idx_global_old[j0], robot_idx_global_old[j1]]], np.sqrt(coeff)
                         )
                 
                 self.hompc.update_task_bi(

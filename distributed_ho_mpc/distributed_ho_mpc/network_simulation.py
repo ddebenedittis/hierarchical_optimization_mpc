@@ -2,6 +2,8 @@ import copy
 import networkx as nx
 import numpy as np 
 import settings as st
+from scipy.spatial.distance import pdist
+
 
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
 #from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
@@ -65,9 +67,15 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                     )
 
 
-
-
-            
+def agents_distance(state, pairwise_distances):
+    """
+        Plot the distance between the agents at each time step
+    """
+    positions_over_time = np.array(state)
+    distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
+    for i, d in enumerate(distances):
+        pairwise_distances[i].append(d)
+    return pairwise_distances        
                 
 # =========================================================================== #
 #                                TASK SCHEDULER                               #
@@ -151,7 +159,6 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
                             {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
@@ -250,7 +257,14 @@ for i in range(st.n_nodes):
 #     iterate through the nodes, transmitting datas and the receiving them     #
 # ---------------------------------------------------------------------------- #
 
+# DISTANCES BETWEEN AGENTS
 state = [None] * st.n_nodes # list of x for inizialization of optimization
+
+num_robots = st.n_nodes
+num_pairs = int(num_robots * (num_robots - 1) / 2)
+
+# Initialize one list per robot pair
+pairwise_distances = [[] for _ in range(num_pairs)]
 
 for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
@@ -284,9 +298,25 @@ for i in range(st.n_steps):
             nodes[ij].receive_data(msg) # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].dual_update()    # linear update of dual problem
+    pairwise_distances = agents_distance(state, pairwise_distances)  
+
 
 
 if st.simulation:
+    from itertools import combinations
+    robot_pairs = list(combinations(range(num_robots), 2))
+    plt.figure(figsize=(10, 6))
+    for i, dist_list in enumerate(pairwise_distances):
+        plt.plot(dist_list, label=f'Robots {robot_pairs[i]}')
+
+    plt.title("Time Evolution of Pairwise Robot Distances")
+    plt.xlabel("Time Step")
+    plt.ylabel("Distance")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
     # ---------------------------------------------------------------------------- #

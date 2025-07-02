@@ -1222,6 +1222,8 @@ class HOMPCMultiRobot(HOMPC):
                 A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
         else:    
             self._tasks = sorted(self._tasks, key=lambda x: x.prio) 
+            prio = [x.prio for x in self._tasks]
+            prio = [0] + prio
             
             n_prio = len({t.prio for t in self._tasks})     # set comprehension to get unique priorities
             A = [None] * (1 + n_prio)
@@ -1265,7 +1267,7 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, self.degree, n_c)
+            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]

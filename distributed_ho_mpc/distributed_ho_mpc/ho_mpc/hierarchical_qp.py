@@ -333,7 +333,7 @@ class HierarchicalQP:
 
     
     def _solve_hierarchical(
-        self, A, b, C, d, rho, degree= None, n_c = 1 ,we = None, wi = None, priorities = None
+        self, A, b, C, d, rho, degree= None, n_c = 1 ,we = None, wi = None, priorities = None, prio_list = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -443,12 +443,12 @@ class HierarchicalQP:
                 p = np.zeros(nx+nw)
             #TODO hard coded brutto
             if degree != 0:
-                prio = [0, 1, 2, 3, 3, 4, 4]
+                #prio = [0, 1, 2, 3, 3, 4, 4]
                 if priority > 2:
                     if stack:
-                        rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
+                        rhop = rho[:, prio_list[priority]-3, :] # extract both i and j for priority p for each neighbour
                     else:    
-                        rhop = rho[:, prio[priority]-3, :] # extract both i and j for priority p for each neighbour
+                        rhop = rho[:, prio_list[priority]-3, :] # extract both i and j for priority p for each neighbour
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([
                         rho_vector,
@@ -645,7 +645,7 @@ class HierarchicalQP:
 
 
     def __call__(
-        self, A, b, C, d, rho = None, degree= None, n_c = 1, we = None, wi = None, priorities = None
+        self, A, b, C, d, rho = None, degree= None, n_c = 1, priorities = None, prio_list = None, we = None, wi = None
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -669,9 +669,9 @@ class HierarchicalQP:
             np.ndarray: optimal solution vector
         """
         
-        self._check_dimensions(A, b, C, d, we, wi, priorities)
+        self._check_dimensions(A, b, C, d, we, wi, priorities=None)
         
         if self.hierarchical:
-            return self._solve_hierarchical(A, b, C, d, rho, degree, n_c, we, wi, priorities)
+            return self._solve_hierarchical(A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list)
         
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

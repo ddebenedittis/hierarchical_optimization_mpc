@@ -32,8 +32,8 @@ class Node():
 
         super(Node, self).__init__()
 
-        self.node_id = node_id  # ID of the node
-        self.adjacency_vector = adjacency_vector # neighbours
+        self.node_id = copy.deepcopy(node_id)  # ID of the node
+        self.adjacency_vector = copy.deepcopy(adjacency_vector) # neighbours
         self.neigh = np.nonzero(adjacency_vector)[0].tolist() # index of neighbours
         self.degree = len(self.neigh) # numbers of neighbours
          
@@ -79,36 +79,36 @@ class Node():
             self.n_xi
         )
         
-        # self.filename = f"node_{self.node_id}_data.csv"
-        # with open(self.filename, mode='w', newline='') as file:
-        #     writer = csv.writer(file)
-        #     # Write the header
-        #     header = ['Time']
-        #     for j in self.neigh:
-        #         for i in range(self.n_xi):
-        #             header.append(f'rho_(i{j})_i_p3_{i}')
-        #     for j in self.neigh:
-        #         for i in range(self.n_xi):
-        #             header.append(f'rho_(i{j})_i_p4_{i}') 
-        #     for j in self.neigh:
-        #         for i in range(self.n_xi):
-        #             header.append(f'rho_({j}i)_i_p3_{i}')
-        #     for j in self.neigh:
-        #         for i in range(self.n_xi):
-        #             header.append(f'rho_({j}i)_i_p4_{i}') 
-        #     header.append(f'stateX_{self.node_id}')
-        #     header.append(f'stateY_{self.node_id}')
-        #     for j in self.neigh:
-        #         header.append(f'stateX_{j}')
-        #         header.append(f'stateY_{j}')
-        #     header.append(f'inputX_{self.node_id}')
-        #     header.append(f'inputY_{self.node_id}')
-        #     for j in self.neigh:
-        #         header.append(f'inputX_{j}')
-        #         header.append(f'inputY_{j}') 
-        #     header.append('cost')
-        #     # Write the header
-        #     writer.writerow(header)      
+        self.filename = f"node_{self.node_id}_data.csv"
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            # Write the header
+            header = ['Time']
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_(i{j})_i_p3_{i}')
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_(i{j})_i_p4_{i}') 
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_({j}i)_i_p3_{i}')
+            for j in self.neigh:
+                for i in range(self.n_xi):
+                    header.append(f'rho_({j}i)_i_p4_{i}') 
+            header.append(f'stateX_{self.node_id}')
+            header.append(f'stateY_{self.node_id}')
+            for j in self.neigh:
+                header.append(f'stateX_{j}')
+                header.append(f'stateY_{j}')
+            header.append(f'inputX_{self.node_id}')
+            header.append(f'inputY_{self.node_id}')
+            for j in self.neigh:
+                header.append(f'inputX_{j}')
+                header.append(f'inputY_{j}') 
+            header.append('cost')
+            # Write the header
+            writer.writerow(header)      
         
         # ======================== Define The System Model ======================= #
     
@@ -116,7 +116,7 @@ class Node():
         
         self.n_robots = RobCont(omni=self.degree + 1)
                 
-        self.dt = dt       # timestep size
+        self.dt = copy.deepcopy(dt)       # timestep size
         
         # self.s = [None for _ in range(2)]
         # self.u = [None for _ in range(2)]
@@ -127,7 +127,7 @@ class Node():
     
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
         
-        self.goals = goals
+        self.goals = copy.deepcopy(goals)
 
         #self.s[0], self.u[0], self.s_kp1[0] = get_unicycle_model(self.dt)
         #self.s[1], self.u[1], self.s_kp1[1] = get_omnidirectional_model(self.dt)
@@ -209,10 +209,10 @@ class Node():
         # =========================== Define The Tasks ========================== #
         
         self.task_input_limits = RobCont(omni=ca.vertcat(
-              self.u.omni[0] - 4,   #vmax
-            - self.u.omni[0] - 1,   #vmin
-              self.u.omni[1] - 4,   #vmax
-            - self.u.omni[1] - 1    #vmin
+              self.u.omni[0] - 3,   #vmax
+            - self.u.omni[0] - 2,   #vmin
+              self.u.omni[1] - 3,   #vmax
+            - self.u.omni[1] - 2    #vmin
         ))
         
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -267,7 +267,7 @@ class Node():
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
         # =====================Collision Avoidance=================================== #
-        self.threshold = 3
+        self.threshold = 2
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -305,7 +305,9 @@ class Node():
         task_formation_coeff = [
             TaskBiCoeff(0, agents_0, 0, agents_1, 0, distance**2),
         ]
-        return aux, self.mapping, task_formation, task_formation_coeff
+        formation_index = [[agents_0, agents_1]]
+        #formation_index = [[agents_1]]
+        return aux, self.mapping, task_formation, task_formation_coeff, formation_index
 
     # ---------------------------------------------------------------------------- #
     #                                      MPC                                     #
@@ -357,7 +359,7 @@ class Node():
                             robot_index= [self.robot_idx]
                         )
                     elif task['name'] == 'formation':
-                        aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                        aux, mapping, task_formation, task_formation_coeff, f_robot_idx = self.task_formation_method(
                             task['agents'], task['distance']
                         )
                         self.hompc.create_task_bi(
@@ -367,7 +369,7 @@ class Node():
                             mapping = self.mapping.tolist(),
                             eq_task_ls = task_formation,
                             eq_task_coeff = task_formation_coeff,
-                            robot_index= [[self.index_global_to_local(task['agents'][0][1])]]
+                            robot_index= f_robot_idx
                         )
                     elif task['name'] == 'collision_avoidance' and self.degree > 1:
                         self.hompc.create_task_bi(
@@ -377,6 +379,7 @@ class Node():
                             mapping = self.mapping_avoid_collision.tolist(),
                             ineq_task_ls= self.task_avoid_collision,
                             ineq_task_coeff= self.task_avoid_collision_coeff,
+                            robot_index= [self.robot_idx[1:]]
                         )
                     elif task['name'] == 'obstacle_avoidance':
                         self.hompc.create_task(
@@ -386,114 +389,7 @@ class Node():
                         )
         for neigh in self.neigh_tasks:
             self.create_neigh_tasks(neigh)
-        '''for task in self.tasks:
-            if task['name'] == "input_limits":
-                self.hompc.create_task(
-                    name = "input_limits", prio = task['prio'],
-                    type = TaskType.Same,
-                    ineq_task_ls = self.task_input_limits.tolist(),
-                    robot_index= [self.robot_idx],
-                    #ineq_task_coeff= self.task_input_limits_coeffs
-                )
-            elif task['name'] == "position":
-                self.hompc.create_task(
-                    name = "position", prio = task['prio'],
-                    type = TaskType.Same,
-                    eq_task_ls = self.task_pos[task['goal_index']].tolist(),
-                    eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
-                    time_index = TaskIndexes.All,
-                    robot_index= [[0]]
-                )
-            elif task['name'] == "input_minimization":
-                self.hompc.create_task(
-                    name = "input_minimization", prio = task['prio'],
-                    eq_task_ls = self.task_input_min.tolist(),
-                    robot_index= [self.robot_idx]
-                )
-            elif task['name'] == 'input_smooth':
-                self.hompc.create_task(
-                    name = "input_smooth", prio = task['prio'],
-                    type = TaskType.SameTimeDiff,
-                    ineq_task_ls = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
-                    #ineq_task_coeff = np.array([0,0,0,0]),
-                    robot_index= [self.robot_idx]
-                )
-            elif task['name'] == 'formation':
-                aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-                    task['agents'], task['distance']
-                )
-                self.hompc.create_task_bi(
-                    name = "formation", prio = task['prio'],
-                    type = TaskType.Bi,
-                    aux = aux,
-                    mapping = mapping.tolist(),
-                    eq_task_ls = task_formation,
-                    eq_task_coeff = task_formation_coeff,
-                )
-            elif task['name'] == 'collision_avoidance':
-                self.hompc.create_task_bi(
-                    name = "collision", prio = task['prio'],
-                    type = TaskType.Bi,
-                    aux = self.aux_avoid_collision,
-                    mapping = self.mapping_avoid_collision.tolist(),
-                    ineq_task_ls= self.task_avoid_collision,
-                    ineq_task_coeff= self.task_avoid_collision_coeff,
-                )
-            elif task['name'] == 'obstacle_avoidance':
-                self.hompc.create_task(
-                    name = "obstacle_avoidance", prio = task['prio'],
-                    type = TaskType.Same,
-                    ineq_task_ls = self.task_obs_avoidance,
-                )
         
-        for neigh in self.neigh_tasks:
-            robot_idx = None
-            for i in self.neigh:
-                if neigh == f'agent_{i}':
-                    robot_idx = self.robot_idx_global.index(i)
-                    break
-            if robot_idx is None:
-                raise ValueError(f"Could not find robot index for neighbor {neigh}")
-            for task in self.neigh_tasks[neigh]:
-                if task['name'] == "position":
-                    self.hompc.create_task(
-                        name = "position", prio = task['prio'],
-                        type = TaskType.Same,
-                        eq_task_ls = self.task_pos[task['goal_index']].tolist(),
-                        eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
-                        time_index = TaskIndexes.All,
-                        robot_index= [[robot_idx]]
-                    )   
-                elif task['name'] == 'formation':
-                    for t in task['agents']:
-                        if is_formation_with_neigh(t, self.robot_idx_global):
-                            aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-                                    task['agents'], task['distance']
-                            )
-                            self.hompc.create_task_bi(
-                                name = "formation", prio = task['prio'],
-                                type = TaskType.Bi,
-                                aux = aux,
-                                mapping = mapping.tolist(),
-                                eq_task_ls = task_formation,
-                                eq_task_coeff = task_formation_coeff,
-                            )
-                elif task['name'] == 'collision_avoidance':
-                    self.hompc.create_task_bi(
-                        name = "collision", prio = task['prio'],
-                        type = TaskType.Bi,
-                        aux = self.aux_avoid_collision,
-                        mapping = self.mapping_avoid_collision.tolist(),
-                        ineq_task_ls= self.task_avoid_collision,
-                        ineq_task_coeff= self.task_avoid_collision_coeff,
-                    )
-                elif task['name'] == 'obstacle_avoidance':
-                    self.hompc.create_task(
-                        name = "obstacle_avoidance", prio = task['prio'],
-                        type = TaskType.Same,
-                        ineq_task_ls = self.task_obs_avoidance,
-                    )'''
-            
         # ======================================================================== #
         
         if self.node_id == 0:
@@ -503,14 +399,21 @@ class Node():
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([2,2])
+                [np.array([2.5,2.5])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([0,0])
+                [np.array([-1,-1])
                 for _ in range(self.n_robots.omni)]
             )
+        elif self.node_id == 3:
+            self.s = RobCont(omni=
+                [np.array([-5,-5])
+                for _ in range(self.n_robots.omni)]
+            )
+        else:
+            raise ValueError('Missing agent init on s')
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -566,11 +469,13 @@ class Node():
             self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
+            self.y_i = copy.deepcopy(self.y)
+
             self.cost_history.append(cost)
             # put in message u and s
             if self.step % self.a == 0:
                 self.s = self.evolve(self.s_init, RobCont(omni=self.u_star[0]), self.dt)
-                self.a = self.a * 1.5
+                self.a = self.a * 2
             else:
                 self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
             
@@ -605,8 +510,8 @@ class Node():
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
         
-        # if self.step > 0:
-        #     self.save_data()
+        if self.step > 0:
+            self.save_data()
         
         self.y_j = self.receiver.process_messages('P')
                     
@@ -688,7 +593,7 @@ class Node():
             elif task['name'] == 'formation':
                 for t in task['agents']:
                     if is_formation_with_neigh(t, self.robot_idx_global):
-                        aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                        aux, mapping, task_formation, task_formation_coeff, f_robot_idx = self.task_formation_method(
                                 task['agents'], task['distance']
                         )
                         self.hompc.create_task_bi(
@@ -698,7 +603,7 @@ class Node():
                             mapping = self.mapping.tolist(),
                             eq_task_ls = task_formation,
                             eq_task_coeff = task_formation_coeff,
-                            robot_index= [[robot_idx]]
+                            robot_index= f_robot_idx
                         )
             elif task['name'] == 'collision_avoidance':
                 self.hompc.create_task_bi(
@@ -708,6 +613,7 @@ class Node():
                     mapping = self.mapping_avoid_collision.tolist(),
                     ineq_task_ls= self.task_avoid_collision,
                     ineq_task_coeff= self.task_avoid_collision_coeff,
+                    robot_index= [self.robot_idx[1:]]
                 )
             elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
@@ -721,7 +627,7 @@ class Node():
         """
         .
         """
-        #TODO: add_robot, create/update tasks  
+        #TODO: save data to plot  
         
         added_robot = len(np.nonzero(adjacency_vector)[0].tolist())+1 - self.n_robots.omni 
         if added_robot > 0:
@@ -767,7 +673,7 @@ class Node():
 
             for neigh in neigh_task:
                 self.create_neigh_tasks(neigh)  
-
+            
             self.task_avoid_collision_coeff = [
                 TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
             ]
@@ -778,7 +684,7 @@ class Node():
                 mapping = self.mapping_avoid_collision.tolist(),
                 ineq_task_ls= self.task_avoid_collision,
                 ineq_task_coeff= self.task_avoid_collision_coeff,
-                robot_index= [neigh_local_idx]
+                robot_index= [self.robot_idx[1:]]
             )
                 # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
                 #                 [[0,1]], 4
@@ -816,42 +722,44 @@ class Node():
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
 
-            self.filename = f"node_{self.node_id}_data.csv"
-            with open(self.filename, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                # Write the header
-                header = ['Time']
-                for j in self.neigh:
-                    for i in range(self.n_xi):
-                        header.append(f'rho_(i{j})_i_p3_{i}')
-                for j in self.neigh:
-                    for i in range(self.n_xi):
-                        header.append(f'rho_(i{j})_i_p4_{i}') 
-                for j in self.neigh:
-                    for i in range(self.n_xi):
-                        header.append(f'rho_({j}i)_i_p3_{i}')
-                for j in self.neigh:
-                    for i in range(self.n_xi):
-                        header.append(f'rho_({j}i)_i_p4_{i}') 
-                header.append(f'stateX_{self.node_id}')
-                header.append(f'stateY_{self.node_id}')
-                for j in self.neigh:
-                    header.append(f'stateX_{j}')
-                    header.append(f'stateY_{j}')
-                header.append(f'inputX_{self.node_id}')
-                header.append(f'inputY_{self.node_id}')
-                for j in self.neigh:
-                    header.append(f'inputX_{j}')
-                    header.append(f'inputY_{j}') 
-                header.append('cost')
-                # Write the header
-                writer.writerow(header) 
+            # self.filename = f"node_{self.node_id}_data.csv"
+            # with open(self.filename, mode='w', newline='') as file:
+            #     writer = csv.writer(file)
+            #     # Write the header
+            #     header = ['Time']
+            #     for j in self.neigh:
+            #         for i in range(self.n_xi):
+            #             header.append(f'rho_(i{j})_i_p3_{i}')
+            #     for j in self.neigh:
+            #         for i in range(self.n_xi):
+            #             header.append(f'rho_(i{j})_i_p4_{i}') 
+            #     for j in self.neigh:
+            #         for i in range(self.n_xi):
+            #             header.append(f'rho_({j}i)_i_p3_{i}')
+            #     for j in self.neigh:
+            #         for i in range(self.n_xi):
+            #             header.append(f'rho_({j}i)_i_p4_{i}') 
+            #     header.append(f'stateX_{self.node_id}')
+            #     header.append(f'stateY_{self.node_id}')
+            #     for j in self.neigh:
+            #         header.append(f'stateX_{j}')
+            #         header.append(f'stateY_{j}')
+            #     header.append(f'inputX_{self.node_id}')
+            #     header.append(f'inputY_{self.node_id}')
+            #     for j in self.neigh:
+            #         header.append(f'inputX_{j}')
+            #         header.append(f'inputY_{j}') 
+            #     header.append('cost')
+            #     # Write the header
+            #     writer.writerow(header) 
 
 
     def remove_connection(self, adjacency_vector: np.array, neigh_tasks: str, neigh_id: int):
         """
         .
         """
+        #TODO: save data to plot
+
         id_to_remove = self.index_global_to_local(neigh_id)
         
         self.neigh_tasks.pop(neigh_tasks)
@@ -869,7 +777,7 @@ class Node():
 
         # adjust dimension of variables 
         self.neigh.pop(rho_idx)
-        self.adjacency_vector = adjacency_vector
+        self.adjacency_vector = copy.deepcopy(adjacency_vector)
         self.degree = len(self.neigh)
         self.n_robots = RobCont(omni=self.degree + 1)    
         robot_idx_global_old = copy.deepcopy(self.robot_idx_global)
@@ -878,7 +786,7 @@ class Node():
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
 
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
-        self.hompc.degree = self.degree
+        self.hompc.degree = copy.deepcopy(self.degree)
   
         # remove tasks related to the removed robot
         # index = [p for p, task in enumerate(self.hompc._tasks) if id_to_remove not in task.robot_index[0]]
@@ -894,23 +802,26 @@ class Node():
         )
         
         for n, task in enumerate(self.hompc._tasks):
-            if task.type == TaskType.Bi and task.prio > 2:
-                id = robot_idx_global_old[task.robot_index[0][0]]
-                id = self.robot_idx_global.index(id)
-                
+            if task.type == TaskType.Bi and task.prio > 2:                
                 if task.name == 'formation':
                     c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
 
-                    aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
+                    aux, mapping, task_formation, task_formation_coeff, f_robot_idx = self.task_formation_method(
                                 [[robot_idx_global_old[j0], robot_idx_global_old[j1]]], np.sqrt(coeff)
                             )
                     self.hompc.update_task_bi(
-                        name = task.name, prio = task.prio,              
-                        robot_index= [[id]],
+                        name = task.name, prio = task.prio,  
+                        aux = aux,
+                        mapping = self.mapping.tolist(),            
+                        robot_index= f_robot_idx,
+                        eq_task_ls = task_formation,
                         eq_task_coeff = task_formation_coeff,
                         pos = n
                     )
                 elif task.name == 'collision':
+                    id = robot_idx_global_old[task.robot_index[0][0]]
+                    id = self.robot_idx_global.index(id)
+
                     self.task_avoid_collision_coeff = [
                         TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
@@ -923,11 +834,20 @@ class Node():
                     )
                 
             elif task.prio > 2:
+                # self.task_pos_coeff = [None for i in range(len(self.goals))]
+                # for i, g in enumerate(self.goals):
+                #     self.task_pos_coeff[i] = RobCont(
+                #         omni=[[g] for _ in range(self.n_robots.omni)],
+                #     )
+                while len(task.eq_coeff[0]) < self.n_robots.omni:
+                    task.eq_coeff[0].insert(-1, [None])
+
                 id = robot_idx_global_old[task.robot_index[0][0]]
                 id = self.robot_idx_global.index(id)
                 self.hompc.update_task(
                     name = task.name, prio = task.prio,
                     robot_index= [[id]],
+                    #eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
                     pos = n
                 )
         

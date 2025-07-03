@@ -500,7 +500,7 @@ class HierarchicalQP:
                     else:
                         if not x_star_bar_p: 
                             x_star_bar_p.append(x_star_bar)
-                        elif prio[priority+i] == prio[priority+i-1]:
+                        elif prio_list[priority+i] == prio_list[priority+i-1]:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])    

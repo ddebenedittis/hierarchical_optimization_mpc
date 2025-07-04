@@ -83,9 +83,9 @@ def agents_distance(state, pairwise_distances):
 # =========================================================================== #
 
 goals = [
-        np.array([8, 10]),
+        np.array([4, 6]),
         np.array([-6, -8]),
-        np.array([-10, -12])
+        np.array([0,0])
     ]
 
 '''system_tasks = {
@@ -162,24 +162,27 @@ goals = [
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 4},
+                            #{'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':4, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':4, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"collision_avoidance"},
                             {'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 5},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            #{'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 3},
+                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
 }
 
@@ -198,10 +201,10 @@ if st.n_nodes == 3:
                              [0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 1., 0., 0.],
+    graph_matrix = np.array([[0., 1., 0., 1.],
                              [1., 0., 1., 0.],
                              [0., 1., 0., 1.],
-                             [0., 0., 1., 0.]])
+                             [1., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
     graph_matrix = np.array([[0., 1., 0., 0., 0.],
@@ -291,7 +294,7 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 13:
+    if i == 35:
         None
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
@@ -336,17 +339,13 @@ if st.simulation:
     # handle different lenght of the states due to add/remove of nodes
     for i in nodes:
         for n in range(len(i.s_history)):
-            if len(i.s_history[n][0]) < len(i.s_history[-1][0]):
-                dd = len(i.s_history[-1][0]) - len(i.s_history[n][0])
+            max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
+            if len(i.s_history[n][0]) < max_len:
+                dd = max_len - len(i.s_history[n][0])
                 for d in range(dd): 
                     i.s_history[n][0].append(i.s_history[n-1][0][d+1])
-            elif len(i.s_history[n][0]) < len(i.s_history[1][0]):
-                dd = len(i.s_history[1][0]) - len(i.s_history[n][0])
-                for d in range(dd):
-                    if n == 0:
-                        i.s_history[n][0].append(i.s_history[1][0][d+1])
-                    else:
-                        i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+
+
 
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]

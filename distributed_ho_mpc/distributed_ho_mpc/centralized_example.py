@@ -37,12 +37,12 @@ def main():
     
     # ============================== Parameters ============================= #
     
-    dt = 0.01
+    dt = 0.05
     
-    n_robots = RobCont(omni=5)
+    n_robots = RobCont(omni=4)
     
-    v_max = 5
-    v_min = -1
+    v_max = 4
+    v_min = -2
     
     # ======================= Define The System Model ======================= #
     
@@ -54,19 +54,20 @@ def main():
     
     # =========================== Define The Tasks ========================== #
     
+    tasks_creator = TasksCreatorHOMPCMultiRobot(
+        s.tolist(),
+        u.tolist(),
+        s_kp1.tolist(),
+        dt,
+        n_robots.tolist(),
+    )
+
     task_input_limits = RobCont(omni=ca.vertcat(
           u.omni[0] - v_max,
         - u.omni[0] + v_min,
           u.omni[1] - v_max,
         - u.omni[1] + v_min
     ))
-    
-    # ======================================================================= #
-    
-    task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_1_coeff = RobCont(
-        omni=[[np.array([4, 5])] for _ in range(n_robots.omni)],
-    )
     
     # =========================== prio 3 ======================================= #
     
@@ -80,24 +81,58 @@ def main():
         TaskBiCoeff(0, 2, 0, 3, 0, 2**2),
         TaskBiCoeff(0, 3, 0, 4, 0, 2**2),
     ]
+
+    # ======================================================================= #
+    
+    task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_1_coeff = RobCont(
+        omni=[[np.array([5, -5])] for _ in range(n_robots.omni)],
+    )
         
     # ======================================================================= #
     
     task_pos_ref_2 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_2_coeff = RobCont(
-        omni=[[np.array([-4, -5])] for _ in range(n_robots.omni)]
+        omni=[[np.array([-5, -5])] for _ in range(n_robots.omni)]
     )
     
     # ======================================================================= #
     
     task_pos_ref_3 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_3_coeff = RobCont(
-        omni=[[np.array([10, -5])] for _ in range(n_robots.omni)]
+        omni=[[np.array([-5, 5])] for _ in range(n_robots.omni)]
+    )
+
+    # ======================================================================= #
+    
+    task_pos_ref_4 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_4_coeff = RobCont(
+        omni=[[np.array([5, 5])] for _ in range(n_robots.omni)]
     )
     
     # ======================================================================= #
     
     task_input_min = RobCont(omni=ca.vertcat(u.omni[0], u.omni[1]))
+
+    # ======================================================================= #
+
+    threshold = 2
+    aux_avoid_collision = ca.SX.sym('aux', 2, 2)
+    mapping_avoid_collision = RobCont(omni=ca.vertcat(s.omni[0], s.omni[1]))
+    task_avoid_collision = ca.vertcat(
+        -(aux_avoid_collision[0,0] - aux_avoid_collision[1,0])**2 - (aux_avoid_collision[0,1] - aux_avoid_collision[1,1])**2,
+    )
+    task_avoid_collision_coeff = [
+        TaskBiCoeff(0, 0, 0, 1, 0, - threshold**2),
+        TaskBiCoeff(0, 0, 0, 2, 0, - threshold**2),
+        TaskBiCoeff(0, 0, 0, 3, 0, - threshold**2),
+        TaskBiCoeff(0, 1, 0, 2, 0, - threshold**2),
+        TaskBiCoeff(0, 1, 0, 3, 0, - threshold**2),
+        TaskBiCoeff(0, 2, 0, 3, 0, - threshold**2),
+    ]
+
+    #aux_avoid_collision, mapping_avoid_collision, task_avoid_collision, task_avoid_collision_coeff = tasks_creator.get_task_avoid_collision(0.5)
+
     
     # ============================ Create The MPC =========================== #
     
@@ -107,7 +142,7 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 1
+    hompc.n_control = 2
     hompc.n_pred = 0
     
     hompc.create_task(
@@ -116,27 +151,50 @@ def main():
         ineq_task_ls=task_input_limits.tolist(),
     )
     hompc.create_task(
-        name="pos_ref_1", prio=3,
+        name="pos_ref_1", prio= 3,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_1.tolist(),
         eq_task_coeff=task_pos_ref_1_coeff.tolist(),
         robot_index=[[0]],
     )
-    hompc.create_task_bi(
-        name="formation", prio=3,
-        type=TaskType.Bi,
-        aux=aux,
-        mapping=mapping.tolist(),
-        eq_task_ls=task_formation,
-        eq_task_coeff=task_formation_coeff,
-    )
     hompc.create_task(
-        name="pos_ref_2", prio=3,
+        name="pos_ref_2", prio= 3,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_2.tolist(),
         eq_task_coeff=task_pos_ref_2_coeff.tolist(),
+        robot_index=[[1]]
+    )
+    hompc.create_task(
+        name="pos_ref_3", prio= 3,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_3.tolist(),
+        eq_task_coeff=task_pos_ref_3_coeff.tolist(),
+        robot_index=[[2]]
+    )
+    hompc.create_task(
+        name="pos_ref_4", prio= 3,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_4.tolist(),
+        eq_task_coeff=task_pos_ref_4_coeff.tolist(),
         robot_index=[[3]]
     )
+
+    hompc.create_task_bi(
+        name = "collision_avoidance", prio = 4,
+        type = TaskType.Bi,
+        aux = aux_avoid_collision,
+        mapping = mapping_avoid_collision.tolist(),
+        ineq_task_ls=task_avoid_collision,
+        ineq_task_coeff=task_avoid_collision_coeff,
+    )
+    #hompc.create_task_bi(
+    #    name="formation", prio=3,
+    #    type=TaskType.Bi,
+    #    aux=aux,
+    #    mapping=mapping.tolist(),
+    #    eq_task_ls=task_formation,
+    #    eq_task_coeff=task_formation_coeff,
+    #)
     # hompc.create_task(
     #     name="pos_ref_3", prio=5,
     #     type=TaskType.Same,
@@ -152,10 +210,19 @@ def main():
     
     # ======================================================================= #
     
-    s = RobCont(omni=
-        [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
-         for _ in range(n_robots.omni)],
-    )
+    # s = RobCont(omni=
+    #     [np.multiply(np.random.random((2)), np.array([2, 2])) + np.array([-1, -1])
+    #      for _ in range(n_robots.omni)],
+    # )
+    s = RobCont(omni=[
+        np.array([-5, 5]),
+        np.array([5, 5]),
+        np.array([5, -5]),
+        np.array([-5, -5])
+    ])   
+
+    
+
     
     n_steps = 500
     
@@ -202,7 +269,7 @@ def main():
     
     if visual_method is not None and visual_method != 'none':
         display_animation(
-            s_history, [[4,5],[-4, -5]], None, dt, visual_method,
+            s_history, [[5,5],[-5, -5], [-5, 5], [5, -5]], None, dt, visual_method,
             artist_flags,
         )
         

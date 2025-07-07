@@ -82,11 +82,18 @@ def agents_distance(state, pairwise_distances):
 #                                TASK SCHEDULER                               #
 # =========================================================================== #
 
+# goals = [
+#         np.array([4, 6]),
+#         np.array([-6, -8]),
+#         np.array([0,0])
+#     ]
+
 goals = [
-        np.array([4, 6]),
-        np.array([-6, -8]),
-        np.array([0,0])
-    ]
+    np.array([5, -5]),
+    np.array([-5, -5]),
+    np.array([-5, 5]),
+    np.array([5, 5])
+]
 
 '''system_tasks = {
     'agent_0': [{'prio':1, 'name':"input_limits"},
@@ -161,28 +168,25 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 4},
-                            #{'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
-                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
-
+                            #{'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':4, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            #{'prio':3, 'name':"collision_avoidance"},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 5},
-                            #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            #{'prio':3, 'name':"collision_avoidance"},
+                            #{'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 5},
+                            {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 3},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            #{'prio':3, 'name':"collision_avoidance"},
+                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+                            {'prio':3, 'name':"position", 'goal': goals[3],'goal_index':3},
                 ],
 }
 
@@ -191,20 +195,20 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
 # ---------------------------------------------------------------------------- #
 
 # deterministic graphs
-# if st.n_nodes == 2:
-#     graph_matrix = np.array([[0.,1.],
-#                              [1.,0.]])
-#     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
+if st.n_nodes == 2:
+    graph_matrix = np.array([[0.,1.],
+                             [1.,0.]])
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
 if st.n_nodes == 3:
     graph_matrix = np.array([[0., 1., 0.],
                              [1., 0., 1.],
                              [0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 1., 0., 1.],
+    graph_matrix = np.array([[0., 1., 0., 0.],
                              [1., 0., 1., 0.],
                              [0., 1., 0., 1.],
-                             [1., 0., 1., 0.]])
+                             [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
     graph_matrix = np.array([[0., 1., 0., 0., 0.],
@@ -296,7 +300,7 @@ for j in range(st.n_nodes):
 for i in range(st.n_steps):
     if i == 35:
         None
-    neigh_connection(state, nodes, graph_matrix, st.communication_range) 
+    #neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
@@ -343,7 +347,11 @@ if st.simulation:
             if len(i.s_history[n][0]) < max_len:
                 dd = max_len - len(i.s_history[n][0])
                 for d in range(dd): 
-                    i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+                    if n == 0:
+                        i.s_history[n][0].append(i.s_history[1][0][d+1])
+                    else:
+                        i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+
 
 
 

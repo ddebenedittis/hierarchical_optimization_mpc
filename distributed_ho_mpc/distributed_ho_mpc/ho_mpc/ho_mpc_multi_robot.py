@@ -124,7 +124,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1 # control horizon timesteps
         self._n_pred = 0    # prediction horizon timesteps (the input is constant)
   
-        self.regularization = 1e-5 # regularization factor
+        self.regularization = 1e-6 # regularization factor
         
         self.solver = QPSolver.get_enum(solver)
         
@@ -411,9 +411,10 @@ class HOMPCMultiRobot(HOMPC):
                 for i in range(len(self._states))
             ]
             _input_bar_new = [
-                [np.zeros(self._n_inputs[i]) * self.n_control] * n_robots[c]
+                [np.zeros(self._n_inputs[i])] * self.n_control * n_robots[c]
                 for i in range(len(self._inputs))
             ]
+            
             self._state_bar[c].extend(_state_bar_new)
             self._input_bar[c].extend(_input_bar_new)        
 

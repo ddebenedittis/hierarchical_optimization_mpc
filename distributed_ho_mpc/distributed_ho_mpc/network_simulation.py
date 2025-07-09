@@ -217,7 +217,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -298,7 +298,7 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 167:
+    if i == 148:
         None
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
@@ -349,9 +349,12 @@ if st.simulation:
                 dd = max_len - len(i.s_history[n][0])
                 for d in range(dd): 
                     if n == 0:
-                        i.s_history[n][0].append(i.s_history[1][0][d])
+                        if len(i.s_history[n+1][0]) <= dd :
+                            i.s_history[n][0].append(np.array([30, 30])) # value out of the limits of the simulation
+                        else:
+                            i.s_history[n][0].append(i.s_history[1][0][d]) # take next value
                     else:
-                        i.s_history[n][0].append(i.s_history[n-1][0][d+1])
+                        i.s_history[n][0].append(i.s_history[n-1][0][d+1]) # take previous value
 
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]

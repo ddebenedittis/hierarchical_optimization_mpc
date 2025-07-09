@@ -2,7 +2,10 @@ import copy
 import time
 
 import casadi as ca
+from itertools import combinations
+import matplotlib.pyplot as plt
 import numpy as np
+from scipy.spatial.distance import pdist
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, QPSolver, TaskBiCoeff, TaskType
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
@@ -41,8 +44,8 @@ def main():
     
     n_robots = RobCont(omni=4)
     
-    v_max = 4
-    v_min = -2
+    v_max = 2
+    v_min = -1
     
     # ======================= Define The System Model ======================= #
     
@@ -142,7 +145,7 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 2
+    hompc.n_control = 1
     hompc.n_pred = 0
     
     hompc.create_task(
@@ -151,28 +154,28 @@ def main():
         ineq_task_ls=task_input_limits.tolist(),
     )
     hompc.create_task(
-        name="pos_ref_1", prio= 3,
+        name="pos_ref_1", prio= 4,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_1.tolist(),
         eq_task_coeff=task_pos_ref_1_coeff.tolist(),
         robot_index=[[0]],
     )
     hompc.create_task(
-        name="pos_ref_2", prio= 3,
+        name="pos_ref_2", prio= 4,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_2.tolist(),
         eq_task_coeff=task_pos_ref_2_coeff.tolist(),
         robot_index=[[1]]
     )
     hompc.create_task(
-        name="pos_ref_3", prio= 3,
+        name="pos_ref_3", prio= 4,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_3.tolist(),
         eq_task_coeff=task_pos_ref_3_coeff.tolist(),
         robot_index=[[2]]
     )
     hompc.create_task(
-        name="pos_ref_4", prio= 3,
+        name="pos_ref_4", prio= 4,
         type=TaskType.Same,
         eq_task_ls=task_pos_ref_4.tolist(),
         eq_task_coeff=task_pos_ref_4_coeff.tolist(),
@@ -180,7 +183,7 @@ def main():
     )
 
     hompc.create_task_bi(
-        name = "collision_avoidance", prio = 4,
+        name = "collision_avoidance", prio = 3,
         type = TaskType.Bi,
         aux = aux_avoid_collision,
         mapping = mapping_avoid_collision.tolist(),
@@ -215,13 +218,27 @@ def main():
     #      for _ in range(n_robots.omni)],
     # )
     s = RobCont(omni=[
-        np.array([-5, 5]),
-        np.array([5, 5]),
-        np.array([5, -5]),
-        np.array([-5, -5])
+        np.array([-3, 3]),
+        np.array([3, 3]),
+        np.array([3, -3]),
+        np.array([-3, -3])
     ])   
 
+    def agents_distance(state, pairwise_distances):
+        """
+            Plot the distance between the agents at each time step
+        """
+        positions_over_time = np.array(state)
+        distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
+        for i, d in enumerate(distances):
+            pairwise_distances[i].append(d)
+        return pairwise_distances  
     
+    num_robots = n_robots.omni
+    num_pairs = int(num_robots * (num_robots - 1) / 2)
+
+    # Initialize one list per robot pair
+    pairwise_distances = [[] for _ in range(num_pairs)]
 
     
     n_steps = 500
@@ -240,6 +257,7 @@ def main():
         s = evolve(s, RobCont(omni=u_star[0]), dt)
         
         s_history[k] = copy.deepcopy(s)
+        pairwise_distances = agents_distance(s.tolist()[0], pairwise_distances)
         
     time_elapsed = time.time() - time_start
     print(f"The time elapsed is {time_elapsed} seconds")
@@ -252,6 +270,21 @@ def main():
     
     # ========================= Visualization Options ======================== #
     
+
+    robot_pairs = list(combinations(range(num_robots), 2))
+    x = np.arange(1, n_steps+1) * dt
+    plt.figure(figsize=(10, 6))
+    for i, dist_list in enumerate(pairwise_distances):
+        plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+
+    plt.title("Time Evolution of Pairwise Robot Distances")
+    plt.xlabel("Time Step")
+    plt.ylabel("Distance")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
     visual_method = 'plot'
     
                 

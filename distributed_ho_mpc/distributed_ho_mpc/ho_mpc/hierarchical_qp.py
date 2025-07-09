@@ -526,7 +526,7 @@ class HierarchicalQP:
             x_star_bar = x_star_bar + Z @ x_star
             if priority > 2:
                 if not stack:
-                    if prio[priority] == prio[priority-1]:
+                    if prio_list[priority] == prio_list[priority-1]:
                         x_star_bar_p[-1] = x_star_bar     # collect the solution for each priority level
                     else:                    
                         x_star_bar_p.append(x_star_bar)     # collect the solution for each priority level
@@ -550,7 +550,7 @@ class HierarchicalQP:
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):      
                 return x_star_bar, x_star_bar_p, t_cost
 
-        return x_star_bar, x_star_bar_p, t_cost
+        return x_star_bar, x_star_bar_p, w_star_bar
     
     def rho_vector(self, rho, degree, n_c):
         x_i = rho[1].shape[0] // degree

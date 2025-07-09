@@ -9,9 +9,12 @@ random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 130
+n_steps = 180
 
-communication_range = 7
+communication_range = 8
+
+v_max = 2
+v_min = -1
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -24,6 +27,7 @@ output = {
 visual_method = output['display'] # change the key to decide the output visualization
 save_data = True
 simulation = True
+inner_plot = False # plot the inner state of the robots
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #

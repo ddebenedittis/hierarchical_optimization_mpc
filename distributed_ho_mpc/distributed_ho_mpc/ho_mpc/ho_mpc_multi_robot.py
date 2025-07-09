@@ -1207,6 +1207,9 @@ class HOMPCMultiRobot(HOMPC):
         if not stack:
             n_tasks = len(self._tasks)
             
+            prio = [x.prio for x in self._tasks]
+            prio = [0] + prio
+
             A = [None] * (1 + n_tasks)
             b = [None] * (1 + n_tasks)
             C = [None] * (1 + n_tasks)
@@ -1268,7 +1271,7 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
+            x_star, x_star_p, cost = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio) #slack variable inside cost
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]

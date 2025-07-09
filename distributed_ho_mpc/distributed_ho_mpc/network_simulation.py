@@ -168,25 +168,25 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            #{'prio':3, 'name':"collision_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
-                            #{'prio':3, 'name':"collision_avoidance"},
+                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            {'prio':3, 'name':"collision_avoidance"},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            #{'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 5},
-                            {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            #{'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':3, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
                 ],
 }
 
@@ -284,7 +284,7 @@ num_pairs = int(num_robots * (num_robots - 1) / 2)
 pairwise_distances = [[] for _ in range(num_pairs)]
 
 for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+    state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
 #neigh_connection(state, nodes, graph_matrix, st.communication_range) 
 for j in range(st.n_nodes):
     nodes[j].reorder_s_init(state)
@@ -298,9 +298,9 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 35:
+    if i == 167:
         None
-    #neigh_connection(state, nodes, graph_matrix, st.communication_range) 
+    neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
@@ -321,9 +321,10 @@ for i in range(st.n_steps):
 
 if st.simulation:
     robot_pairs = list(combinations(range(num_robots), 2))
+    x = np.arange(1, st.n_steps+1) * st.dt
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
-        plt.plot(dist_list, label=f'Robots {robot_pairs[i]}')
+        plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
 
     plt.title("Time Evolution of Pairwise Robot Distances")
     plt.xlabel("Time Step")
@@ -348,12 +349,9 @@ if st.simulation:
                 dd = max_len - len(i.s_history[n][0])
                 for d in range(dd): 
                     if n == 0:
-                        i.s_history[n][0].append(i.s_history[1][0][d+1])
+                        i.s_history[n][0].append(i.s_history[1][0][d])
                     else:
                         i.s_history[n][0].append(i.s_history[n-1][0][d+1])
-
-
-
 
 
     #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]

@@ -179,7 +179,7 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 5},
+                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
                             {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
@@ -205,9 +205,9 @@ if st.n_nodes == 3:
                              [0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 1., 0., 0.],
-                             [1., 0., 1., 0.],
-                             [0., 1., 0., 1.],
+    graph_matrix = np.array([[0., 0., 0., 0.],
+                             [0., 0., 0., 0.],
+                             [0., 0., 0., 1.],
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
@@ -217,7 +217,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -298,7 +298,7 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 148:
+    if i == 131:
         None
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):

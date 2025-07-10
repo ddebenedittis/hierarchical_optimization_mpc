@@ -275,12 +275,12 @@ class Node():
             -(self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 - (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2,
         )
         self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         if self.node_id == 1:
             self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
             self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         
 
@@ -392,22 +392,22 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-4, 4])
+                [np.array([-3, 3])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([4, 4])
+                [np.array([3, 3])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([4, -4])
+                [np.array([3, -3])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-4, -4])
+                [np.array([-3, -3])
                 for _ in range(self.n_robots.omni)]
             )
         else:
@@ -696,7 +696,7 @@ class Node():
                 self.create_neigh_tasks(neigh)  
 
             self.task_avoid_collision_coeff.append(
-                TaskBiCoeff(0, 0, 0, self.robot_idx[-1], 0, -self.threshold**2)
+                TaskBiCoeff(0, 0, 0, self.robot_idx[-1], 1, -self.threshold**2)
             )
             if self.degree == 1:
                self.hompc.create_task_bi(
@@ -864,7 +864,7 @@ class Node():
                     #id = self.robot_idx_global.index(id)
 
                     self.task_avoid_collision_coeff = [
-                        TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
+                        TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
 
                     self.hompc.update_task_bi(

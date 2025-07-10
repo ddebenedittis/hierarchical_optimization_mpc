@@ -881,7 +881,7 @@ class Node():
                 #         omni=[[g] for _ in range(self.n_robots.omni)],
                 #     )
                 while len(task.eq_coeff[0]) < self.n_robots.omni:
-                    task.eq_coeff[0].insert(-1, [None])
+                    task.eq_coeff[0].append([None])
 
                 id = robot_idx_global_old[task.robot_index[0][0]]
                 id = self.robot_idx_global.index(id)

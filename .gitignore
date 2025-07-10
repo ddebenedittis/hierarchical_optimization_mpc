@@ -1,6 +1,7 @@
 __pycache__
 .vscode
 build
-csv
+*.csv
 install
 log
+*.mp4

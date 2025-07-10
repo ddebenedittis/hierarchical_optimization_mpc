@@ -70,9 +70,14 @@ RUN pip3 install \
     pandas \
     progressbar2 \
     proxsuite \
+    git+https://github.com/fedeiada/qpsolvers.git#egg=qpsolvers \
     quadprog \
-    qpsolvers \
     scipy \
+    sympy \
+    --upgrade
+
+RUN pip3 install \
+    pyplotjuggler \
     --upgrade
 
 ARG TORCH=0

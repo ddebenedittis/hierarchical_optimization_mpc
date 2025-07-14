@@ -49,7 +49,7 @@ class Node():
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
-        self.a = 20
+        self.a = 30
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
@@ -302,11 +302,11 @@ class Node():
         self.task_avoid_collision_coeff = [
             TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
         ]
-        if self.node_id == 1:
-            self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
-            self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
-        ]
+        for p, j in enumerate(self.robot_idx[1:]):
+            for pp in self.robot_idx[p+1:]:            
+                self.task_avoid_collision_coeff.append(
+                    TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+                )
         
 
         # =====================Obstacle Avoidance===================================== #
@@ -417,22 +417,22 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-3, 3])
+                [np.array([-1, 1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([3, 3])
+                [np.array([1, 1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([3, -3])
+                [np.array([1, -1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-3, -3])
+                [np.array([-1, -1])
                 for _ in range(self.n_robots.omni)]
             )
         else:
@@ -496,8 +496,8 @@ class Node():
             self.cost_history.append(cost)
             # put in message u and s
             if self.step % self.a == 0:
-                self.s = self.evolve(self.s_init, RobCont(omni=self.u_star[0]), self.dt)
-                self.a = self.a * 3
+                self.s = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
+                #self.a = self.a * 2
                 self.counter.append(self.step)
             else:
                 self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -740,15 +740,19 @@ class Node():
             self.hompc.add_robots([added_robot], state_meas)
 
             self.s.expand(state_meas)
+            self.s_init.expand(state_meas)
 
             self.neigh_tasks.update(neigh_task) # expand dictionary with neighbour tasks
 
             for neigh in neigh_task:
                 self.create_neigh_tasks(neigh)  
 
-            self.task_avoid_collision_coeff.append(
-                TaskBiCoeff(0, 0, 0, self.robot_idx[-1], 0, -self.threshold**2)
-            )
+            for jj in self.robot_idx[:-1]:  # for each robot except the last one
+                self.task_avoid_collision_coeff.append(
+                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -self.threshold**2)
+                )
+             
+
             if self.degree == 1:
                self.hompc.create_task_bi(
                     name = "collision", prio = 3,
@@ -853,6 +857,8 @@ class Node():
         self.hompc.remove_robots([[id_to_remove]])
 
         self.s.reduce(id_to_remove)  # remove the state of the robot to be removed
+        self.s_init.reduce(id_to_remove)  # remove the state of the robot to be removed
+
         rho_idx = list(self.neigh).index(neigh_id)
 
         # remove element from consensus variables
@@ -917,6 +923,11 @@ class Node():
                     self.task_avoid_collision_coeff = [
                         TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
+                    for p, j in enumerate(self.robot_idx[1:]):
+                        for pp in self.robot_idx[p+1:]:            
+                            self.task_avoid_collision_coeff.append(
+                                TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+                            )
 
                     self.hompc.update_task_bi(
                         name = task.name, prio = task.prio,              

@@ -82,7 +82,7 @@ class Node():
             self.n_xi
         )
         
-        self.filename = f"node_{self.node_id}_data.csv"
+        '''self.filename = f"node_{self.node_id}_data.csv"
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
             # Write the header
@@ -111,7 +111,32 @@ class Node():
                 header.append(f'inputY_{j}') 
             header.append('cost')
             # Write the header
-            writer.writerow(header)      
+            writer.writerow(header) '''     
+        self.filename = f"node_{self.node_id}_data.csv"
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+
+            header = ['Time']
+            for i in range(st.n_nodes):
+                if i == self.node_id:
+                    continue
+                for j in range(self.n_xi):
+                    header.append(f'rho_(i{i})_p3_{j}')
+                for j in range(self.n_xi):
+                    header.append(f'rho_(i{i})_p4_{j}') 
+                for j in range(self.n_xi):
+                    header.append(f'rho_({i}i)_p3_{j}')
+                for j in range(self.n_xi):
+                    header.append(f'rho_({i}i)_p4_{j}') 
+            for i in range(st.n_nodes):
+                header.append(f'stateX_{i}')
+                header.append(f'stateY_{i}')
+                header.append(f'inputX_{i}')
+                header.append(f'inputY_{i}')
+            #header.append('cost')
+            
+            writer.writerow(header) 
+        
         
         # ======================== Define The System Model ======================= #
     
@@ -275,12 +300,12 @@ class Node():
             -(self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 - (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2,
         )
         self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         if self.node_id == 1:
             self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
             self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         
 
@@ -563,7 +588,8 @@ class Node():
         return self.rho_i, self.neigh
     
     def save_data(self):
-        if not st.save_data or self.step <= 20:
+        # TODO: partizionare vettori e mettere none
+        '''if not st.save_data or self.step <= 20:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -581,8 +607,33 @@ class Node():
             row.append(self.cost_history[-1])
              
             
+            writer.writerow(row)'''
+        if not st.save_data:
+            return
+        with open(self.filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            row = [self.step]
+            for i in range(st.n_nodes):
+                if i == self.node_id:
+                    continue
+                if i in self.neigh:     
+                    ii = self.neigh.index(i)
+                    row.extend(self.rho_i[0, 0, (ii * self.n_xi): (ii + 1) * self.n_xi])
+                    row.extend(self.rho_i[0, 1, (ii * self.n_xi): (ii + 1) * self.n_xi])
+                    row.extend(self.rho_j[0, 0, (ii * self.n_xi): (ii + 1) * self.n_xi])
+                    row.extend(self.rho_j[0, 1, (ii * self.n_xi): (ii + 1) * self.n_xi])
+                else:
+                    row.extend([None] * (self.n_xi * 4))
+            for i in range(st.n_nodes):
+                if i in self.robot_idx_global:
+                    ii = self.index_global_to_local(i)
+                    row.extend(self.s.omni[ii])
+                    row.extend(self.u_star[0][ii])
+                else:
+                    row.extend([None] * 4)
+            #row.append(self.cost_history[-1])
+            
             writer.writerow(row)
-
 
     def create_neigh_tasks(self, neigh):
         """
@@ -696,7 +747,7 @@ class Node():
                 self.create_neigh_tasks(neigh)  
 
             self.task_avoid_collision_coeff.append(
-                TaskBiCoeff(0, 0, 0, self.robot_idx[-1], 1, -self.threshold**2)
+                TaskBiCoeff(0, 0, 0, self.robot_idx[-1], 0, -self.threshold**2)
             )
             if self.degree == 1:
                self.hompc.create_task_bi(
@@ -864,7 +915,7 @@ class Node():
                     #id = self.robot_idx_global.index(id)
 
                     self.task_avoid_collision_coeff = [
-                        TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
+                        TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
 
                     self.hompc.update_task_bi(

@@ -146,11 +146,12 @@ class Node():
                 
         self.dt = copy.deepcopy(dt)       # timestep size
         
-        self.s = RobCont(omni = None)
-        self.u = RobCont(omni = None)
-        self.s_kp1 = RobCont(omni = None)
+        self.s = RobCont(omni = None, uni = None) # symbolic state variables
+        self.u = RobCont(omni = None, uni = None)
+        self.s_kp1 = RobCont(omni = None, uni = None)
     
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
+        #self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt*10)
         
         self.goals = copy.deepcopy(goals)
 
@@ -573,9 +574,14 @@ class Node():
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        
+        for j, _ in enumerate(s.uni):
+            for _ in range(n_intervals):
+                s.uni[j] = s.uni[j] + dt / n_intervals * np.array([
+                    u_star.uni[j][0] * np.cos(s.uni[j][2]),
+                    u_star.uni[j][0] * np.sin(s.uni[j][2]),
+                    u_star.uni[j][1],
+                ])
         for j, _ in enumerate(s.omni):
-            
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
                     u_star.omni[j][0],
@@ -739,8 +745,8 @@ class Node():
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.expand(state_meas)
-            self.s_init.expand(state_meas)
+            self.s.expand(state_meas, 'omni')  # expand the state of the robot to be added
+            self.s_init.expand(state_meas, 'omni')  # expand the state of the robot to be added
 
             self.neigh_tasks.update(neigh_task) # expand dictionary with neighbour tasks
 
@@ -856,8 +862,8 @@ class Node():
 
         self.hompc.remove_robots([[id_to_remove]])
 
-        self.s.reduce(id_to_remove)  # remove the state of the robot to be removed
-        self.s_init.reduce(id_to_remove)  # remove the state of the robot to be removed
+        self.s.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
+        self.s_init.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
 
         rho_idx = list(self.neigh).index(neigh_id)
 

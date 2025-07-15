@@ -16,35 +16,70 @@ class RobCont:
     Each attribute is associated with a specific robot type.
     """
     omni: Any = None
+    uni: Any = None
     
     def tolist(self) -> list:
         """Convert the class to a list of its attributes."""
+
         return [self.omni]
+        #return [[self.omni],[self.uni]]
     
-    def expand(self, state_meas):
+    def tolist_model(self, model: str = 'omni') -> list:
+        """
+        Convert the class to a list of its attributes for a specific model.
+
+        Args:
+            model (str): 'omni' for omnidirectional, 'uni' for unicycle
+        Returns:
+            list: list of attributes for the specified model
+        """
+        if model == 'omni':
+            return [self.omni]
+        elif model == 'uni':
+            return [self.uni]
+        else:
+            raise ValueError(f"Model {model} not recognized. Use 'omni' or 'uni'.")
+
+    def expand(self, state_meas, model: str = 'omni'):
         """
         Expand the container to hold multiple robots of the same type.
+
         Args:
-            n (int): number of robots
+            state_meas (Any): state measurement to be added
+            model (str): 'omni' for omnidirectional, 'uni' for un
         """
-        #for s in state_meas:
-        self.omni.append(state_meas)
-    def reduce(self, idx: int):
+        if model == 'omni':
+            self.omni.append(state_meas)
+        elif model == 'uni': 
+             self.uni.append(state_meas)
+        else:
+            raise ValueError(f"Model {model} not recognized. Use 'omni' or 'uni'.")
+    
+    def reduce(self, idx: int, model: str = 'omni'):
         """
         Reduce the container to hold only the robot that still have a connection.
+
         Args:
             index (int): index of the robot to remove
+            model (str): 'omni' for omnidirectional, 'uni' for unicycle
         """
-        if self.omni is not None:
-            self.omni.pop(idx)
-        else:
-            raise ValueError("RobCont is empty, cannot reduce.")
+        if model == 'uni':
+            if self.uni is not None:
+                self.uni.pop(idx)
+            else:
+                raise ValueError("RobCont is empty, cannot reduce.")
+        if model == 'omni':
+            if self.omni is not None:
+                self.omni.pop(idx)
+            else:
+                raise ValueError("RobCont is empty, cannot reduce.")
 
 
 def get_unicycle_model(dt: float):
     """
     Get the symbolic state and input variables and the discrete-time dynamics
     model for the unicycle model.
+
     Args:
         dt (float): sample time
 

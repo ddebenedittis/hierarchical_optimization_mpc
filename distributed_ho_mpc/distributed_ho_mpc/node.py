@@ -49,7 +49,7 @@ class Node():
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
-        self.a = 30
+        self.a = 3
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
@@ -82,36 +82,8 @@ class Node():
             self.n_xi
         )
         
-        '''self.filename = f"node_{self.node_id}_data.csv"
-        with open(self.filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # Write the header
-            header = ['Time']
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p4_{i}') 
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p4_{i}') 
-            header.append(f'stateX_{self.node_id}')
-            header.append(f'stateY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'stateX_{j}')
-                header.append(f'stateY_{j}')
-            header.append(f'inputX_{self.node_id}')
-            header.append(f'inputY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'inputX_{j}')
-                header.append(f'inputY_{j}') 
-            header.append('cost')
-            # Write the header
-            writer.writerow(header) '''     
+         
+               
         self.filename = f"node_{self.node_id}_data.csv"
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -142,24 +114,54 @@ class Node():
     
         # Define the state and input variables, and the discrete-time dynamics model.
         
-        self.n_robots = RobCont(omni=self.degree + 1)
-                
-        self.dt = copy.deepcopy(dt)       # timestep size
         
-        self.s = RobCont(omni = None, uni = None) # symbolic state variables
-        self.u = RobCont(omni = None, uni = None)
-        self.s_kp1 = RobCont(omni = None, uni = None)
-    
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
-        #self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt*10)
+        self.model = copy.deepcopy(model)
+        if self.model == 'unicycle':
+            self.s = RobCont(uni = None) # symbolic state variables
+            self.u = RobCont(uni = None)
+            self.s_kp1 = RobCont(uni = None)
+
+            self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt*10)
+
+        elif self.model == 'omniwheel':
+            self.s = RobCont(omni = None) # symbolic state variables
+            self.u = RobCont(omni = None)
+            self.s_kp1 = RobCont(omni = None)
+
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
+        else:
+            raise ValueError(f"Model {self.model} not recognized. Use 'unicycle' or 'omniwheel'.")
+                    
         
+        # Compute number of nodes
+        self.n_robots_models = RobCont(omni=0, uni=0)
+        if self.model == 'omniwheel':
+            self.n_robots_models.omni += 1
+        elif self.model == 'unicycle':
+            self.n_robots_models.uni += 1 
+        self.neigh_models = []  
+        for key in neigh_tasks.keys():
+            m_j = neigh_tasks[key][0]  
+            if m_j == 'omniwheel':
+                self.n_robots_models.omni += 1
+            if m_j == 'unicycle':
+                self.n_robots_models.uni += 1
+            self.neigh_models.append((key, m_j))
+            neigh_tasks[key].pop(0)
+        self.n_robots = self.n_robots_models.omni + self.n_robots_models.uni
+        if self.n_robots != self.degree + 1:
+            raise ValueError(f"Number of robots {self.n_robots} does not match the degree {self.degree + 1} of the node {self.node_id}.")
+        #self.n_robots = RobCont(omni=self.degree + 1)
+
         self.goals = copy.deepcopy(goals)
 
         self.n_steps = n_steps
         self.step = 0
         self.tasks = self_tasks
-        self.neigh_tasks = neigh_tasks
-     
+        self.neigh_tasks = neigh_tasks 
+
+        self.dt = copy.deepcopy(dt)       # timestep size
+
         # shared variable
         self.s_opt = []
         self.u_opt = []
@@ -250,7 +252,7 @@ class Node():
         for i, g in enumerate(self.goals):
             self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
             self.task_pos_coeff[i] = RobCont(
-                omni=[[g] for _ in range(self.n_robots.omni)],
+                omni=[[g] for _ in range(self.n_robots)],
             )
         
         # ========================Formation============================================ #
@@ -303,11 +305,11 @@ class Node():
         self.task_avoid_collision_coeff = [
             TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
         ]
-        for p, j in enumerate(self.robot_idx[1:]):
-            for pp in self.robot_idx[p+1:]:            
-                self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
-                )
+        # for p, j in enumerate(self.robot_idx[1:]):
+        #     for pp in self.robot_idx[p+1:]:            
+        #         self.task_avoid_collision_coeff.append(
+        #             TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+        #         )
         
 
         # =====================Obstacle Avoidance===================================== #
@@ -341,7 +343,7 @@ class Node():
             self.s.tolist(),
             self.u.tolist(),
             self.s_kp1.tolist(),
-            self.n_robots.tolist(),
+            [self.n_robots],
             self.degree
         )
         self.hompc.n_control = st.n_control
@@ -418,23 +420,23 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-1, 1])
-                for _ in range(self.n_robots.omni)],
+                [np.array([-2, 2])
+                for _ in range(self.n_robots)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([1, 1])
-                for _ in range(self.n_robots.omni)]
+                [np.array([2, 2])
+                for _ in range(self.n_robots)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([1, -1])
-                for _ in range(self.n_robots.omni)]
+                [np.array([2, -2])
+                for _ in range(self.n_robots)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-1, -1])
-                for _ in range(self.n_robots.omni)]
+                [np.array([-2, -2])
+                for _ in range(self.n_robots)]
             )
         else:
             raise ValueError('Missing agent init on s')
@@ -574,13 +576,14 @@ class Node():
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        for j, _ in enumerate(s.uni):
-            for _ in range(n_intervals):
-                s.uni[j] = s.uni[j] + dt / n_intervals * np.array([
-                    u_star.uni[j][0] * np.cos(s.uni[j][2]),
-                    u_star.uni[j][0] * np.sin(s.uni[j][2]),
-                    u_star.uni[j][1],
-                ])
+        if s.uni != None:
+            for j, _ in enumerate(s.uni):
+                for _ in range(n_intervals):
+                    s.uni[j] = s.uni[j] + dt / n_intervals * np.array([
+                        u_star.uni[j][0] * np.cos(s.uni[j][2]),
+                        u_star.uni[j][0] * np.sin(s.uni[j][2]),
+                        u_star.uni[j][1],
+                    ])
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
@@ -653,9 +656,6 @@ class Node():
             if neigh == f'agent_{i}':
                 robot_idx = self.robot_idx_global.index(i)
                 break
-            # if f'agent_{i}' in neigh:
-            #     robot_idx = self.robot_idx_global.index(i)
-            #     break
         if robot_idx is None:
             raise ValueError(f"Could not find robot index for neighbor {neigh.key}")
         for task in self.neigh_tasks[neigh]:
@@ -707,7 +707,7 @@ class Node():
         """
         #TODO: save data to plot  
         
-        added_robot = len(np.nonzero(adjacency_vector)[0].tolist())+1 - self.n_robots.omni 
+        added_robot = len(np.nonzero(adjacency_vector)[0].tolist())+1 - self.n_robots 
         if added_robot > 0:
             neigh = np.nonzero(adjacency_vector)[0].tolist()
             self.adjacency_vector = adjacency_vector
@@ -753,7 +753,8 @@ class Node():
             for neigh in neigh_task:
                 self.create_neigh_tasks(neigh)  
 
-            for jj in self.robot_idx[:-1]:  # for each robot except the last one
+            # for jj in self.robot_idx[:-1]
+            for jj in self.robot_idx[0:1]:  # for each robot except the last one
                 self.task_avoid_collision_coeff.append(
                     TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -self.threshold**2)
                 )
@@ -929,11 +930,11 @@ class Node():
                     self.task_avoid_collision_coeff = [
                         TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
-                    for p, j in enumerate(self.robot_idx[1:]):
-                        for pp in self.robot_idx[p+1:]:            
-                            self.task_avoid_collision_coeff.append(
-                                TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
-                            )
+                    # for p, j in enumerate(self.robot_idx[1:]):
+                    #     for pp in self.robot_idx[p+1:]:            
+                    #         self.task_avoid_collision_coeff.append(
+                    #             TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+                    #         )
 
                     self.hompc.update_task_bi(
                         name = task.name, prio = task.prio,              
@@ -948,7 +949,7 @@ class Node():
                 #     self.task_pos_coeff[i] = RobCont(
                 #         omni=[[g] for _ in range(self.n_robots.omni)],
                 #     )
-                while len(task.eq_coeff[0]) < self.n_robots.omni:
+                while len(task.eq_coeff[0]) < self.n_robots:
                     task.eq_coeff[0].append([None])
 
                 id = robot_idx_global_old[task.robot_index[0][0]]

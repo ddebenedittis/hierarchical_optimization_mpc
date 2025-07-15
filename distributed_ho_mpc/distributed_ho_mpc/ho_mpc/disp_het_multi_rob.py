@@ -174,7 +174,7 @@ def init_matplotlib():
 # ================================= Animation ================================ #
 
 class Animation():
-    def __init__(self, data, goals, obstacles, ax, dt) -> None:
+    def __init__(self, data, goals, obstacles, ax, dt, estim) -> None:
         self.textsize = init_matplotlib()
         
         self.n_history = np.inf
@@ -188,7 +188,9 @@ class Animation():
         self.x_lim = [-20., 20.]
         self.y_lim = [-20., 20.]
         
+        self.show_estimation = estim
         self.n_robots = [len(data_i) for data_i in data[0]]
+    
         #positional reference of neighbour estimation inside the data
         self.pos_neigh = [ None for i in range(len(self.n_robots))]
         for p, l in enumerate(self.n_robots):
@@ -341,17 +343,12 @@ class Animation():
         for n in self.n_robots:
             n_j += n 
         
+        
         x = [
             np.zeros((len(self.n_robots), 2)),
             np.zeros((n_j, 2)),
         ]
-        
-        # for c, state_c in enumerate(state):
-        #     for j, s_c_j in enumerate(state_c):
-        #         x[c][j, 0] = s_c_j[0]
-        #         x[c][j, 1] = s_c_j[1]
-        #         # if c == 0:
-        #         #     x[c][j, 2] = s_c_j[2]
+    
         p = 0
         for i, state_c in enumerate(state):
             for j, s_c_j in enumerate(state_c):    
@@ -362,8 +359,7 @@ class Animation():
                     x[1][p, 0] = s_c_j[0]
                     x[1][p, 1] = s_c_j[1]
                     p += 1
-                    
-            
+                
                     
         # State history.
         n_history = min(self.n_history, frame)
@@ -386,6 +382,8 @@ class Animation():
         for i in range(len(self.n_robots)):
             self.artists.unicycles[i].remove()
 
+            if not self.show_estimation:
+                continue
             self.artists.omnidir[i].remove()
         
         # ====================== Display Updated Artists ===================== #
@@ -402,6 +400,8 @@ class Animation():
                 marker = marker,
             )
             
+            if not self.show_estimation:
+                continue
             #Omnidirectional robot.
             self.artists.omnidir[i] = plt.scatter(
                 x = x[1][self.pos_neigh[i]:(self.pos_neigh[i]+self.n_robots[i]-1),0], y = x[1][self.pos_neigh[i]:(self.pos_neigh[i]+self.n_robots[i]-1),1],
@@ -498,12 +498,12 @@ class Animation():
 def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
-    show_trajectory: bool = True, show_voronoi: bool = True,
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     fig, ax = plt.subplots()
     
-    anim = Animation(s_history, goals, obstacles, ax, dt)
+    anim = Animation(s_history, goals, obstacles, ax, dt, estim)
     anim.show_trajectory = show_trajectory
     anim.show_voronoi = show_voronoi
     anim.x_lim = x_lim

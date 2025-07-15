@@ -179,14 +179,14 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
+                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':3, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
                 ],
 }
 
@@ -217,7 +217,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -337,10 +337,6 @@ if st.simulation:
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
     # ---------------------------------------------------------------------------- #
-    s_hist_merged = [
-        sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
-    ]
-
     # handle different lenght of the states due to add/remove of nodes
     for i in nodes:
         for n in range(len(i.s_history)):
@@ -356,8 +352,6 @@ if st.simulation:
                     else:
                         i.s_history[n][0].append(i.s_history[n-1][0][d+1]) # take previous value
 
-
-    #s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
     if st.n_nodes == 2:
         s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
     if st.n_nodes == 3:
@@ -378,6 +372,5 @@ if st.simulation:
         voronoi=False,
     )
 
-
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
+    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, estim=st.estimation_plotting)
 

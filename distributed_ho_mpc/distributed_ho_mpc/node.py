@@ -43,45 +43,9 @@ class Node():
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
         self.n_priority = st.n_priority # number of priorities
-        self.n_xi = st.n_control * 4 # dimension of primal variables
-
+        self.n_xi_o = st.n_control * 4 # dimension of primal variables omniwheel
+        self.n_xi_u = st.n_control * 5 # dimension of primal variables unicycles
         self.cost_history = [] # history of cost function values
-        # ======================== Variables updater ======================= #
-        self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
-        
-        self.a = 3
-        
-        self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
-        self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
-        #np.random.rand(2, self.n_priority, self.n_xi*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
-                                                                             # p1  [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
-                                                                             # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
-                                                                             # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
-        self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree)))   # p1  [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
-                                                                             # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
-                                                                             # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
-        self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
-                                                                             # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
-                                                                             # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
-        
-        
-        self.sender = MessageSender(
-            self.node_id,
-            self.neigh,
-            self.y_i,
-            self.rho_i,
-            self.n_xi,
-            self.n_priority
-        )
-        
-        self.receiver = MessageReceiver(
-            self.node_id,
-            self.neigh,
-            self.y_j,
-            self.rho_j,
-            self.n_xi
-        )
-        
          
                
         self.filename = f"node_{self.node_id}_data.csv"
@@ -92,13 +56,13 @@ class Node():
             for i in range(st.n_nodes):
                 if i == self.node_id:
                     continue
-                for j in range(self.n_xi):
+                for j in range(self.n_xi_o):
                     header.append(f'rho_(i{i})_p3_{j}')
-                for j in range(self.n_xi):
+                for j in range(self.n_xi_o):
                     header.append(f'rho_(i{i})_p4_{j}') 
-                for j in range(self.n_xi):
+                for j in range(self.n_xi_o):
                     header.append(f'rho_({i}i)_p3_{j}')
-                for j in range(self.n_xi):
+                for j in range(self.n_xi_o):
                     header.append(f'rho_({i}i)_p4_{j}') 
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
@@ -139,14 +103,15 @@ class Node():
             self.n_robots_models.omni += 1
         elif self.model == 'unicycle':
             self.n_robots_models.uni += 1 
-        self.neigh_models = []  
+        self.neigh_models = {}  
         for key in neigh_tasks.keys():
             m_j = neigh_tasks[key][0]  
             if m_j == 'omniwheel':
                 self.n_robots_models.omni += 1
             if m_j == 'unicycle':
                 self.n_robots_models.uni += 1
-            self.neigh_models.append((key, m_j))
+            self.neigh_models[key] = m_j
+            #self.neigh_models.append((key, m_j))
             neigh_tasks[key].pop(0)
         self.n_robots = self.n_robots_models.omni + self.n_robots_models.uni
         if self.n_robots != self.degree + 1:
@@ -162,6 +127,73 @@ class Node():
 
         self.dt = copy.deepcopy(dt)       # timestep size
 
+        self.robot_idx_global = [self.node_id] + self.neigh
+        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+        
+
+        # ======================== Variables updater ======================= #
+        self.alpha = st.step_size * np.ones((self.n_xi_o+self.n_xi_u) * (self.n_robots-1)) # step size for primal and dual variables
+        
+        self.a = 3
+        
+        self.y_i = np.zeros((self.n_priority, self.n_xi_o*(self.degree+1)))
+        self.rho_i = np.zeros((2, self.n_priority, self.n_xi_o*(self.degree))) 
+        #np.random.rand(2, self.n_priority, self.n_xi*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
+                                                                             # p1  [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+                                                                             # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
+        self.y_j = np.zeros((2, self.n_priority, self.n_xi_o*(self.degree)))   # p1  [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+                                                                             # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
+        self.rho_j = np.zeros((2, self.n_priority, self.n_xi_o*(self.degree))) # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+                                                                             # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+                                                                             # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
+        # new variable creation that handle multiple models
+        self.y_i = [] 
+        self.y_j = []
+        self.rho_i = []
+        self.rho_j = []
+        for mm in self.robot_idx_global: 
+            if mm == self.node_id:
+                if self.model == 'omniwheel':
+                    n_x = 4
+                elif self.model == 'unicycle':
+                    n_x = 5 
+                self.y_i.append(np.zeros((self.n_priority, n_x)))
+                continue
+            if self.neigh_models[f'agent_{mm}'] == 'omniwheel':
+                self.y_i.append((np.zeros((self.n_priority, 4))))
+                self.y_j.append((np.zeros((2, self.n_priority, 4))))
+                self.rho_i.append((np.zeros((2, self.n_priority, 4))))
+                self.rho_j.append((np.zeros((2, self.n_priority, 4))))    
+            elif self.neigh_models[f'agent_{mm}'] == 'unicycle':
+                self.y_i.append((np.zeros((self.n_priority, 5))))
+                self.y_j.append((np.zeros((2, self.n_priority, 5))))
+                self.rho_i.append((np.zeros((2, self.n_priority, 5))))
+                self.rho_j.append((np.zeros((2, self.n_priority, 5))))
+        self.y_i = np.concatenate(self.y_i, axis=1) 
+        self.y_j = np.concatenate(self.y_j, axis=1)
+        self.rho_i = np.concatenate(self.rho_i, axis=1) 
+        self.rho_j = np.concatenate(self.rho_j, axis=1) 
+
+
+        self.sender = MessageSender(
+            self.node_id,
+            self.neigh,
+            self.y_i,
+            self.rho_i,
+            self.n_xi_o,
+            self.n_priority
+        )
+        
+        self.receiver = MessageReceiver(
+            self.node_id,
+            self.neigh,
+            self.y_j,
+            self.rho_j,
+            self.n_xi
+        )
+        
         # shared variable
         self.s_opt = []
         self.u_opt = []
@@ -194,12 +226,6 @@ class Node():
     # ---------------------------------------------------------------------------- #
     def Tasks(self)->None:
         "Define the tasks separately"
-
-        #n_robots = [self.degree+1, 0] # n° of neighbours + self agent
-        self.robot_idx_global = [self.node_id] + self.neigh
-        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
-        
-        
         
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),

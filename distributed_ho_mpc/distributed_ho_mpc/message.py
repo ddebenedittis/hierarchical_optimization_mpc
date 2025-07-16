@@ -12,6 +12,7 @@ class Message:
     rho_i: np.ndarray   # dual variable of the sender
     rho_j: np.ndarray   # dual variable of the neighbour j estimated by the sender i
     update: str         # update type: 'P' for primal, 'D' for dual
+    model: str          # model type: 'omniwheel' or 'differential' 
 
 # TODO: support multiple priorities.
 class MessageSender:
@@ -28,6 +29,7 @@ class MessageSender:
         rho: np.ndarray,
         n_xi: int,
         n_priorities: int,
+        model: str = 'omniwheel'
     ):
         self.sender_id = sender_id
         self.adjacency_vector = adjacency_vector
@@ -35,6 +37,7 @@ class MessageSender:
         self.rho = rho
         self.n_xi = n_xi
         self.n_priorities = n_priorities
+        self.model = model
                 
         
     def send_message(self, receiver_id: int, update: str) -> Message:
@@ -51,13 +54,13 @@ class MessageSender:
             x_i = self.y[:, 0:self.n_xi]
             x_j = self.y[:, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
 
-            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
+            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P', model=self.model))
         
         if update == 'D':
             rho_i = self.rho[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
             rho_j = self.rho[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
             
-            return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
+            return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D', model=self.model)
     
     def update(self,
             adjacency_vector: np.ndarray,
@@ -86,7 +89,8 @@ class MessageReceiver:
             adjacency_vector: np.ndarray,
             y_j: np.ndarray,
             rho_j: np.ndarray,
-            n_xi: int
+            n_xi: int,
+            model: str = 'omniwheel'
         ):
 
         self.receiver_id = receiver_id
@@ -95,6 +99,7 @@ class MessageReceiver:
         self.rho_j = rho_j        
         self.messages = []
         self.n_xi = n_xi
+        self.model = model
         
     def receive_message(self, message: Message):
         " Store the message received from neighbours in a local buffer"

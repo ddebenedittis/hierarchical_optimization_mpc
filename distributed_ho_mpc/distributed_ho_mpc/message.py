@@ -29,15 +29,20 @@ class MessageSender:
         rho: np.ndarray,
         n_xi: int,
         n_priorities: int,
-        model: str = 'omniwheel'
+        model: str = 'omniwheel',
+        n_models: dict
     ):
         self.sender_id = sender_id
         self.adjacency_vector = adjacency_vector
         self.y = y
         self.rho = rho
-        self.n_xi = n_xi
+        if self.model == 'omniwheel':
+            self.n_xi = 4 
+        elif self.model == 'unicycle':
+            self.n_xi = 5
         self.n_priorities = n_priorities
         self.model = model
+        self.n_models = n_models
                 
         
     def send_message(self, receiver_id: int, update: str) -> Message:
@@ -49,16 +54,25 @@ class MessageSender:
         
         #! This assumes that all the x_i have the same size
         receiver_idx = list(self.adjacency_vector).index(receiver_id)
+        pos = 0
+        for i in self.n_models.keys():
+            if i == receiver_idx:
+                continue
+            if self.model[i] == 'omniwheel':
+                pos += 4
+            elif self.model[i] == 'unicycle':
+                pos += 5
+        nn_x = 4 if self.n_models[f'agent_{receiver_idx}'] == 'omniwheel' else 5
 
         if update == 'P':
             x_i = self.y[:, 0:self.n_xi]
-            x_j = self.y[:, receiver_idx * self.n_xi: (receiver_idx + 1) * self.n_xi]
+            x_j = self.y[:, pos: pos+ nn_x]
 
-            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P', model=self.model))
+            return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P', model=self.model)
         
         if update == 'D':
-            rho_i = self.rho[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
-            rho_j = self.rho[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi]
+            rho_i = self.rho[0, :, pos: pos+ nn_x]
+            rho_j = self.rho[1, :, pos: pos+ nn_x]
             
             return Message(self.sender_id,  x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D', model=self.model)
     
@@ -90,7 +104,7 @@ class MessageReceiver:
             y_j: np.ndarray,
             rho_j: np.ndarray,
             n_xi: int,
-            model: str = 'omniwheel'
+            model: str = 'omniwheel',
         ):
 
         self.receiver_id = receiver_id
@@ -115,12 +129,16 @@ class MessageReceiver:
         while self.messages :
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
+            if message.model == 'omniwheel':
+                n_x = 4
+            elif message.model == 'unicycle':
+                n_x = 5
             if message.update == 'P' and update == 'P':
-                self.y_j[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.x_j
-                self.y_j[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.x_i               
+                self.y_j[0, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.x_j
+                self.y_j[1, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.x_i               
             if message.update == 'D' and update == 'D':
-                self.rho_j[0, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.rho_j
-                self.rho_j[1, :, (receiver_idx * self.n_xi): (receiver_idx + 1) * self.n_xi] = message.rho_i                
+                self.rho_j[0, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.rho_j
+                self.rho_j[1, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.rho_i                
             if message.update == 'P' and update == 'D':
                 raise ValueError("The update type must be the same")
             elif message.update == 'D' and update == 'P':

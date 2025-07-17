@@ -9,12 +9,12 @@ random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 200
+n_steps = 300
 
-communication_range = 5
+communication_range = 6
 
 v_max = 2
-v_min = -1
+v_min = -0.5
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -31,7 +31,7 @@ inner_plot = False # plot the inner state of the robots
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 2 # mpc control step
+n_control = 1 # mpc control step
 n_pred = 0 # mpc prediction step
 
 n_xi = n_control * 2

@@ -179,14 +179,14 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
+                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':3, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
                 ],
 }
 
@@ -217,7 +217,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 

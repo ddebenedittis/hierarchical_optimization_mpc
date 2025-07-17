@@ -566,11 +566,17 @@ class HierarchicalQP:
         dim = rho_vector.shape[0]
         index = np.arange(dim)
         xdim = int(x_i / n_c)
+        # u = np.concatenate([[
+        #             index[i:i+2:1] for i in range(2+(c*xdim), dim, x_i)
+        #         ] for c in range(n_c)])
+        # s = np.concatenate([[
+        #             index[i:i+2:1] for i in range(0+(c*xdim), dim, x_i)
+        #         ]for c in range(n_c)])
         u = np.concatenate([[
                     index[i:i+2:1] for i in range(2+(c*xdim), dim, x_i)
                 ] for c in range(n_c)])
         s = np.concatenate([[
-                    index[i:i+2:1] for i in range(0+(c*xdim), dim, x_i)
+                    index[i:i+3:1] for i in range(0+(c*xdim), dim, x_i)
                 ]for c in range(n_c)])
         reorder = np.concatenate([np.hstack(u), np.hstack(s)])
         return rho_vector[reorder]

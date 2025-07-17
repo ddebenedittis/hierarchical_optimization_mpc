@@ -342,7 +342,7 @@ class Animation():
             n_j += n 
         
         x = [
-            np.zeros((len(self.n_robots), 2)),
+            np.zeros((len(self.n_robots), 3)),
             np.zeros((n_j, 2)),
         ]
         
@@ -358,9 +358,11 @@ class Animation():
                 if j == 0:
                     x[0][i, 0] = s_c_j[0]
                     x[0][i, 1] = s_c_j[1]
+                    x[0][i, 2] = s_c_j[2]
                 else:
                     x[1][p, 0] = s_c_j[0]
                     x[1][p, 1] = s_c_j[1]
+                    #x[1][p, 2] = s_c_j[2]
                     p += 1
                     
             
@@ -371,13 +373,14 @@ class Animation():
         #    np.zeros((len(self.n_robots), n_history, 3)),
         #    np.zeros((n_j, n_history, 2)),
         #]
-        x_history = [np.zeros((agent, n_history, 2)) for agent in self.n_robots]
+        x_history = [np.zeros((agent, n_history, 3)) for agent in self.n_robots]
         p = 0
         for k in range(n_history):
             for c in range(len(self.data[frame - k])):
                 for j, s_c_j in enumerate(self.data[frame - k][c]):
                     x_history[c][j, k, 0] = s_c_j[0]
                     x_history[c][j, k, 1] = s_c_j[1]
+                    x_history[c][j, k, 2] = s_c_j[2]
                     # if c == 0:
                     #     x_history[c][j, k, 2] = s_c_j[2]        
                         
@@ -392,8 +395,8 @@ class Animation():
         
         # Unicycles.
         for i in range(len(self.n_robots)):
-            #deg = x[0][i,2] * 180 / np.pi
-            deg = 1
+            deg = x[0][i,2] * 180 / np.pi
+            #deg = 1
             marker, scale = gen_arrow_head_marker(deg)
                         
             self.artists.unicycles[i] = plt.scatter(

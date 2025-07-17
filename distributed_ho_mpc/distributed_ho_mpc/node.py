@@ -184,7 +184,8 @@ class Node():
             self.rho_i,
             n_x,
             self.n_priority,
-            self.model
+            self.model,
+            self.neigh_models
         )
         
         self.receiver = MessageReceiver(
@@ -193,7 +194,8 @@ class Node():
             self.y_j,
             self.rho_j,
             n_x,
-            self.model
+            self.model,
+            self.neigh_models
         )
         
         # shared variable

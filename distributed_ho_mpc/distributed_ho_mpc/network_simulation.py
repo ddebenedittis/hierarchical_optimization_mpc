@@ -166,23 +166,27 @@ goals = [
                 {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
                 ]
 }'''
-system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
+system_tasks = {'agent_0': ['unicycle',
+                            {'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
-                'agent_1': [{'prio':1, 'name':"input_limits"},
+                'agent_1': ['omniwheel',
+                            {'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                             {'prio':3, 'name':"collision_avoidance"},
                 ],
-                'agent_2': [{'prio':1, 'name':"input_limits"},
+                'agent_2': ['unicycle',
+                            {'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
                             {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
-                'agent_3': [{'prio':1, 'name':"input_limits"},
+                'agent_3': ['omniwheel',
+                            {'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
@@ -205,9 +209,9 @@ if st.n_nodes == 3:
                              [0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 0., 0., 0.],
-                             [0., 0., 0., 0.],
-                             [0., 0., 0., 1.],
+    graph_matrix = np.array([[0., 1., 0., 0.],
+                             [1., 0., 1., 0.],
+                             [0., 1., 0., 1.],
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
@@ -217,7 +221,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -254,14 +258,14 @@ nodes = [] # list of agents of the system
 
 #Create an agents of the same type for each node of the system
 for i in range(st.n_nodes):
-    node = Node(i,                   # ID
-        graph_matrix[i],             # Neighbours
-        model['unicycle'],           # robot model
-        st.dt,                       # time step
-        system_tasks[f'agent_{i}'],  # agent's tasks
+    node = Node(i,                       # ID
+        graph_matrix[i],                 # Neighbours
+        system_tasks[f'agent_{i}'][0],   # robot model
+        st.dt,                           # time step
+        system_tasks[f'agent_{i}'][1:],  # agent's tasks
         neigh_tasks[f'agent_{i}'],   # neighbours tasks
-        goals,                       # goals to be reached
-        st.n_steps                   # max simulation steps
+        goals,                           # goals to be reached
+        st.n_steps                       # max simulation steps
     )
     nodes.append(node)
 

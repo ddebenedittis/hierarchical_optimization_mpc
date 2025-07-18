@@ -282,10 +282,10 @@ class Node():
               self.u.omni[1] - self.v_max,   #vmax
             - self.u.omni[1] + self.v_min    #vmin
         ), uni= ca.vertcat(
-              self.uni[0] - self.v_max,   #vmax
-            - self.uni[0] + self.v_min,   #vmin
-              self.uni[1] - self.v_max,   #vmax
-            - self.uni[1] + self.v_min    #vmin
+              self.u.uni[0] - self.v_max,   #vmax
+            - self.u.uni[0] + self.v_min,   #vmin
+              self.u.uni[1] - self.v_max,   #vmax
+            - self.u.uni[1] + self.v_min    #vmin
         ))
         
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))

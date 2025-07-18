@@ -132,7 +132,9 @@ class Node():
         
 
         # ======================== Variables updater ======================= #
-        self.alpha = st.step_size * np.ones((self.n_xi_o+self.n_xi_u) * (self.n_robots-1)) # step size for primal and dual variables
+        self.alpha = np.concatenate((st.step_size * np.ones((self.n_xi_o * self.n_robots_models.omni)),
+                                     st.step_size * np.ones((self.n_xi_u * self.n_robots_models.uni))
+                      ))    # step size for primal and dual variables
         
         self.a = 3
         
@@ -156,10 +158,10 @@ class Node():
         for mm in self.robot_idx_global: 
             if mm == self.node_id:
                 if self.model == 'omniwheel':
-                    n_x = 4
+                    self.n_x = 4
                 elif self.model == 'unicycle':
-                    n_x = 5 
-                self.y_i.append(np.zeros((self.n_priority, n_x)))
+                    self.n_x = 5 
+                self.y_i.append(np.zeros((self.n_priority, self.n_x)))
                 continue
             if self.neigh_models[f'agent_{mm}'] == 'omniwheel':
                 self.y_i.append((np.zeros((self.n_priority, 4))))
@@ -172,9 +174,16 @@ class Node():
                 self.rho_i.append((np.zeros((2, self.n_priority, 5))))
                 self.rho_j.append((np.zeros((2, self.n_priority, 5))))
         self.y_i = np.concatenate(self.y_i, axis=1) 
-        self.y_j = np.concatenate(self.y_j, axis=1)
-        self.rho_i = np.concatenate(self.rho_i, axis=1) 
-        self.rho_j = np.concatenate(self.rho_j, axis=1) 
+        if not self.degree:
+            self.rho_i = np.zeros((2, self.n_priority, 0)) 
+            self.y_j = np.zeros((2, self.n_priority, 0))
+            self.rho_j = np.zeros((2, self.n_priority, 0))
+        else:
+            self.y_j = np.concatenate(self.y_j, axis=1)
+            self.rho_i = np.concatenate(self.rho_i, axis=1) 
+            self.rho_j = np.concatenate(self.rho_j, axis=1) 
+        
+
 
 
         self.sender = MessageSender(
@@ -182,7 +191,7 @@ class Node():
             self.neigh,
             self.y_i,
             self.rho_i,
-            n_x,
+            self.n_x,    # own dimension of optimization variables
             self.n_priority,
             self.model,
             self.neigh_models
@@ -193,7 +202,7 @@ class Node():
             self.neigh,
             self.y_j,
             self.rho_j,
-            n_x,
+            self.n_x,  # own dimension of optimization variables
             self.model,
             self.neigh_models
         )
@@ -272,6 +281,11 @@ class Node():
             - self.u.omni[0] + self.v_min,   #vmin
               self.u.omni[1] - self.v_max,   #vmax
             - self.u.omni[1] + self.v_min    #vmin
+        ), uni= ca.vertcat(
+              self.uni[0] - self.v_max,   #vmax
+            - self.uni[0] + self.v_min,   #vmin
+              self.uni[1] - self.v_max,   #vmax
+            - self.uni[1] + self.v_min    #vmin
         ))
         
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -373,7 +387,7 @@ class Node():
             self.s.tolist(),
             self.u.tolist(),
             self.s_kp1.tolist(),
-            [self.n_robots],
+            self.n_robots_models.tolist(),
             self.degree
         )
         self.hompc.n_control = st.n_control
@@ -446,30 +460,55 @@ class Node():
         for neigh in self.neigh_tasks:
             self.create_neigh_tasks(neigh)
         
-        # ======================================================================== #
-        
-        if self.node_id == 0:
-            self.s = RobCont(omni=
-                [np.array([-2, 2])
-                for _ in range(self.n_robots)],
-            )
-        elif self.node_id == 1:
-            self.s = RobCont(omni=
-                [np.array([2, 2])
-                for _ in range(self.n_robots)]
-            )
-        elif self.node_id == 2:
-            self.s = RobCont(omni=
-                [np.array([2, -2])
-                for _ in range(self.n_robots)]
-            )
-        elif self.node_id == 3:
-            self.s = RobCont(omni=
-                [np.array([-2, -2])
-                for _ in range(self.n_robots)]
-            )
-        else:
-            raise ValueError('Missing agent init on s')
+        # ========================== Initial Position ============================= #
+        if self.model == 'omniwheel':
+            if self.node_id == 0:
+                self.s = RobCont(omni=
+                    [np.array([-2, 2])
+                    for _ in range(self.n_robots)],
+                )
+            elif self.node_id == 1:
+                self.s = RobCont(omni=
+                    [np.array([2, 2])
+                    for _ in range(self.n_robots)]
+                )
+            elif self.node_id == 2:
+                self.s = RobCont(omni=
+                    [np.array([2, -2])
+                    for _ in range(self.n_robots)]
+                )
+            elif self.node_id == 3:
+                self.s = RobCont(omni=
+                    [np.array([-2, -2])
+                    for _ in range(self.n_robots)]
+                )
+            else:
+                raise ValueError('Missing agent init on s')
+        elif self.model == 'unicycle':
+            if self.node_id == 0:
+                self.s = RobCont(omni=
+                    [np.array([-2, 2, 0])
+                    for _ in range(self.n_robots)],
+                )
+            elif self.node_id == 1:
+                self.s = RobCont(omni=
+                    [np.array([2, 2, 0])
+                    for _ in range(self.n_robots)]
+                )
+            elif self.node_id == 2:
+                self.s = RobCont(omni=
+                    [np.array([2, -2, 0])
+                    for _ in range(self.n_robots)]
+                )
+            elif self.node_id == 3:
+                self.s = RobCont(omni=
+                    [np.array([-2, -2, 0])
+                    for _ in range(self.n_robots)]
+                )
+            else:
+                raise ValueError('Missing agent init on s')
+
+
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -595,8 +634,8 @@ class Node():
         self.y_j = self.receiver.process_messages('P')
                     
         # linear update of rho_i
-        self.rho_i[0, :, :] += self.alpha * (np.tile(self.y_i[:, 0:self.n_xi], self.degree) - self.y_j[0, :, :])
-        self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_xi:] - self.y_j[1, :, :])
+        self.rho_i[0, :, :] += self.alpha * (np.tile(self.y_i[:, 0:self.n_x], self.degree) - self.y_j[0, :, :])
+        self.rho_i[1, :, :] += self.alpha * (self.y_i[:, self.n_x:] - self.y_j[1, :, :])
         
         self.sender.rho = copy.deepcopy(self.rho_i)   # update copy of the states to share
 
@@ -657,12 +696,12 @@ class Node():
                     continue
                 if i in self.neigh:     
                     ii = self.neigh.index(i)
-                    row.extend(self.rho_i[0, 0, (ii * self.n_xi): (ii + 1) * self.n_xi])
-                    row.extend(self.rho_i[0, 1, (ii * self.n_xi): (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 0, (ii * self.n_xi): (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 1, (ii * self.n_xi): (ii + 1) * self.n_xi])
+                    row.extend(self.rho_i[0, 0, (ii * self.n_x): (ii + 1) * self.n_x])
+                    row.extend(self.rho_i[0, 1, (ii * self.n_x): (ii + 1) * self.n_x])
+                    row.extend(self.rho_j[0, 0, (ii * self.n_x): (ii + 1) * self.n_x])
+                    row.extend(self.rho_j[0, 1, (ii * self.n_x): (ii + 1) * self.n_x])
                 else:
-                    row.extend([None] * (self.n_xi * 4))
+                    row.extend([None] * (self.n_x * 4))
             for i in range(st.n_nodes):
                 if i in self.robot_idx_global:
                     ii = self.index_global_to_local(i)
@@ -731,7 +770,7 @@ class Node():
                 )
 
 
-    def create_connection(self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]):
+    def create_connection(self, adjacency_vector: np.array, model: str ,neigh_task: dict, state_meas: list[float]):
         """
         .
         """
@@ -739,44 +778,42 @@ class Node():
         
         added_robot = len(np.nonzero(adjacency_vector)[0].tolist())+1 - self.n_robots 
         if added_robot > 0:
+            neigh_dyn = model 
             neigh = np.nonzero(adjacency_vector)[0].tolist()
             self.adjacency_vector = adjacency_vector
             self.degree = len(neigh)
-            self.n_robots = RobCont(omni=self.degree + 1)
+            if neigh_dyn == 'omniwheel':
+                self.n_robots_models.omni += 1
+            elif neigh_dyn == 'unicycle':
+                self.n_robots_models.uni += 1 
+            self.n_robots += 1
+            
 
             #self.robot_idx_global = [self.node_id] + self.neigh
             new_neigh = list(set(neigh) - set(self.neigh)) #index of the new connected neighbours
+            self.neigh_models[f'agent_{new_neigh}'] = neigh_dyn
             self.robot_idx_global.extend(new_neigh)
             self.neigh.extend(new_neigh)
             self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
             neigh_local_idx = [self.index_global_to_local(r) for r in new_neigh]  
             
+            n_x = 4 if neigh_dyn == 'omniwheel' else 5
 
             # expand the consensus variables
-            self.y_i = np.pad(self.y_i, ((0, 0), (0, self.n_xi*(self.degree+1) - self.y_i.shape[1])), mode='constant', constant_values=0)
-            self.rho_i = np.pad(self.rho_i, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
-            self.rho_j = np.pad(self.rho_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.rho_j.shape[2])), mode='constant', constant_values=0)
-            self.y_j = np.pad(self.y_j, ((0, 0), (0,0), (0, self.n_xi*(self.degree) - self.y_j.shape[2])), mode='constant', constant_values=0)
-            #self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
-            #self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
-            #np.random.rand(2, self.n_priority, self.n_xi*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
-                                                                                # p1  [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
-                                                                                # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
-                                                                                # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
-            #self.y_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree)))   # p1  [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
-                                                                                # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
-                                                                                # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
-            #self.rho_j = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
-                                                                                # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
-                                                                                # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
-            self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
-
+            self.y_i = np.pad(self.y_i, ((0, 0), (0, n_x*(self.n_robots) - self.y_i.shape[1])), mode='constant', constant_values=0)
+            self.rho_i = np.pad(self.rho_i, ((0, 0), (0,0), (0, n_x*(self.degree) - self.rho_i.shape[2])), mode='constant', constant_values=0)
+            self.rho_j = np.pad(self.rho_j, ((0, 0), (0,0), (0, n_x*(self.degree) - self.rho_j.shape[2])), mode='constant', constant_values=0)
+            self.y_j = np.pad(self.y_j, ((0, 0), (0,0), (0, n_x*(self.degree) - self.y_j.shape[2])), mode='constant', constant_values=0)
+            
+            self.alpha = np.concatenate((st.step_size * np.ones((self.n_xi_o * self.n_robots_models.omni)),
+                                     st.step_size * np.ones((self.n_xi_u * self.n_robots_models.uni))
+                      ))
             self.hompc.degree = self.degree
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.expand(state_meas, 'omni')  # expand the state of the robot to be added
-            self.s_init.expand(state_meas, 'omni')  # expand the state of the robot to be added
+            self.s.expand(state_meas, neigh_dyn)  # expand the state of the robot to be added
+            self.s_init.expand(state_meas, neigh_dyn)  # expand the state of the robot to be added
 
             self.neigh_tasks.update(neigh_task) # expand dictionary with neighbour tasks
 
@@ -888,6 +925,8 @@ class Node():
         #TODO: save data to plot
 
         id_to_remove = self.index_global_to_local(neigh_id)
+
+        neigh_dyn = self.neigh_models[f'agent_{id_to_remove}']
         
         self.neigh_tasks.pop(neigh_tasks)
 
@@ -898,23 +937,40 @@ class Node():
 
         rho_idx = list(self.neigh).index(neigh_id)
 
+        n_x = 4 if neigh_dyn == 'omniwheel' else 5
+
+        pos = 0
+        for i in self.neigh_models.keys():
+            if i == id_to_remove:
+                continue
+            if self.model[i] == 'omniwheel':
+                pos += 4
+            elif self.model[i] == 'unicycle':
+                pos += 5
+
         # remove element from consensus variables
-        self.y_i = np.delete(self.y_i, np.s_[(id_to_remove * self.n_xi):(id_to_remove + 1) * self.n_xi], 1)
-        self.rho_i = np.delete(self.rho_i, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
-        self.rho_j = np.delete(self.rho_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
-        self.y_j = np.delete(self.y_j, np.s_[(rho_idx * self.n_xi):(rho_idx + 1) * self.n_xi], 2)
+        self.y_i = np.delete(self.y_i, np.s_[pos: pos + n_x], 1)
+        self.rho_i = np.delete(self.rho_i, np.s_[pos: pos + n_x], 2)
+        self.rho_j = np.delete(self.rho_j, np.s_[pos: pos + n_x], 2)
+        self.y_j = np.delete(self.y_j, np.s_[pos: pos + n_x], 2)
 
         # adjust dimension of variables 
         self.neigh.pop(rho_idx)
         self.adjacency_vector = copy.deepcopy(adjacency_vector)
         self.degree = len(self.neigh)
-        self.n_robots = RobCont(omni=self.degree + 1)    
+        if neigh_dyn == 'omniwheel':
+            self.n_robots_models.omni += 1
+        elif neigh_dyn == 'unicycle':
+            self.n_robots_models.uni += 1 
+        self.n_robots -= 1    
         robot_idx_global_old = copy.deepcopy(self.robot_idx_global)
         robot_idx_old = copy.deepcopy(self.robot_idx)
         self.robot_idx_global = [self.node_id] + self.neigh
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
 
-        self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
+        self.alpha = np.concatenate((st.step_size * np.ones((self.n_xi_o * self.n_robots_models.omni)),
+                                     st.step_size * np.ones((self.n_xi_u * self.n_robots_models.uni))
+                      ))
         self.hompc.degree = copy.deepcopy(self.degree)
   
         # remove tasks related to the removed robot

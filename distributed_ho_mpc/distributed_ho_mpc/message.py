@@ -29,19 +29,20 @@ class MessageSender:
         rho: np.ndarray,
         n_xi: int,
         n_priorities: int,
+        n_models: dict,
         model: str = 'omniwheel',
-        n_models: dict
     ):
         self.sender_id = sender_id
         self.adjacency_vector = adjacency_vector
         self.y = y
         self.rho = rho
+        self.model = model
         if self.model == 'omniwheel':
             self.n_xi = 4 
         elif self.model == 'unicycle':
             self.n_xi = 5
         self.n_priorities = n_priorities
-        self.model = model
+        
         self.n_models = n_models
                 
         
@@ -82,7 +83,7 @@ class MessageSender:
             rho: np.ndarray,
         ):
 
-        self.adjacency_vector = adjacency_vector
+        self.adjacency_vector = copy.deepcopy(adjacency_vector)
         self.y = copy.deepcopy(y)
         self.rho = copy.deepcopy(rho)
 
@@ -104,6 +105,7 @@ class MessageReceiver:
             y_j: np.ndarray,
             rho_j: np.ndarray,
             n_xi: int,
+            n_models: dict,
             model: str = 'omniwheel',
         ):
 
@@ -114,6 +116,7 @@ class MessageReceiver:
         self.messages = []
         self.n_xi = n_xi
         self.model = model
+        self.n_models = n_models
         
     def receive_message(self, message: Message):
         " Store the message received from neighbours in a local buffer"
@@ -129,16 +132,25 @@ class MessageReceiver:
         while self.messages :
             message = self.messages.pop(0)
             receiver_idx = list(self.adjacency_vector).index(message.sender_id)
+            pos = 0
+            for i in self.n_models.keys():
+                if i == receiver_idx:
+                    continue
+                if self.model[i] == 'omniwheel':
+                    pos += 4
+                elif self.model[i] == 'unicycle':
+                    pos += 5
+            
             if message.model == 'omniwheel':
                 n_x = 4
             elif message.model == 'unicycle':
                 n_x = 5
             if message.update == 'P' and update == 'P':
-                self.y_j[0, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.x_j
-                self.y_j[1, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.x_i               
+                self.y_j[0, :, pos: pos + n_x] = message.x_j
+                self.y_j[1, :, pos: pos + n_x] = message.x_i               
             if message.update == 'D' and update == 'D':
-                self.rho_j[0, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.rho_j
-                self.rho_j[1, :, (receiver_idx * n_x): (receiver_idx + 1) * n_x] = message.rho_i                
+                self.rho_j[0, :, pos: pos + n_x] = message.rho_j
+                self.rho_j[1, :, pos: pos + n_x] = message.rho_i                
             if message.update == 'P' and update == 'D':
                 raise ValueError("The update type must be the same")
             elif message.update == 'D' and update == 'P':
@@ -155,6 +167,6 @@ class MessageReceiver:
             rho: np.ndarray,
         ):
         
-        self.adjacency_vector = adjacency_vector
+        self.adjacency_vector = copy.deepcopy(adjacency_vector)
         self.y_j = copy.deepcopy(y)
         self.rho_j = copy.deepcopy(rho)

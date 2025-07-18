@@ -21,8 +21,7 @@ class RobCont:
     def tolist(self) -> list:
         """Convert the class to a list of its attributes."""
 
-        return [self.omni]
-        #return [[self.omni],[self.uni]]
+        return [[self.omni],[self.uni]]
     
     def tolist_model(self, model: str = 'omni') -> list:
         """
@@ -40,7 +39,7 @@ class RobCont:
         else:
             raise ValueError(f"Model {model} not recognized. Use 'omni' or 'uni'.")
 
-    def expand(self, state_meas, model: str = 'omni'):
+    def expand(self, state_meas, model: str = 'omniwheel'):
         """
         Expand the container to hold multiple robots of the same type.
 
@@ -48,14 +47,14 @@ class RobCont:
             state_meas (Any): state measurement to be added
             model (str): 'omni' for omnidirectional, 'uni' for un
         """
-        if model == 'omni':
+        if model == 'omniwheel':
             self.omni.append(state_meas)
-        elif model == 'uni': 
+        elif model == 'unicycle': 
              self.uni.append(state_meas)
         else:
             raise ValueError(f"Model {model} not recognized. Use 'omni' or 'uni'.")
     
-    def reduce(self, idx: int, model: str = 'omni'):
+    def reduce(self, idx: int, model: str = 'omniwheel'):
         """
         Reduce the container to hold only the robot that still have a connection.
 
@@ -63,12 +62,12 @@ class RobCont:
             index (int): index of the robot to remove
             model (str): 'omni' for omnidirectional, 'uni' for unicycle
         """
-        if model == 'uni':
+        if model == 'unicycle':
             if self.uni is not None:
                 self.uni.pop(idx)
             else:
                 raise ValueError("RobCont is empty, cannot reduce.")
-        if model == 'omni':
+        if model == 'omniwheel':
             if self.omni is not None:
                 self.omni.pop(idx)
             else:

@@ -52,7 +52,8 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
                     # modify the inner structure of the node        
                     nodes[i].create_connection(
                         graph_matrix[i],  # Update the neighbours of the node
-                        neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
+                        neigh_tasks[f'agent_{i}'][0], # model of the robot
+                        neigh_tasks[f'agent_{i}'][1:],  # Update the neighbours tasks
                         states[idx] # pass state of the new neighbour
                     )
             else:
@@ -221,7 +222,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -263,7 +264,7 @@ for i in range(st.n_nodes):
         system_tasks[f'agent_{i}'][0],   # robot model
         st.dt,                           # time step
         system_tasks[f'agent_{i}'][1:],  # agent's tasks
-        neigh_tasks[f'agent_{i}'],   # neighbours tasks
+        neigh_tasks[f'agent_{i}'],       # neighbours tasks
         goals,                           # goals to be reached
         st.n_steps                       # max simulation steps
     )

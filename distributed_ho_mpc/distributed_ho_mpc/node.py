@@ -239,6 +239,7 @@ class Node():
     # ---------------------------------------------------------------------------- #
     def Tasks(self)->None:
         "Define the tasks separately"
+        #TODO: create tasks for each class and understand how to update them -> use correct robot_index [[][]] in task creation
         
         """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
             self.s.tolist(),
@@ -284,22 +285,24 @@ class Node():
         ), uni= ca.vertcat(
               self.u.uni[0] - self.v_max,   #vmax
             - self.u.uni[0] + self.v_min,   #vmin
-              self.u.uni[1] - self.v_max,   #vmax
-            - self.u.uni[1] + self.v_min    #vmin
+              self.u.uni[1] - 1,   #vmax
+            - self.u.uni[1] - 1    #vmin
         ))
         
-        self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
+        self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]),
+                                      uni=ca.vertcat(self.u.uni[0], self.u.uni[1]))
         
-        # ===========================Go-to-Goal====================================== #
+        # =========================== Go-to-Goal ====================================== #
         self.task_pos       = [None for i in range(len(self.goals))]
         self.task_pos_coeff = [None for i in range(len(self.goals))]
         for i, g in enumerate(self.goals):
-            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]),
+                                       uni=ca.vertcat(self.s_kp1.uni[0], self.s_kp1.uni[1], self.s_kp1.uni[2]))
             self.task_pos_coeff[i] = RobCont(
                 omni=[[g] for _ in range(self.n_robots)],
             )
         
-        # ========================Formation============================================ #
+        # ======================== Formation ============================================ #
         if 0:
             self.aux = ca.SX.sym('aux', 2, 2)
             self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
@@ -339,7 +342,7 @@ class Node():
 
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
-        # =====================Collision Avoidance=================================== #
+        # ===================== Collision Avoidance =================================== #
         self.threshold = 2
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))

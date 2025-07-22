@@ -14,7 +14,7 @@ n_steps = 130
 communication_range = 8
 
 v_max = 2
-v_min = -1
+v_min = 0
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #

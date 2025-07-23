@@ -28,6 +28,7 @@ visual_method = output['display'] # change the key to decide the output visualiz
 save_data = True
 simulation = True
 inner_plot = False # plot the inner state of the robots
+estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
@@ -39,6 +40,7 @@ n_xi = n_control * 2
 # ---------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #
+
 
 n_priority = 2
 step_size = 1e-6

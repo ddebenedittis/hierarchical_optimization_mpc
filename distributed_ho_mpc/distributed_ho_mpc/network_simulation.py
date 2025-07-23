@@ -379,5 +379,5 @@ if st.simulation:
     )
 
 
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False)
+    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, estim=st.estimation_plotting)
 

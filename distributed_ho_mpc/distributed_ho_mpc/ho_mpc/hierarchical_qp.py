@@ -489,6 +489,7 @@ class HierarchicalQP:
             #   min  1/2 x^T H x - p^T x
             #   s.t. CI^T x >= ci0
             p_cost = cost 
+            #p[np.abs(p) < 1e-5] = 0.0
             sol, cost = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:     
                 for i in range(n_tasks-priority):

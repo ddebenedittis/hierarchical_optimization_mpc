@@ -49,7 +49,7 @@ class Node():
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
-        self.a = 30
+        self.a = 1
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
@@ -301,12 +301,12 @@ class Node():
             -(self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 - (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2,
         )
         self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         for p, j in enumerate(self.robot_idx[1:]):
             for pp in self.robot_idx[p+1:]:            
                 self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+                    TaskBiCoeff(0, j, 0, pp, 1, -self.threshold**2)
                 )
         
 
@@ -418,22 +418,22 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-1, 1])
+                [np.array([-2, 2])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([1, 1])
+                [np.array([2, 2])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([1, -1])
+                [np.array([2, -2])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-1, -1])
+                [np.array([-2, -2])
                 for _ in range(self.n_robots.omni)]
             )
         else:
@@ -574,13 +574,6 @@ class Node():
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        for j, _ in enumerate(s.uni):
-            for _ in range(n_intervals):
-                s.uni[j] = s.uni[j] + dt / n_intervals * np.array([
-                    u_star.uni[j][0] * np.cos(s.uni[j][2]),
-                    u_star.uni[j][0] * np.sin(s.uni[j][2]),
-                    u_star.uni[j][1],
-                ])
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
@@ -755,7 +748,7 @@ class Node():
 
             for jj in self.robot_idx[:-1]:  # for each robot except the last one
                 self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -self.threshold**2)
+                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 1, -self.threshold**2)
                 )
              
 
@@ -927,12 +920,12 @@ class Node():
                     #id = self.robot_idx_global.index(id)
 
                     self.task_avoid_collision_coeff = [
-                        TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
+                        TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
                     for p, j in enumerate(self.robot_idx[1:]):
                         for pp in self.robot_idx[p+1:]:            
                             self.task_avoid_collision_coeff.append(
-                                TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
+                                TaskBiCoeff(0, j, 0, pp, 1, -self.threshold**2)
                             )
 
                     self.hompc.update_task_bi(

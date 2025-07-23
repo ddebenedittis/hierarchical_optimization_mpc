@@ -298,7 +298,7 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 6:
+    if i == 12:
         None
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):

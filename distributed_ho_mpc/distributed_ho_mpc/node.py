@@ -238,8 +238,8 @@ class Node():
         self.task_input_limits = RobCont(omni=ca.vertcat(
               self.u.omni[0] - self.v_max,   #vmax
             - self.u.omni[0] + 0,   #vmin
-              self.u.omni[1] - 1,   #vmax
-            - self.u.omni[1] - 1    #vmin
+              self.u.omni[1] - 1.5,   #vmax
+            - self.u.omni[1] - 1.5    #vmin
         ))
         
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -418,24 +418,64 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-2, 2, 0.25])
+                [np.array([-5, 5, 0.1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([2, 2, 0.75])
+                [np.array([4.5, 5, -2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([2, -2, 0.78])
+                [np.array([4.5, -5, 2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-2, -2, 1.75])
+                [np.array([-5, -5, 0.75])
                 for _ in range(self.n_robots.omni)]
             )
+        elif self.node_id == 4:
+            self.s = RobCont(omni=
+                [np.array([-6, -3 , 0.25])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 5:
+            self.s = RobCont(omni=
+                [np.array([6, 3 , 3])
+                for _ in range(self.n_robots.omni)]
+            )    
+        elif self.node_id == 6:
+            self.s = RobCont(omni=
+                [np.array([-6, 3 , 0.25])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 7:
+            self.s = RobCont(omni=
+                [np.array([6, -3, 3])
+                for _ in range(self.n_robots.omni)]
+            )    
+        elif self.node_id == 8:
+            self.s = RobCont(omni=
+                [np.array([-7, 0 , 0.25])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 9:
+            self.s = RobCont(omni=
+                [np.array([7, 0, 3])
+                for _ in range(self.n_robots.omni)]
+            )    
+        elif self.node_id == 10:
+            self.s = RobCont(omni=
+                [np.array([0, -5, 2.1])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 11:
+            self.s = RobCont(omni=
+                [np.array([0, 5, -2.1])
+                for _ in range(self.n_robots.omni)]
+            )    
         else:
             raise ValueError('Missing agent init on s')
 
@@ -557,8 +597,8 @@ class Node():
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
         
-        if self.step > 0:
-            self.save_data()
+        # if self.step > 0:
+        #     self.save_data()
         
         self.y_j = self.receiver.process_messages('P')
                     

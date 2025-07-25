@@ -368,14 +368,16 @@ class Animation():
         #    np.zeros((len(self.n_robots), n_history, 3)),
         #    np.zeros((n_j, n_history, 2)),
         #]
-        x_history = [np.zeros((agent, n_history, 3)) for agent in self.n_robots]
+        x_history = [np.zeros((n_history, 3)) for agent in self.n_robots]
         p = 0
         for k in range(n_history):
             for c in range(len(self.data[frame - k])):
-                for j, s_c_j in enumerate(self.data[frame - k][c]):
-                    x_history[c][j, k, 0] = s_c_j[0]
-                    x_history[c][j, k, 1] = s_c_j[1]
-                    x_history[c][j, k, 2] = s_c_j[2]
+                x_history[c][k] = self.data[frame - k][c][0]
+
+                # for j, s_c_j in enumerate(self.data[frame - k][c]):
+                #     x_history[c][j, k, 0] = s_c_j[0]
+                #     x_history[c][j, k, 1] = s_c_j[1]
+                #     x_history[c][j, k, 2] = s_c_j[2]
                     # if c == 0:
                     #     x_history[c][j, k, 2] = s_c_j[2]        
                         
@@ -471,19 +473,19 @@ class Animation():
             
             cnt = 0
             for c in range(len(self.data[frame])):
-                for j, s_c_j in enumerate(state[c]):
-                    self.artists.past_trajectory[cnt] = plt.plot(
-                        x_history[c][j,:,0], x_history[c][j,:,1],
-                        color = 'k',
-                        linestyle = '--',
-                        alpha = 0.5,
-                    )[0]
-                    cnt += 1
+                #for j, s_c_j in enumerate(state[c]):
+                self.artists.past_trajectory[cnt] = plt.plot(
+                    x_history[c][:,0], x_history[c][:,1],
+                    color = 'k',
+                    linestyle = '--',
+                    alpha = 0.5,
+                )[0]
+                cnt += 1
                     
             # Sum of x_history along c and j indices
             x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
             self.artists.past_trajectory[cnt] = plt.plot(
-                x_centroid_hist[:,0], x_centroid_hist[:,1],
+                x_centroid_hist[0], x_centroid_hist[1],
                 color = 'C2',
                 linestyle = '--',
                 alpha = 0.75,

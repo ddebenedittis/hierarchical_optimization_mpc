@@ -169,7 +169,7 @@ class Node():
 
         self.v_max = copy.deepcopy(st.v_max)
         self.v_min = copy.deepcopy(st.v_min)
-
+        
         self.dist_hist = [[],[],[]]
         self.delta_hist = [[],[],[],[]]
         self.counter = []
@@ -252,69 +252,31 @@ class Node():
             self.task_pos_coeff[i] = RobCont(
                 omni=[[g] for _ in range(self.n_robots.omni)],
             )
-        
-        # ========================Formation============================================ #
-        if 0:
-            self.aux = ca.SX.sym('aux', 2, 2)
-            self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
-            self.task_formation = ca.vertcat(
-                (self.aux[0,0] - self.aux[1,0])**2 + (self.aux[0,1] - self.aux[1,1])**2 - 0,
-            )
-            if self.node_id == 0:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 0, 0, 3**2),
-                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 1:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 0, 0, 1, 0, 3**2),
-                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
-                ]    
-            elif self.node_id == 2:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 0, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),               
-                ]
-            elif self.node_id == 3:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 4: 
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 4, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
-                ]
 
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
         # =====================Collision Avoidance=================================== #
-        self.threshold = 2
+        self.threshold = 1
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
             -(self.aux_avoid_collision[0,0] - self.aux_avoid_collision[1,0])**2 - (self.aux_avoid_collision[0,1] - self.aux_avoid_collision[1,1])**2,
         )
         self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
         ]
         for p, j in enumerate(self.robot_idx[1:]):
             for pp in self.robot_idx[p+1:]:            
                 self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, j, 0, pp, 1, -self.threshold**2)
+                    TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
                 )
         
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([2,2])
-        self.obstacle_size = 3
+        self.obstacle_pos = np.array([7,7])
+        self.obstacle_size = 1
         self.task_obs_avoidance = [ 
-            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+            ca.vertcat(-(self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
         ]
 
     def task_formation_method(self, agents, distance):
@@ -418,7 +380,7 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-2, 2])
+                [np.array([0, 2])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
@@ -428,12 +390,37 @@ class Node():
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([2, -2])
+                [np.array([2, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
+                [np.array([2, -2])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 4:
+            self.s = RobCont(omni=
+                [np.array([0, -2])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 5:
+            self.s = RobCont(omni=
                 [np.array([-2, -2])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 6:
+            self.s = RobCont(omni=
+                [np.array([-2, 0])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 7:
+            self.s = RobCont(omni=
+                [np.array([-2, 2])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 8:
+            self.s = RobCont(omni=
+                [np.array([1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         else:
@@ -484,6 +471,28 @@ class Node():
         if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
         
+        if self.step == 50:
+            # self.goals = [
+            #     np.array([5, 5]),
+            #     np.array([8.53, 8.53]),
+            #     np.array([2.53, 8.53]),
+            # ]
+            # for i, g in enumerate(self.goals):
+            #     self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+            #     self.task_pos_coeff[i] = RobCont(
+            #         omni=[[g] for _ in range(self.n_robots.omni)],
+            #     )
+            for n, tt in enumerate(self.hompc._tasks):
+                if tt.name == "position":
+                    for j in tt.eq_coeff[0]: 
+                        if j[0] is not None:
+                            j[0] += 15
+                    # self.hompc.update_task(
+                    #     name = "position",
+                    #     eq_task_coeff = self.task_pos_coeff[0].tolist(),
+                    #     # robot_index = cov_rob_idx,
+                    # )
+        
         if self.step < self.n_steps:
             
             print(self.step)
@@ -510,22 +519,7 @@ class Node():
                     self.delta_hist[i].append(np.linalg.norm(self.s_.omni[i] - self.s.omni[i]))
                     if i != 0:
                         self.dist_hist[i-1].append(np.linalg.norm(self.s_.omni[0] - self.s.omni[i]))
-                '''if self.step == 900 and (self.node_id==0):# or self.node_id==1):
-                        self.goals = [
-                            np.array([-6, -7]),
-                            np.array([-4, -5]),
-                        ]
-                        for i, g in enumerate(self.goals):
-                            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
-                            self.task_pos_coeff[i] = RobCont(
-                                omni=[[g] for _ in range(self.n_robots.omni)],
-                            )
-                    
-                        self.hompc.update_task(
-                            name = "position",
-                            eq_task_coeff = self.task_pos_coeff[0].tolist(),
-                            # robot_index = cov_rob_idx,
-                        )'''
+                
                 
                 if self.step == st.n_steps-1:
                     plt.figure(figsize=(10, 6))
@@ -686,12 +680,12 @@ class Node():
             #         ineq_task_coeff= self.task_avoid_collision_coeff,
             #         robot_index= [self.robot_idx[1:]]
             #     )
-            elif task['name'] == 'obstacle_avoidance':
-                self.hompc.create_task(
-                    name = "obstacle_avoidance", prio = task['prio'],
-                    type = TaskType.Same,
-                    ineq_task_ls = self.task_obs_avoidance,
-                )
+            # elif task['name'] == 'obstacle_avoidance':
+            #     self.hompc.create_task(
+            #         name = "obstacle_avoidance", prio = task['prio'],
+            #         type = TaskType.Same,
+            #         ineq_task_ls = self.task_obs_avoidance,
+            #     )
 
 
     def create_connection(self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]):
@@ -748,7 +742,7 @@ class Node():
 
             for jj in self.robot_idx[:-1]:  # for each robot except the last one
                 self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 1, -self.threshold**2)
+                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -self.threshold**2)
                 )
              
 
@@ -920,12 +914,12 @@ class Node():
                     #id = self.robot_idx_global.index(id)
 
                     self.task_avoid_collision_coeff = [
-                        TaskBiCoeff(0, 0, 0, j, 1, -self.threshold**2) for j in self.robot_idx[1:]
+                        TaskBiCoeff(0, 0, 0, j, 0, -self.threshold**2) for j in self.robot_idx[1:]
                     ]
                     for p, j in enumerate(self.robot_idx[1:]):
                         for pp in self.robot_idx[p+1:]:            
                             self.task_avoid_collision_coeff.append(
-                                TaskBiCoeff(0, j, 0, pp, 1, -self.threshold**2)
+                                TaskBiCoeff(0, j, 0, pp, 0, -self.threshold**2)
                             )
 
                     self.hompc.update_task_bi(

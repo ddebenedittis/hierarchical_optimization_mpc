@@ -89,10 +89,13 @@ def agents_distance(state, pairwise_distances):
 #     ]
 
 goals = [
-    np.array([5, -5]),
-    np.array([-5, -5]),
-    np.array([-5, 5]),
-    np.array([5, 5])
+    np.array([0, 0]),
+    np.array([3.53, 3.53]),
+    np.array([-2.53, 3.53]),
+    #np.array([-3.5, -2])
+    #np.array([-5, -5]),
+    #np.array([-5, 5]),
+    #np.array([5, 5])
 ]
 
 '''system_tasks = {
@@ -168,25 +171,77 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[0,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
-                            {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':2, 'name':"obstacle_avoidance"},
+                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+                            #{'prio':4, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[2,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+                            {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+                            #{'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                ],
+                'agent_4': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[8,4]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
+                ],
+                'agent_5': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            #{'prio':2, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
+                            {'prio':3, 'name':"formation", 'agents': [[5,8]], 'distance': 5},
+                ],
+                'agent_6': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"formation", 'agents': [[6,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
+                ],
+                'agent_7': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            #{'prio':3, 'name':"obstacle_avoidance"},
+                            {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            {'prio':4, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
+                            {'prio':4, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
+                            {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+                            #{'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                ],
+                'agent_8': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            {'prio':2, 'name':"obstacle_avoidance"},
+                            {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':4, 'name':"formation", 'agents': [[0,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[2,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[4,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[6,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[5,8]], 'distance': 5},
                 ],
 }
 
@@ -211,13 +266,24 @@ if st.n_nodes == 4:
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
-    graph_matrix = np.array([[0., 1., 0., 0., 0.],
-                             [1., 0., 1., 0., 0.],
-                             [0., 1., 0., 1., 0.],
-                             [0., 0., 1., 0., 1.],
-                             [0., 0., 0., 1., 0.]])
+    graph_matrix = np.array([[0., 1., 1., 0., 0.],
+                             [1., 0., 0., 1., 1.],
+                             [1., 0., 0., 1., 1.],
+                             [0., 1., 1., 0., 1.],
+                             [0., 1., 1., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+if st.n_nodes == 9:
+    graph_matrix = np.array([[0., 1., 0., 0., 0., 0., 0., 1., 1.],
+                             [1., 0., 1., 1., 0., 1., 0., 0., 0.],
+                             [0., 1., 0., 1., 0., 0., 0., 0,  1.],
+                             [0., 1., 1., 0., 1., 0., 0., 1., 0.],
+                             [0., 0., 0., 1., 0., 1., 0., 0., 1.],
+                             [0., 1., 0., 0., 1., 0., 1., 1., 1.],
+                             [0., 0., 0., 0., 0., 1., 0., 1., 1.],
+                             [1., 0., 0., 1., 0., 1., 1., 0., 0.],
+                             [1., 0., 1., 0., 1., 1., 1., 0., 0.]])
+network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4,5,6,7,8])
+#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 
@@ -298,9 +364,9 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if i == 12:
+    if i == 30:
         None
-    neigh_connection(state, nodes, graph_matrix, st.communication_range) 
+    #neigh_connection(state, nodes, graph_matrix, st.communication_range) 
     for j in range(st.n_nodes):
         for ij in nodes[j].neigh:  # select my neighbours
             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
@@ -329,7 +395,7 @@ if st.simulation:
     plt.title("Time Evolution of Pairwise Robot Distances")
     plt.xlabel("Time Step")
     plt.ylabel("Distance")
-    plt.legend()
+    #plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
@@ -352,18 +418,12 @@ if st.simulation:
                     else:
                         i.s_history[n][0].append(i.s_history[n-1][0][d+1]) # take previous value
 
-    if st.n_nodes == 2:
-        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] for i in range(len(nodes[0].s_history))]
-    if st.n_nodes == 3:
-        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] for i in range(len(nodes[0].s_history))]
-    if st.n_nodes == 4: 
-        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] for i in range(len(nodes[0].s_history))]
-    if st.n_nodes == 5:
-        s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] + nodes[4].s_history[i] for i in range(len(nodes[0].s_history))]
-        
+    s_hist_merged = [
+        sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
+    ]    
     
     artist_flags = MultiRobotArtists(
-        centroid=True, goals=True, obstacles=False,
+        centroid=True, goals=False, obstacles=True,
         past_trajectory=False,
         omnidir=True,
         unicycles=False,
@@ -372,5 +432,5 @@ if st.simulation:
         voronoi=False,
     )
 
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, estim=st.estimation_plotting)
+    display_animation(s_hist_merged, None, [7,7,0.9], st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
 

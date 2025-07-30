@@ -230,7 +230,7 @@ class Animation():
         self.artists.voronoi = [self.ax.plot([],[])]
         
         if self.show_trajectory:
-            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots)+1)]
+            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(len(self.n_robots))] # sum(self.n_robots)+1
             self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
         self.ax.set(xlim=self.x_lim, ylim=self.y_lim, xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
@@ -309,7 +309,7 @@ class Animation():
                 plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
             )
         
-        self.ax.legend(handles=legend_elements, loc='upper right')
+        #self.ax.legend(handles=legend_elements, loc='upper right')
         
         # =========================== Time On Plot =========================== #
         
@@ -471,6 +471,8 @@ class Animation():
             cnt = 0
             for c in range(len(self.data[frame])):
                 for j, s_c_j in enumerate(state[c]):
+                    if j > 0:
+                        continue
                     self.artists.past_trajectory[cnt] = plt.plot(
                         x_history[c][j,:,0], x_history[c][j,:,1],
                         color = 'k',
@@ -478,15 +480,16 @@ class Animation():
                         alpha = 0.5,
                     )[0]
                     cnt += 1
+
                     
-            # Sum of x_history along c and j indices
-            x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
-            self.artists.past_trajectory[cnt] = plt.plot(
-                x_centroid_hist[:,0], x_centroid_hist[:,1],
-                color = 'C2',
-                linestyle = '--',
-                alpha = 0.75,
-            )[0]
+            ## Sum of x_history along c and j indices
+            #x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
+            #self.artists.past_trajectory[cnt] = plt.plot(
+            #    x_centroid_hist[:,0], x_centroid_hist[:,1],
+            #    color = 'C2',
+            #    linestyle = '--',
+            #    alpha = 0.75,
+            #)[0]
         
         # Time on plot.
         self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")
@@ -499,7 +502,7 @@ def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
     show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
-    x_lim = [-20., 20.], y_lim = [-20., 20.],
+    x_lim = [-20., 25.], y_lim = [-20., 25.],
 ):
     fig, ax = plt.subplots()
     

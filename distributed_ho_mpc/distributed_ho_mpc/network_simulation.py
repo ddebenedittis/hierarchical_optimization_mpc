@@ -88,7 +88,7 @@ def neigh_connection(states, nodes, graph_matrix, communication_range):
 
         # Sort and select up to 6 nearest within range
         distances.sort(key=lambda x: x[1])
-        closest_neighbors = set(idx for idx, _ in distances[:5])
+        closest_neighbors = set(idx for idx, _ in distances[:7])
 
         current_connections = set(np.nonzero(graph_matrix[i])[0])
 
@@ -151,10 +151,6 @@ goals = [
     np.array([-8,3]),
     np.array([8,-3]),
     np.array([-8,-3]),
-    np.array([9,0]),
-    np.array([-9,0]),
-    np.array([0,6]),
-    np.array([0,-6])
 ]
 
 '''system_tasks = {
@@ -257,7 +253,8 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
                             {'prio':4, 'name':"position", 'goal': goals[7],'goal_index':7},
                 ],
-                'agent_8': [{'prio':1, 'name':"input_limits"},
+}
+'''             'agent_8': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
@@ -281,7 +278,7 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
                             {'prio':4, 'name':"position", 'goal': goals[11],'goal_index':11},
                 ],
-}
+}'''
 
 # ---------------------------------------------------------------------------- #
 #               Create the network and connection between agents               #
@@ -384,10 +381,6 @@ gg = np.array([
         [-8,3],
         [8,-3],
         [-8,-3],
-        [9,0],
-        [-9,0],
-        [0,6],
-        [0,-6]
     ])
 
 
@@ -462,7 +455,7 @@ if st.simulation:
     plt.title("Time Evolution of Pairwise Robot Distances")
     plt.xlabel("Time Step")
     plt.ylabel("Distance")
-    plt.legend()
+    #plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
@@ -512,5 +505,5 @@ if st.simulation:
     )
 
 
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, estim=st.estimation_plotting)
+    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
 

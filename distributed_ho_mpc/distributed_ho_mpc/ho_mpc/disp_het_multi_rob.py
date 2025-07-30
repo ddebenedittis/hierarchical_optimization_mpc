@@ -229,7 +229,7 @@ class Animation():
         self.artists.voronoi = [self.ax.plot([],[])]
         
         if self.show_trajectory:
-            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(sum(self.n_robots)+1)]
+            self.artists.past_trajectory = [self.ax.plot([],[]) for _ in range(len(self.n_robots))]
             self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
         
         self.ax.set(xlim=self.x_lim, ylim=self.y_lim, xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
@@ -308,7 +308,7 @@ class Animation():
                 plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
             )
         
-        self.ax.legend(handles=legend_elements, loc='upper right')
+        #self.ax.legend(handles=legend_elements, loc='upper right')
         
         # =========================== Time On Plot =========================== #
         
@@ -368,12 +368,13 @@ class Animation():
         #    np.zeros((len(self.n_robots), n_history, 3)),
         #    np.zeros((n_j, n_history, 2)),
         #]
-        x_history = [np.zeros((n_history, 3)) for agent in self.n_robots]
+        x_history = [np.zeros((agent, n_history, 2)) for agent in self.n_robots]
         p = 0
         for k in range(n_history):
             for c in range(len(self.data[frame - k])):
-                x_history[c][k] = self.data[frame - k][c][0]
-
+                for j, s_c_j in enumerate(self.data[frame - k][c]):
+                    x_history[c][j, k, 0] = s_c_j[0]
+                    x_history[c][j, k, 1] = s_c_j[1]
                 # for j, s_c_j in enumerate(self.data[frame - k][c]):
                 #     x_history[c][j, k, 0] = s_c_j[0]
                 #     x_history[c][j, k, 1] = s_c_j[1]
@@ -473,23 +474,25 @@ class Animation():
             
             cnt = 0
             for c in range(len(self.data[frame])):
-                #for j, s_c_j in enumerate(state[c]):
-                self.artists.past_trajectory[cnt] = plt.plot(
-                    x_history[c][:,0], x_history[c][:,1],
-                    color = 'k',
-                    linestyle = '--',
-                    alpha = 0.5,
-                )[0]
-                cnt += 1
+                for j, s_c_j in enumerate(state[c]):
+                    if j > 0:
+                        continue
+                    self.artists.past_trajectory[cnt] = plt.plot(
+                        x_history[c][j,:,0], x_history[c][j,:,1],
+                        color = 'k',
+                        linestyle = '--',
+                        alpha = 0.5,
+                    )[0]
+                    cnt += 1
                     
             # Sum of x_history along c and j indices
-            x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
-            self.artists.past_trajectory[cnt] = plt.plot(
-                x_centroid_hist[0], x_centroid_hist[1],
-                color = 'C2',
-                linestyle = '--',
-                alpha = 0.75,
-            )[0]
+            # x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
+            # self.artists.past_trajectory[cnt] = plt.plot(
+            #     x_centroid_hist[0], x_centroid_hist[1],
+            #     color = 'C2',
+            #     linestyle = '--',
+            #     alpha = 0.75,
+            # )[0]
         
         # Time on plot.
         self.fr_number.set_text(f"$t = {frame*self.dt:.2f} \, s$")

@@ -134,11 +134,11 @@ def agents_distance(state, pairwise_distances):
 #                                TASK SCHEDULER                               #
 # =========================================================================== #
 
-# goals = [
-#         np.array([4, 6]),
-#         np.array([-6, -8]),
-#         np.array([0,0])
-#     ]
+goals = [
+        np.array([0,0 ]),
+        np.array([0,0]),
+        np.array([0,0])
+    ]
 
 time_start = time.time()
 
@@ -209,76 +209,51 @@ goals = [
 }'''
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
-                            {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_4': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[4],'goal_index':4},
+                            #{'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
+                ],
+                'agent_4': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            {'prio':3, 'name':"collision_avoidance"},
+                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+                            #{'prio':4, 'name':"position", 'goal': goals[4],'goal_index':4},
                 ],
                 'agent_5': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[5],'goal_index':5},
+                            #{'prio':4, 'name':"position", 'goal': goals[5],'goal_index':5},
                 ],
                 'agent_6': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[6],'goal_index':6},
+                            #{'prio':4, 'name':"position", 'goal': goals[6],'goal_index':6},
                 ],
                 'agent_7': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
                             #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[7],'goal_index':7},
                 ],
 }
-'''             'agent_8': [{'prio':1, 'name':"input_limits"},
-                            {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[8],'goal_index':8},
-                ],
-                'agent_9': [{'prio':1, 'name':"input_limits"},
-                            {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[9],'goal_index':9},
-                ],
-                'agent_10': [{'prio':1, 'name':"input_limits"},
-                            {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[10],'goal_index':10},
-                ],
-                'agent_11': [{'prio':1, 'name':"input_limits"},
-                            {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            {'prio':4, 'name':"position", 'goal': goals[11],'goal_index':11},
-                ],
-}'''
+
 
 # ---------------------------------------------------------------------------- #
 #               Create the network and connection between agents               #
@@ -290,14 +265,14 @@ if st.n_nodes == 2:
                              [1.,0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
 if st.n_nodes == 3:
-    graph_matrix = np.array([[0., 1., 0.],
+    graph_matrix = np.array([[0., 1., 1.],
                              [1., 0., 1.],
-                             [0., 1., 0.]])
+                             [1., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 0., 0., 0.],
-                             [0., 0., 0., 0.],
-                             [0., 0., 0., 1.],
+    graph_matrix = np.array([[0., 1., 1., 0.],
+                             [1., 0., 1., 0.],
+                             [1., 1., 0., 1.],
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
@@ -307,8 +282,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
-
+#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 # random graph 🎲
@@ -402,9 +376,11 @@ for j in range(st.n_nodes):
     nodes[j].dual_update()    # linear update of dual problem
     
 for i in range(st.n_steps):
-    if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
-        last_step = i
-        break
+    # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
+    #     last_step = i
+    #     break
+    if i == 37:
+        None
     if i == st.n_steps-1:
         last_step = i+1
     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
@@ -446,7 +422,7 @@ print(f'Total solving time is {tot_solve}s')
 
 
 if st.simulation:
-    robot_pairs = list(combinations(range(num_robots), 2))
+    '''robot_pairs = list(combinations(range(num_robots), 2))
     x = np.arange(1, last_step+1) * st.dt
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
@@ -458,7 +434,7 @@ if st.simulation:
     #plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.show()'''
 
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
@@ -505,5 +481,5 @@ if st.simulation:
     )
 
 
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
+    display_animation(s_hist_merged, None, None, st.dt, st.visual_method, show_voronoi=True, show_trajectory=True, estim=st.estimation_plotting)
 

@@ -252,7 +252,17 @@ class Node():
             self.task_pos_coeff[i] = RobCont(
                 omni=[[g] for _ in range(self.n_robots.omni)],
             )
-        
+
+        # ===========================Coverage====================================== #
+
+        self.task_coverage       = [[None]]#[None for i in range(len(self.goals))]
+        self.task_coverage_coeff = [[None]]#[None for i in range(len(self.goals))]
+        self.task_coverage = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+        self.task_coverage_coeff = RobCont(
+            omni=[[np.random.rand(2)] for _ in range(self.n_robots.omni)],
+        )
+
+
         # ========================Formation============================================ #
         if 0:
             self.aux = ca.SX.sym('aux', 2, 2)
@@ -367,6 +377,15 @@ class Node():
                             time_index = TaskIndexes.All,
                             robot_index= [[0]]
                         )
+                    elif task['name'] == "coverage":
+                        self.hompc.create_task(
+                            name = "coverage", prio = task['prio'],
+                            type = TaskType.Same,
+                            eq_task_ls = self.task_coverage.tolist(),
+                            eq_task_coeff = self.task_coverage_coeff.tolist(),
+                            time_index = TaskIndexes.All,
+                            robot_index= [self.robot_idx]
+                        )
                     elif task['name'] == "input_minimization":
                         self.hompc.create_task(
                             name = "input_minimization", prio = task['prio'],
@@ -418,22 +437,22 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-4, 4, 0.1])
+                [np.array([-1, -1, 0.1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([3.5, 4, -2.1])
+                [np.array([1, -1, -2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([3.5, -4, 2.1])
+                [np.array([1, 1, 2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-4, -4, 0.75])
+                [np.array([-1, 1, 0.75])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 4:
@@ -450,32 +469,7 @@ class Node():
             self.s = RobCont(omni=
                 [np.array([-5, 2 , 0.25])
                 for _ in range(self.n_robots.omni)]
-            )
-        elif self.node_id == 7:
-            self.s = RobCont(omni=
-                [np.array([5, -2, 3])
-                for _ in range(self.n_robots.omni)]
-            )    
-        elif self.node_id == 8:
-            self.s = RobCont(omni=
-                [np.array([-7, 0 , 0.25])
-                for _ in range(self.n_robots.omni)]
-            )
-        elif self.node_id == 9:
-            self.s = RobCont(omni=
-                [np.array([7, 0, 3])
-                for _ in range(self.n_robots.omni)]
-            )    
-        elif self.node_id == 10:
-            self.s = RobCont(omni=
-                [np.array([0, -5, 2.1])
-                for _ in range(self.n_robots.omni)]
-            )
-        elif self.node_id == 11:
-            self.s = RobCont(omni=
-                [np.array([0, 5, -2.1])
-                for _ in range(self.n_robots.omni)]
-            )    
+            )  
         else:
             raise ValueError('Missing agent init on s')
 
@@ -487,6 +481,7 @@ class Node():
     # ---------------------------------------------------------------------------- #
     #                                Node's Methods                                #
     # ---------------------------------------------------------------------------- #
+
 
     def reorder_s_init(self, state_meas: list[float]):
         for j, s_j in enumerate(state_meas):
@@ -521,8 +516,23 @@ class Node():
     def update(self):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
+        
+
+
         if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
+
+            task_coverage_coeff = self.hompc.get_task_coverage(
+                copy.deepcopy(self.s.tolist())
+                # cov_rob_idx
+            )
+
+            self.hompc.update_task(
+                name = "coverage",
+                #eq_task_ls = task_coverage,
+                eq_task_coeff = task_coverage_coeff,
+                # robot_index = cov_rob_idx,
+            )
         
         if self.step < self.n_steps:
             
@@ -798,8 +808,8 @@ class Node():
                     TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -self.threshold**2)
                 )
              
-
-            if self.degree == 1:
+            # collision for radial switching
+            '''if self.degree == 1:
                self.hompc.create_task_bi(
                     name = "collision", prio = 3,
                     type = TaskType.Bi,
@@ -821,30 +831,7 @@ class Node():
                     ineq_task_coeff= self.task_avoid_collision_coeff,
                     robot_index= [self.robot_idx[1:]],
                     pos = n[0] 
-                )
-                # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-                #                 [[0,1]], 4
-                #         )
-                # self.hompc.create_task_bi(
-                #     name = "formation", prio = 4,
-                #     type = TaskType.Bi,
-                #     aux = aux,
-                #     mapping = mapping.tolist(),
-                #     eq_task_ls = task_formation,
-                #     eq_task_coeff = task_formation_coeff,
-                # )
-
-            # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-            #         [[0,1]], 3
-            #     )
-            # self.hompc.create_task_bi(
-            #     name = "formation", prio = 3,
-            #     type = TaskType.Bi,
-            #     aux = aux,
-            #     mapping = self.mapping.tolist(),
-            #     eq_task_ls = task_formation,
-            #     eq_task_coeff = task_formation_coeff,
-            # )
+                )'''
             
 
             self.hompc.update_task(
@@ -854,6 +841,18 @@ class Node():
             self.hompc.update_task(
                 name = "input_smooth", prio = 2,
                 robot_index= [self.robot_idx]
+            )
+            task_coverage_coeff = self.hompc.get_task_coverage(
+                        copy.deepcopy(self.s.tolist())
+                        # cov_rob_idx
+                    )
+
+            self.hompc.update_task(
+                name = "coverage",
+                #eq_task_ls = task_coverage,
+                eq_task_coeff = task_coverage_coeff,
+                # robot_index = cov_rob_idx,
+                robot_index=[self.robot_idx]
             )
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
@@ -930,9 +929,9 @@ class Node():
         # index = [p for p, task in enumerate(self.hompc._tasks) if id_to_remove not in task.robot_index[0]]
         # self.hompc._tasks = self.hompc._tasks[index]
         if self.degree == 0:
-            self.hompc._tasks[:] = [task for task in self.hompc._tasks if id_to_remove not in task.robot_index[0] or task.prio < 3]
+            self.hompc._tasks[:] = [task for task in self.hompc._tasks if id_to_remove not in task.robot_index[0] or task.prio < 3 or task.name == 'coverage']
         else:
-            self.hompc._tasks[:] = [task for task in self.hompc._tasks if id_to_remove not in task.robot_index[0] or task.prio < 3 or task.name == 'collision']
+            self.hompc._tasks[:] = [task for task in self.hompc._tasks if id_to_remove not in task.robot_index[0] or task.prio < 3 or task.name == 'collision' or task.name == 'coverage']
         
         
         
@@ -982,6 +981,20 @@ class Node():
                         pos = n
                     )
                 
+                elif task.name == 'coverage':
+                    task_coverage_coeff = self.hompc.get_task_coverage(
+                        copy.deepcopy(self.s.tolist())
+                        # cov_rob_idx
+                    )
+
+                    self.hompc.update_task(
+                        name = "coverage",
+                        #eq_task_ls = task_coverage,
+                        eq_task_coeff = task_coverage_coeff,
+                        # robot_index = cov_rob_idx,
+                        robot_index=[self.robot_idx]
+                    )
+        
             elif task.prio > 2:
                 # self.task_pos_coeff = [None for i in range(len(self.goals))]
                 # for i, g in enumerate(self.goals):

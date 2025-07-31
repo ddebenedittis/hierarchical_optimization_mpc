@@ -308,7 +308,7 @@ class Animation():
                 plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
             )
         
-        #self.ax.legend(handles=legend_elements, loc='upper right')
+        self.ax.legend(handles=legend_elements, loc='upper right')
         
         # =========================== Time On Plot =========================== #
         
@@ -454,9 +454,9 @@ class Animation():
         
         # Voronoi.
         if self.show_voronoi:
+            sublist = [elem[0] for elem in state]
             towers = np.array(
-                [e[0:2] for e in state[0]] + 
-                [e[0:2] for e in state[1]]
+                [e[0:2] for e in sublist] 
             )
             bounding_box = np.array([-20, 20, -20, 20])
             vor = BoundedVoronoi(towers, bounding_box)

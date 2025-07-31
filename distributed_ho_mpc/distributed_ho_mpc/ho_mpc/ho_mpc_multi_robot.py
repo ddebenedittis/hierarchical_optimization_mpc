@@ -10,7 +10,7 @@ from scipy.special import binom
 
 from ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
 from ho_mpc.ho_mpc import HOMPC, subs
-
+from distributed_ho_mpc.ho_mpc.voronoi_task import VoronoiTask
 from sympy import Matrix
 
 np.set_printoptions(threshold=np.inf)
@@ -174,6 +174,8 @@ class HOMPCMultiRobot(HOMPC):
             for i in range(len(states))
         ]
         
+        self.bounding_box = np.array([-20, 20, -20, 20])
+
         self._tasks: list[self.Task] = []
         
         self.solve_times = {
@@ -1443,4 +1445,34 @@ class HOMPCMultiRobot(HOMPC):
             temp1 + temp2 + temp3 + k * n_s,
             temp1 + temp2 + temp3 + (k+1) * n_s
         )
+    
+    def get_task_coverage(self, state_meas ,robot_idx: list[list[int]] = None):        
+        if robot_idx is None:
+            towers = np.array(
+                [e[0:2] for e in state_meas[0]]
+            )    
+        
+            n_cov = self.n_robots
+        else:
+            towers = np.array(
+                [state_meas[0][j][0:2] for j in robot_idx[0]]
+            )
+            n_cov = [len(robot_idx[0]), len(robot_idx[1])]
+
+        vor_task = VoronoiTask(towers, self.bounding_box)
+        
+        pos_ref = [[np.array([0, 0]) for _ in range(n_cov[c])] for c in range(len(n_cov))]
+        for c in range(len(n_cov)):
+            for i in range(len(pos_ref[c])):
+                pos_ref[c][i] = vor_task.centroids[i + sum(n_cov[0:c]), :]
+            
+        task_cov_coeff = [
+                [[(pos_ref[c][j][0:2]).flatten()] for j in range(self.n_robots[c])
+                    ] for c in range(len(self.n_robots))
+            ]
+        # task_cov, task_cov_coeff = self.get_task_pos_ref(
+        # pos_ref, robot_idx
+        # )
+                
+        return task_cov_coeff
         

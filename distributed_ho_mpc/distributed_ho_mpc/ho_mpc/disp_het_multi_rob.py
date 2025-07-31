@@ -353,7 +353,7 @@ class Animation():
                 if j == 0:
                     x[0][i, 0] = s_c_j[0]
                     x[0][i, 1] = s_c_j[1]
-                    x[0][i, 2] = s_c_j[2]
+                   # x[0][i, 2] = s_c_j[2]
                 else:
                     x[1][p, 0] = s_c_j[0]
                     x[1][p, 1] = s_c_j[1]

@@ -223,34 +223,21 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"coverage"},
                 ],
-                'agent_4': [{'prio':1, 'name':"input_limits"},
+                'agent_7': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_4': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[4],'goal_index':4},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_5': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[5],'goal_index':5},
+                            {'prio':3, 'name':"coverage"},
                 ],
                 'agent_6': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                            #{'prio':4, 'name':"position", 'goal': goals[6],'goal_index':6},
-                ],
-                'agent_7': [{'prio':1, 'name':"input_limits"},
-                            {'prio':2, 'name':"input_smooth"},
-                            {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+                            {'prio':3, 'name':"coverage"},
                 ],
 }
 
@@ -270,9 +257,9 @@ if st.n_nodes == 3:
                              [1., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 1., 1., 0.],
+    graph_matrix = np.array([[0., 1., 0., 0.],
                              [1., 0., 1., 0.],
-                             [1., 1., 0., 1.],
+                             [0., 1., 0., 1.],
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
@@ -282,7 +269,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 # random graph 🎲
@@ -422,7 +409,7 @@ print(f'Total solving time is {tot_solve}s')
 
 
 if st.simulation:
-    '''robot_pairs = list(combinations(range(num_robots), 2))
+    robot_pairs = list(combinations(range(num_robots), 2))
     x = np.arange(1, last_step+1) * st.dt
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
@@ -434,7 +421,7 @@ if st.simulation:
     #plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()'''
+    plt.show()
 
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #

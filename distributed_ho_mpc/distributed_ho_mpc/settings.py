@@ -4,14 +4,14 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1   # probability of arc of communication
-n_nodes = 4 # numbers of nodes
+n_nodes = 8 # numbers of nodes
 random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 800
+n_steps = 400
 
-communication_range = 20
+communication_range = 15
 
 v_max = 1.8
 v_min = -0.9

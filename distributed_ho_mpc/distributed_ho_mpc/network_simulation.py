@@ -282,7 +282,7 @@ if st.n_nodes == 5:
                              [0., 0., 1., 0., 1.],
                              [0., 0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
-#graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
+graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
 
 # random graph 🎲
@@ -379,7 +379,7 @@ for i in range(st.n_steps):
     # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
     #     last_step = i
     #     break
-    if i == 37:
+    if i == 50:
         None
     if i == st.n_steps-1:
         last_step = i+1

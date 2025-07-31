@@ -488,6 +488,26 @@ class Node():
             if j in self.robot_idx_global:
                 self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j) # TODO manage eterogeneous robots
 
+
+        seen = set(self.robot_idx_global)
+        missing = [i for i in range(3 + 1) if i not in seen]
+        seen = self.robot_idx_global + missing
+
+        state_meas_ordered = [state_meas[nn] for nn in seen]
+
+        task_coverage_coeff = self.hompc.get_task_coverage(
+            copy.deepcopy(state_meas_ordered)
+            # cov_rob_idx
+        )
+
+        self.hompc.update_task(
+            name = "coverage",
+            #eq_task_ls = task_coverage,
+            eq_task_coeff = task_coverage_coeff,
+            # robot_index = cov_rob_idx,
+            robot_index=[self.robot_idx]
+        )
+
         #update position of other robots (not neigh) seen as obstacles
         # self.obstacle_pos = state_meas[2]
         # self.task_obs_avoidance = [ 
@@ -521,18 +541,6 @@ class Node():
 
         if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
-
-            task_coverage_coeff = self.hompc.get_task_coverage(
-                copy.deepcopy(self.s.tolist())
-                # cov_rob_idx
-            )
-
-            self.hompc.update_task(
-                name = "coverage",
-                #eq_task_ls = task_coverage,
-                eq_task_coeff = task_coverage_coeff,
-                # robot_index = cov_rob_idx,
-            )
         
         if self.step < self.n_steps:
             
@@ -842,18 +850,18 @@ class Node():
                 name = "input_smooth", prio = 2,
                 robot_index= [self.robot_idx]
             )
-            task_coverage_coeff = self.hompc.get_task_coverage(
-                        copy.deepcopy(self.s.tolist())
-                        # cov_rob_idx
-                    )
+            # task_coverage_coeff = self.hompc.get_task_coverage(
+            #             copy.deepcopy(self.s.tolist())
+            #             # cov_rob_idx
+            #         )
 
-            self.hompc.update_task(
-                name = "coverage",
-                #eq_task_ls = task_coverage,
-                eq_task_coeff = task_coverage_coeff,
-                # robot_index = cov_rob_idx,
-                robot_index=[self.robot_idx]
-            )
+            # self.hompc.update_task(
+            #     name = "coverage",
+            #     #eq_task_ls = task_coverage,
+            #     #eq_task_coeff = task_coverage_coeff,
+            #     # robot_index = cov_rob_idx,
+            #     robot_index=[self.robot_idx]
+            # )
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
 

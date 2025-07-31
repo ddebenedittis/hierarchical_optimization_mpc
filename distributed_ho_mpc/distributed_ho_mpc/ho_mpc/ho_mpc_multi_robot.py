@@ -1449,7 +1449,7 @@ class HOMPCMultiRobot(HOMPC):
     def get_task_coverage(self, state_meas ,robot_idx: list[list[int]] = None):        
         if robot_idx is None:
             towers = np.array(
-                [e[0:2] for e in state_meas[0]]
+                [e[0:2] for e in state_meas]
             )    
         
             n_cov = self.n_robots

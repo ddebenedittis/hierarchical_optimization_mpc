@@ -274,7 +274,7 @@ class Node():
 
         # =====================Obstacle Avoidance===================================== #
         self.obstacle_pos = np.array([7,7])
-        self.obstacle_size = 1
+        self.obstacle_size = 1.5
         self.task_obs_avoidance = [ 
             ca.vertcat(-(self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
         ]

@@ -172,65 +172,67 @@ goals = [
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[0,8]], 'distance': 5},
-                            {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[0,8]], 'distance': 5},
+                            {'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':2, 'name':"obstacle_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
-                            {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+                            #{'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+                            {'prio':3, 'name':"formation", 'agents': [[0,1]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[1,8]], 'distance': 5},
                             #{'prio':4, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
                 ],
                 'agent_2': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[2,8]], 'distance': 5},
-                            {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[2,8]], 'distance': 5},
+                            {'prio':3, 'name':"formation", 'agents': [[1,2]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
-                            {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+                            {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[3,8]], 'distance': 5},
+                            #{'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+                            #{'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
                             #{'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
                 'agent_4': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[8,4]], 'distance': 5},
-                            {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[8,4]], 'distance': 5},
+                            {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
                 ],
                 'agent_5': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':2, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
+                            {'prio':3, 'name':"formation", 'agents': [[4,5]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
+                            #{'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
                             {'prio':3, 'name':"formation", 'agents': [[5,8]], 'distance': 5},
                 ],
                 'agent_6': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':4, 'name':"formation", 'agents': [[6,8]], 'distance': 5},
-                            {'prio':4, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[6,8]], 'distance': 5},
+                            {'prio':3, 'name':"formation", 'agents': [[5,6]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
                 ],
                 'agent_7': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             #{'prio':3, 'name':"obstacle_avoidance"},
-                            {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
-                            {'prio':4, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
-                            {'prio':4, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
-                            {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+                            #{'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
+                            {'prio':3, 'name':"formation", 'agents': [[6,7]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[0,7]], 'distance': 3.84},
+                            {'prio':3, 'name':"formation", 'agents': [[8,7]], 'distance': 5},
+                            #{'prio':4, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
+                            #{'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
                             #{'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
                 'agent_8': [{'prio':1, 'name':"input_limits"},
@@ -238,10 +240,13 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"obstacle_avoidance"},
                             {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0},
                             {'prio':4, 'name':"formation", 'agents': [[0,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[1,8]], 'distance': 5},
                             {'prio':4, 'name':"formation", 'agents': [[2,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[3,8]], 'distance': 5},
                             {'prio':4, 'name':"formation", 'agents': [[4,8]], 'distance': 5},
                             {'prio':4, 'name':"formation", 'agents': [[6,8]], 'distance': 5},
                             {'prio':4, 'name':"formation", 'agents': [[5,8]], 'distance': 5},
+                            {'prio':4, 'name':"formation", 'agents': [[7,8]], 'distance': 5},
                 ],
 }
 
@@ -274,14 +279,14 @@ if st.n_nodes == 5:
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
 if st.n_nodes == 9:
     graph_matrix = np.array([[0., 1., 0., 0., 0., 0., 0., 1., 1.],
-                             [1., 0., 1., 1., 0., 1., 0., 0., 0.],
+                             [1., 0., 1., 0., 0., 0., 0., 0., 1.],
                              [0., 1., 0., 1., 0., 0., 0., 0,  1.],
-                             [0., 1., 1., 0., 1., 0., 0., 1., 0.],
+                             [0., 0., 1., 0., 1., 0., 0., 0., 1.],
                              [0., 0., 0., 1., 0., 1., 0., 0., 1.],
-                             [0., 1., 0., 0., 1., 0., 1., 1., 1.],
+                             [0., 0., 0., 0., 1., 0., 1., 0., 1.],
                              [0., 0., 0., 0., 0., 1., 0., 1., 1.],
-                             [1., 0., 0., 1., 0., 1., 1., 0., 0.],
-                             [1., 0., 1., 0., 1., 1., 1., 0., 0.]])
+                             [1., 0., 0., 0., 0., 0., 1., 0., 1.],
+                             [1., 1., 1., 1., 1., 1., 1., 1., 0.]])
 network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4,5,6,7,8])
 #graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
@@ -398,7 +403,8 @@ if st.simulation:
     #plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"distances.pdf", bbox_inches='tight', format='pdf')
+    plt.close()
 
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
@@ -432,5 +438,10 @@ if st.simulation:
         voronoi=False,
     )
 
-    display_animation(s_hist_merged, None, [7,7,0.9], st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
+    save_snapshots(
+        s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
+        show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
+    )
+
+    display_animation(s_hist_merged, None, [7,7,1.2], st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
 

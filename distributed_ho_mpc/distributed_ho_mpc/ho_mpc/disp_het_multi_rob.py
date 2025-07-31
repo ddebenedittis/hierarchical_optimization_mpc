@@ -396,8 +396,8 @@ class Animation():
                         
             self.artists.unicycles[i] = plt.scatter(
                 x = x[0][i,0], y = x[0][i,1],
-                s = 250 * scale**2, c = f'C{i}',
-                marker = marker,
+                s = 40, c = f'C{i}',
+                marker = 'o',
             )
             
             if not self.show_estimation:
@@ -539,8 +539,8 @@ def display_animation(
 def save_snapshots(
     s_history, goals, obstacles,
     dt: float, times: int | list[int], filename: str,
-    show_trajectory: bool = True, show_voronoi: bool = True,
-    x_lim = [-20., 20.], y_lim = [-20., 20.],
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = False,
+    x_lim = [-7., 20.], y_lim = [-7., 20.],
 ):
     if isinstance(times, int):
         times = [times]
@@ -549,7 +549,7 @@ def save_snapshots(
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, obstacles, ax, dt)
+        anim = Animation(s_history, goals, obstacles, ax, dt, estim)
         anim.show_trajectory = show_trajectory
         anim.show_voronoi = show_voronoi
         anim.x_lim = x_lim

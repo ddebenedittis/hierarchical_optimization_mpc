@@ -444,17 +444,17 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-1, -1])
+                [np.array([0, 1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([1, -1])
+                [np.array([1, 1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([1, 1])
+                [np.array([2, 1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
@@ -464,24 +464,34 @@ class Node():
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-5, -2 ])
+                [np.array([-2, 1])
                 for _ in range(self.n_robots.omni)]
             )
-        elif self.node_id == 5:
+        elif self.node_id == 9:
             self.s = RobCont(omni=
-                [np.array([5, 2 ])
+                [np.array([2, -1 ])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-5, 2 ])
+                [np.array([-1, -1 ])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([-5, 2 ])
+                [np.array([-2, -1 ])
                 for _ in range(self.n_robots.omni)]
-            )    
+            )
+        elif self.node_id == 8:
+            self.s = RobCont(omni=
+                [np.array([1, -1 ])
+                for _ in range(self.n_robots.omni)]
+            ) 
+        elif self.node_id == 5:
+            self.s = RobCont(omni=
+                [np.array([0, -1 ])
+                for _ in range(self.n_robots.omni)]
+            )     
         else:
             raise ValueError('Missing agent init on s')
 

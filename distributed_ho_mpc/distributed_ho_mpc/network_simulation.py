@@ -239,6 +239,14 @@ system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"coverage"},
                 ],
+                'agent_8': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            {'prio':3, 'name':"coverage"},
+                ],
+                'agent_9': [{'prio':1, 'name':"input_limits"},
+                            {'prio':2, 'name':"input_smooth"},
+                            {'prio':3, 'name':"coverage"},
+                ],
 }
 
 
@@ -409,7 +417,7 @@ print(f'Total solving time is {tot_solve}s')
 
 
 if st.simulation:
-    robot_pairs = list(combinations(range(num_robots), 2))
+    '''robot_pairs = list(combinations(range(num_robots), 2))
     x = np.arange(1, last_step+1) * st.dt
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
@@ -421,7 +429,7 @@ if st.simulation:
     #plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.show()'''
 
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
@@ -466,7 +474,11 @@ if st.simulation:
         #robot_names=True,
         voronoi=False,
     )
-
+    
+    save_snapshots(
+        s_hist_merged, None, None, st.dt, [38], 'snapshot',
+        show_trajectory=True, show_voronoi=True, estim=st.estimation_plotting
+    )
 
     display_animation(s_hist_merged, None, None, st.dt, st.visual_method, show_voronoi=True, show_trajectory=True, estim=st.estimation_plotting)
 

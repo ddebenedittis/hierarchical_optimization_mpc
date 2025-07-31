@@ -235,18 +235,13 @@ class Node():
         #                                     )"""
         # =========================== Define The Tasks ========================== #
         
-        # self.task_input_limits = RobCont(omni=ca.vertcat(
-        #       self.u.omni[0] - self.v_max,   #vmax
-        #     - self.u.omni[0] + 0,   #vmin
-        #       self.u.omni[1] - 1.5,   #vmax
-        #     - self.u.omni[1] - 1.5    #vmin
-        # ))
         self.task_input_limits = RobCont(omni=ca.vertcat(
-               self.u.omni[0] - self.v_max,   #vmax
-             - self.u.omni[0] - 2,   #vmin
-               self.u.omni[1] - 2,   #vmax
-             - self.u.omni[1] - 2    #vmin
-         ))
+              self.u.omni[0] - self.v_max,   #vmax
+            - self.u.omni[0] + 0,   #vmin
+              self.u.omni[1] - 1.5,   #vmax
+            - self.u.omni[1] - 1.5    #vmin
+        ))
+ 
 
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -444,17 +439,17 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-1, -1, 0])
+                [np.array([0, 1, 0])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([1, -1, 0])
+                [np.array([1, 1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([1, 1, 0])
+                [np.array([2, 1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
@@ -464,24 +459,34 @@ class Node():
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-5, -2, 0 ])
+                [np.array([-2, 1, 0 ])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 5:
             self.s = RobCont(omni=
-                [np.array([5, 2, 0 ])
+                [np.array([0, -1, 0 ])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-5, 2 , 0])
+                [np.array([-1, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([-5, 2 , 0])
+                [np.array([-2, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             )    
+        elif self.node_id == 8:
+            self.s = RobCont(omni=
+                [np.array([1, -1 , 0])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 9:
+            self.s = RobCont(omni=
+                [np.array([2, -1, 0])
+                for _ in range(self.n_robots.omni)]
+            )
         else:
             raise ValueError('Missing agent init on s')
 

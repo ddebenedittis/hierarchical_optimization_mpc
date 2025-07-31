@@ -308,7 +308,7 @@ class Animation():
                 plt.Circle([0,0], [0.1], color='grey', alpha=0.5, label='Obstacle')
             )
         
-        self.ax.legend(handles=legend_elements, loc='upper right')
+        #self.ax.legend(handles=legend_elements, loc='upper right')
         
         # =========================== Time On Plot =========================== #
         
@@ -504,7 +504,7 @@ class Animation():
 def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
-    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = False,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     fig, ax = plt.subplots()
@@ -542,7 +542,7 @@ def display_animation(
 def save_snapshots(
     s_history, goals, obstacles,
     dt: float, times: int | list[int], filename: str,
-    show_trajectory: bool = True, show_voronoi: bool = True,
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = False,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     if isinstance(times, int):
@@ -552,7 +552,7 @@ def save_snapshots(
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, obstacles, ax, dt)
+        anim = Animation(s_history, goals, obstacles, ax, dt, estim)
         anim.show_trajectory = show_trajectory
         anim.show_voronoi = show_voronoi
         anim.x_lim = x_lim

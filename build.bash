@@ -56,7 +56,7 @@ while getopts afhlr-: OPT; do
         OPTARG="${OPTARG#=}"      # if long option argument, remove assigning `=`
     fi
     case "$OPT" in
-        a | all )       no_arg; FFMPEG=1 LATEX=1 ;;
+        a | all )       no_arg; FFMPEG=1 LATEX=1 TORCH=1;;
         f | ffmpeg )    no_arg; FFMPEG=1 ;;
         h | help )      no_arg; helpFunction ;;
         l | latex )     no_arg; LATEX=1 ;;

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import casadi as ca
 import numpy as np
-from ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
     
 
 

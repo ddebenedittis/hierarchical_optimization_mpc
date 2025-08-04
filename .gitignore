@@ -1,3 +1,6 @@
 __pycache__
 .venv
 .vscode/launch.json
+
+*.csv
+*.mp4

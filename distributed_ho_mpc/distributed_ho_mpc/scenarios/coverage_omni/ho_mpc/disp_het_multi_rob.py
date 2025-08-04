@@ -353,7 +353,7 @@ class Animation():
                 if j == 0:
                     x[0][i, 0] = s_c_j[0]
                     x[0][i, 1] = s_c_j[1]
-                    x[0][i, 2] = s_c_j[2]
+                   # x[0][i, 2] = s_c_j[2]
                 else:
                     x[1][p, 0] = s_c_j[0]
                     x[1][p, 1] = s_c_j[1]
@@ -401,8 +401,8 @@ class Animation():
                         
             self.artists.unicycles[i] = plt.scatter(
                 x = x[0][i,0], y = x[0][i,1],
-                s = 250 * scale**2, c = f'C{i}',
-                marker = marker,
+                s = 35, c = f'C{i}',
+                marker = 'o',
             )
             if not self.show_estimation:
                 continue
@@ -504,7 +504,7 @@ class Animation():
 def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
-    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = False,
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
     x_lim = [-20., 20.], y_lim = [-20., 20.],
 ):
     fig, ax = plt.subplots()

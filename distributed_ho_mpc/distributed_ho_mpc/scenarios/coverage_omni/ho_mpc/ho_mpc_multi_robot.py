@@ -9,7 +9,7 @@ import numpy as np
 from scipy.special import binom
 
 from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.hierarchical_qp import HierarchicalQP, QPSolver
-from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, subs
+from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc import HOMPC, subs
 from distributed_ho_mpc.ho_mpc.voronoi_task import VoronoiTask
 from sympy import Matrix
 

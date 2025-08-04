@@ -9,7 +9,7 @@ import time
 
 from hierarchical_optimization_mpc.utils.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
 #from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
-from distributed_ho_mpc.ho_mpc.disp_het_multi_rob import (
+from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.disp_het_multi_rob import (
     display_animation,
     MultiRobotArtists,
     plot_distances,
@@ -475,10 +475,10 @@ if st.simulation:
         voronoi=False,
     )
 
-    save_snapshots(
-        s_hist_merged, None, None, st.dt, [38], 'snapshot',
-        show_trajectory=True, show_voronoi=True, estim=st.estimation_plotting
-    )
+    # save_snapshots(
+    #     s_hist_merged, None, None, st.dt, [38], 'snapshot',
+    #     show_trajectory=True, show_voronoi=True, estim=st.estimation_plotting
+    # )
 
 
     display_animation(s_hist_merged, None, None, st.dt, st.visual_method, show_voronoi=True, show_trajectory=True, estim=st.estimation_plotting)

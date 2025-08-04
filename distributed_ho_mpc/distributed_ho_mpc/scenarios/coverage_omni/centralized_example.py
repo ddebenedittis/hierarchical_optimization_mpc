@@ -16,7 +16,7 @@ from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     save_snapshots
 )
 from hierarchical_optimization_mpc.utils.robot_models import get_omnidirectional_model, RobCont
-from distributed_ho_mpc.ho_mpc.robot_models import get_unicycle_model 
+from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.robot_models import get_unicycle_model 
 
 def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
     n_intervals = 10

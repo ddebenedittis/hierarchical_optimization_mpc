@@ -13,10 +13,10 @@ from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 
 
 from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType, TaskBiCoeff
+from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, TaskIndexes, TaskType, TaskBiCoeff
 from distributed_ho_mpc.ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot 
-from distributed_ho_mpc.message import Message, MessageSender, MessageReceiver
-from distributed_ho_mpc.ho_mpc.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
+from distributed_ho_mpc.scenarios.coverage_omni.message import Message, MessageSender, MessageReceiver
+from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.robot_models import get_unicycle_model, get_omnidirectional_model, RobCont
 import distributed_ho_mpc.scenarios.coverage_omni.settings as st
 
 
@@ -43,7 +43,7 @@ class Node():
         self.x_neigh = [] # local buffer to store primal variables to share
         self.x_i = [] 
         self.n_priority = st.n_priority # number of priorities
-        self.n_xi = st.n_control * 4 # dimension of primal variables
+        self.n_xi = st.n_control * 5 # dimension of primal variables
 
         self.cost_history = [] # history of cost function values
         # ======================== Variables updater ======================= #
@@ -150,8 +150,8 @@ class Node():
         self.u = RobCont(omni = None, uni = None)
         self.s_kp1 = RobCont(omni = None, uni = None)
     
-        #self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
+        
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt*10)
         
         self.goals = copy.deepcopy(goals)
 
@@ -235,18 +235,13 @@ class Node():
         #                                     )"""
         # =========================== Define The Tasks ========================== #
         
-        # self.task_input_limits = RobCont(omni=ca.vertcat(
-        #       self.u.omni[0] - self.v_max,   #vmax
-        #     - self.u.omni[0] + 0,   #vmin
-        #       self.u.omni[1] - 1.5,   #vmax
-        #     - self.u.omni[1] - 1.5    #vmin
-        # ))
         self.task_input_limits = RobCont(omni=ca.vertcat(
                self.u.omni[0] - self.v_max,   #vmax
-             - self.u.omni[0] - 2,   #vmin
-               self.u.omni[1] - 2,   #vmax
-             - self.u.omni[1] - 2    #vmin
+            - self.u.omni[0] + 0,   #vmin
+              self.u.omni[1] - 1.5,   #vmax
+            - self.u.omni[1] - 1.5    #vmin
          ))
+ 
 
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -444,52 +439,52 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([0, 1])
+                [np.array([0, 1, 0])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([1, 1])
+                [np.array([1, 1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([2, 1])
+                [np.array([2, 1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-1, 1])
+                [np.array([-1, 1, 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-2, 1])
+                [np.array([-2, 1, 0 ])
                 for _ in range(self.n_robots.omni)]
             )
-        elif self.node_id == 9:
+        elif self.node_id == 5:
             self.s = RobCont(omni=
-                [np.array([2, -1 ])
+                [np.array([0, -1, 0 ])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-1, -1 ])
+                [np.array([-1, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([-2, -1 ])
+                [np.array([-2, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 8:
             self.s = RobCont(omni=
-                [np.array([1, -1 ])
+                [np.array([1, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             ) 
-        elif self.node_id == 5:
+        elif self.node_id == 9:
             self.s = RobCont(omni=
-                [np.array([0, -1 ])
+                [np.array([2, -1, 0])
                 for _ in range(self.n_robots.omni)]
             )     
         else:
@@ -646,17 +641,11 @@ class Node():
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        # for j, _ in enumerate(s.omni):
-        #     for _ in range(n_intervals):
-        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
-        #             u_star.omni[j][0] * np.cos(s.omni[j][2]),
-        #             u_star.omni[j][0] * np.sin(s.omni[j][2]),
-        #             u_star.omni[j][1],
-        #         ])
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
-                    u_star.omni[j][0],
+                    u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                    u_star.omni[j][0] * np.sin(s.omni[j][2]),
                     u_star.omni[j][1],
                 ])
         

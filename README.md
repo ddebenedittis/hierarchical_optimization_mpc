@@ -114,6 +114,23 @@ colcon test
 
 - **Problem**: `qpsolvers` does return both the solution and the cost. This breaks older centralized code. **Solution**: create another function `solve_qp_cost` that does also return the cost, and have `solve_qp` only return the solution. ToDo.
 
+## Publications
+
+If you find this project useful in your research, please consider citing my related work (available [here](https://doi.org/10.1109/LRA.2025.3559843)):
+
+```bibtex
+@article{debenedittis2025managing,
+  author={De Benedittis, Davide and Garabini, Manolo and Pallottino, Lucia},
+  journal={IEEE Robotics and Automation Letters},
+  title={Managing Conflicting Tasks in Heterogeneous Multi-Robot Systems Through Hierarchical Optimization}, 
+  year={2025},
+  volume={10},
+  number={6},
+  pages={5305-5312},
+  doi={10.1109/LRA.2025.3559843}
+}
+```
+
 ## Author
 
 - [Davide De Benedittis](https://3.bp.blogspot.com/-xvFfjYBPegM/VvFp02nHUjI/AAAAAAAAIoc/Mysj-ESrXPQFQI_yOJFQQz2kwZuIQiAKA/s1600/He-Man.png)

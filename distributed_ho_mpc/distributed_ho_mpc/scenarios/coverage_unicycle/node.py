@@ -13,14 +13,14 @@ from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.ho_mpc_multi_robot im
     TaskIndexes,
     TaskType,
 )
-from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.robot_models import (
-    RobCont,
-    get_omnidirectional_model,
-    get_unicycle_model,
-)
 from distributed_ho_mpc.scenarios.coverage_unicycle.message import (
     MessageReceiver,
     MessageSender,
+)
+from hierarchical_optimization_mpc.utils.robot_models import (
+    RobCont,
+    get_omnidirectional_model,
+    get_unicycle_model,
 )
 
 
@@ -152,9 +152,9 @@ class Node:
 
         self.dt = copy.deepcopy(dt)  # timestep size
 
-        self.s = RobCont(omni=None, uni=None)  # symbolic state variables
-        self.u = RobCont(omni=None, uni=None)
-        self.s_kp1 = RobCont(omni=None, uni=None)
+        self.s = RobCont(omni=None)  # symbolic state variables
+        self.u = RobCont(omni=None)
+        self.s_kp1 = RobCont(omni=None)
 
         self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 10)
 

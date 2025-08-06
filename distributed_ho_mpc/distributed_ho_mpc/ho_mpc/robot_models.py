@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any
 
 import casadi as ca
-import numpy as np
 
 
 class RobotType(Enum):

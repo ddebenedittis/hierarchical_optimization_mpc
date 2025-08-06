@@ -133,6 +133,9 @@ class HierarchicalQP:
     x_p+1_star_bar = x_p_star_bar + Z @ x_p+1_star
     """
 
+    ns = 2
+    ni = 2
+
     def __init__(
         self,
         solver: QPSolver = QPSolver.quadprog,
@@ -601,10 +604,16 @@ class HierarchicalQP:
         index = np.arange(dim)
         xdim = int(x_i / n_c)
         u = np.concatenate(
-            [[index[i : i + 2 : 1] for i in range(2 + (c * xdim), dim, x_i)] for c in range(n_c)]
+            [
+                [index[i : i + self.ni : 1] for i in range(2 + (c * xdim), dim, x_i)]
+                for c in range(n_c)
+            ]
         )
         s = np.concatenate(
-            [[index[i : i + 2 : 1] for i in range(0 + (c * xdim), dim, x_i)] for c in range(n_c)]
+            [
+                [index[i : i + self.ns : 1] for i in range(0 + (c * xdim), dim, x_i)]
+                for c in range(n_c)
+            ]
         )
         reorder = np.concatenate([np.hstack(u), np.hstack(s)])
         return rho_vector[reorder]

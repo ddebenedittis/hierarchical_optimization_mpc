@@ -9,7 +9,7 @@ import numpy as np
 from scipy.special import binom
 from sympy import Matrix
 
-from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.hierarchical_qp import (
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
@@ -142,6 +142,8 @@ class HOMPCMultiRobot(HOMPC):
         self.decay_rate = decay_rate
 
         self.hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        self.hqp.ns = 3
+        self.hqp.ni = 2
 
         # ==================================================================== #
 

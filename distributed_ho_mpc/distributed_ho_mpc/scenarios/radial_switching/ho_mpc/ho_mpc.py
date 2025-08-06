@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import casadi as ca
 import numpy as np
 
-from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.hierarchical_qp import (
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
@@ -350,6 +350,8 @@ class HOMPC:
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
 
         hqp = HierarchicalQP(solver=self.solver)
+        hqp.ns = 3
+        hqp.ni = 2
 
         x_star = hqp(A, b, C, d)
 

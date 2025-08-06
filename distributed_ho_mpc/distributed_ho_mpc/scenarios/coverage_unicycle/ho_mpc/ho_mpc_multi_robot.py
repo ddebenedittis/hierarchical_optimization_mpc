@@ -8,11 +8,11 @@ import casadi as ca
 import numpy as np
 from scipy.special import binom
 
-from distributed_ho_mpc.ho_mpc.voronoi_task import VoronoiTask
-from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.hierarchical_qp import (
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
+from distributed_ho_mpc.ho_mpc.voronoi_task import VoronoiTask
 from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.ho_mpc import HOMPC, subs
 
 np.set_printoptions(threshold=np.inf)
@@ -142,6 +142,8 @@ class HOMPCMultiRobot(HOMPC):
         self.decay_rate = decay_rate
 
         self.hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        self.hqp.ns = 3
+        self.hqp.ni = 2
 
         # ==================================================================== #
 

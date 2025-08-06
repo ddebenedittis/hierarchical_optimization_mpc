@@ -8,7 +8,7 @@ import casadi as ca
 import numpy as np
 from scipy.special import binom
 
-from distributed_ho_mpc.scenarios.formation_obstacle_omni.ho_mpc.hierarchical_qp import (
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
@@ -144,6 +144,8 @@ class HOMPCMultiRobot(HOMPC):
         self.decay_rate = decay_rate
 
         self.hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
+        self.hqp.ns = 2
+        self.hqp.ni = 2
 
         # ==================================================================== #
 

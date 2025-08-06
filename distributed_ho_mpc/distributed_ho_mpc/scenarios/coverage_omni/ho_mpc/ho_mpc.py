@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import casadi as ca
 import numpy as np
 
-from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.hierarchical_qp import (
+from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )

@@ -1,30 +1,25 @@
 import copy
 import csv
-import time
-from datetime import datetime, timedelta
 
 import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.coverage_omni.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC
 from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
     TaskType,
 )
-from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.robot_models import (
-    RobCont,
-    get_omnidirectional_model,
-)
 from distributed_ho_mpc.scenarios.coverage_omni.message import (
     MessageReceiver,
     MessageSender,
 )
-from hierarchical_optimization_mpc.auxiliary.evolve import evolve
+from hierarchical_optimization_mpc.utils.robot_models import (
+    RobCont,
+    get_omnidirectional_model,
+)
 
 
 class Node:
@@ -155,9 +150,9 @@ class Node:
 
         self.dt = copy.deepcopy(dt)  # timestep size
 
-        self.s = RobCont(omni=None, uni=None)  # symbolic state variables
-        self.u = RobCont(omni=None, uni=None)
-        self.s_kp1 = RobCont(omni=None, uni=None)
+        self.s = RobCont(omni=None)  # symbolic state variables
+        self.u = RobCont(omni=None)
+        self.s_kp1 = RobCont(omni=None)
 
         # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 10)

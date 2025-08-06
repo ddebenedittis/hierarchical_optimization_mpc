@@ -18,387 +18,296 @@ from hierarchical_optimization_mpc.utils.robot_models import (
     get_unicycle_model,
 )
 
-model = {
-    'unicycle': get_unicycle_model(st.dt),
-    'omnidirectional': get_omnidirectional_model(st.dt),
-}
 
+def main():
+    model = {
+        'unicycle': get_unicycle_model(st.dt),
+        'omnidirectional': get_omnidirectional_model(st.dt),
+    }
 
-def neigh_connection(states, nodes, graph_matrix, communication_range):
-    """
-    Check if the distance between two nodes is less than the communication range,
-    and if so create a connection between the two nodes which become neighbours
-    and cooperate one with the other
-    """
+    def neigh_connection(states, nodes, graph_matrix, communication_range):
+        """
+        Check if the distance between two nodes is less than the communication range,
+        and if so create a connection between the two nodes which become neighbours
+        and cooperate one with the other
+        """
 
-    for i, node in enumerate(nodes):
-        for idx, state in enumerate(states):
-            if i == idx:
-                continue
-            # Calculate the Euclidean distance between two points and compare with comm range
-            if np.linalg.norm(states[i] - state) < communication_range:
-                if graph_matrix[i][idx] == 0.0:
-                    graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
+        for i, node in enumerate(nodes):
+            for idx, state in enumerate(states):
+                if i == idx:
+                    continue
+                # Calculate the Euclidean distance between two points and compare with comm range
+                if np.linalg.norm(states[i] - state) < communication_range:
+                    if graph_matrix[i][idx] == 0.0:
+                        graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
 
-                    # update task manifold with the neighbours tasks of the new neighbours
-                    neigh_tasks = {}
+                        # update task manifold with the neighbours tasks of the new neighbours
+                        neigh_tasks = {}
 
-                    neigh_tasks[f'agent_{i}'] = {}
+                        neigh_tasks[f'agent_{i}'] = {}
 
-                    if graph_matrix[i][idx] != 0:
-                        neigh_tasks[f'agent_{i}'][f'agent_{idx}'] = copy.deepcopy(
-                            system_tasks[f'agent_{idx}']
+                        if graph_matrix[i][idx] != 0:
+                            neigh_tasks[f'agent_{i}'][f'agent_{idx}'] = copy.deepcopy(
+                                system_tasks[f'agent_{idx}']
+                            )
+
+                        # modify the inner structure of the node
+                        nodes[i].create_connection(
+                            graph_matrix[i],  # Update the neighbours of the node
+                            neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
+                            states[idx],  # pass state of the new neighbour
+                        )
+                else:
+                    if (
+                        graph_matrix[i][idx] == 1.0
+                    ):  # If the distance is greater than the communication range, remove the connection
+                        graph_matrix[i][idx] = 0.0
+
+                        # modify the inner structure of the node
+                        nodes[i].remove_connection(
+                            graph_matrix[i],  # Update the neighbours of the node
+                            f'agent_{idx}',  # Update the neighbours tasks
+                            idx,  # Index of the neighbour to remove
+                            # states[np.nonzero(graph_matrix[i])[0][0]]
                         )
 
-                    # modify the inner structure of the node
-                    nodes[i].create_connection(
-                        graph_matrix[i],  # Update the neighbours of the node
-                        neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
-                        states[idx],  # pass state of the new neighbour
-                    )
-            else:
-                if (
-                    graph_matrix[i][idx] == 1.0
-                ):  # If the distance is greater than the communication range, remove the connection
-                    graph_matrix[i][idx] = 0.0
+    def agents_distance(state, pairwise_distances):
+        """
+        Plot the distance between the agents at each time step
+        """
+        positions_over_time = np.array(state)
+        distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
+        for i, d in enumerate(distances):
+            pairwise_distances[i].append(d)
+        return pairwise_distances
 
-                    # modify the inner structure of the node
-                    nodes[i].remove_connection(
-                        graph_matrix[i],  # Update the neighbours of the node
-                        f'agent_{idx}',  # Update the neighbours tasks
-                        idx,  # Index of the neighbour to remove
-                        # states[np.nonzero(graph_matrix[i])[0][0]]
-                    )
+    # =========================================================================== #
+    #                                TASK SCHEDULER                               #
+    # =========================================================================== #
 
+    # goals = [
+    #         np.array([4, 6]),
+    #         np.array([-6, -8]),
+    #         np.array([0,0])
+    #     ]
 
-def agents_distance(state, pairwise_distances):
-    """
-    Plot the distance between the agents at each time step
-    """
-    positions_over_time = np.array(state)
-    distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
-    for i, d in enumerate(distances):
-        pairwise_distances[i].append(d)
-    return pairwise_distances
+    goals = [
+        np.array([0, 0]),
+        np.array([3.53, 3.53]),
+        np.array([-2.53, 3.53]),
+        # np.array([-3.5, -2])
+        # np.array([-5, -5]),
+        # np.array([-5, 5]),
+        # np.array([5, 5])
+    ]
 
+    system_tasks = {
+        'agent_0': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
+        ],
+        'agent_1': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
+            # {'prio':4, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
+        ],
+        'agent_2': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
+        ],
+        'agent_3': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
+            # {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+            # {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+        ],
+        'agent_4': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[8, 4]], 'distance': 5},
+            {'prio': 3, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
+        ],
+        'agent_5': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':2, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
+            # {'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
+            {'prio': 3, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
+        ],
+        'agent_6': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            {'prio': 3, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
+            {'prio': 3, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
+        ],
+        'agent_7': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio':3, 'name':"obstacle_avoidance"},
+            # {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
+            {'prio': 3, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
+            {'prio': 3, 'name': 'formation', 'agents': [[8, 7]], 'distance': 5},
+            # {'prio':4, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
+            # {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+        ],
+        'agent_8': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[4, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[7, 8]], 'distance': 5},
+        ],
+    }
 
-# =========================================================================== #
-#                                TASK SCHEDULER                               #
-# =========================================================================== #
+    # ---------------------------------------------------------------------------- #
+    #               Create the network and connection between agents               #
+    # ---------------------------------------------------------------------------- #
 
-# goals = [
-#         np.array([4, 6]),
-#         np.array([-6, -8]),
-#         np.array([0,0])
-#     ]
+    # deterministic graphs
+    if st.n_nodes == 2:
+        graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
+    if st.n_nodes == 3:
+        graph_matrix = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
+    if st.n_nodes == 4:
+        graph_matrix = np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
+    if st.n_nodes == 5:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
+    if st.n_nodes == 9:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0, 1.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
-goals = [
-    np.array([0, 0]),
-    np.array([3.53, 3.53]),
-    np.array([-2.53, 3.53]),
-    # np.array([-3.5, -2])
-    # np.array([-5, -5]),
-    # np.array([-5, 5]),
-    # np.array([5, 5])
-]
+    # random graph 🎲
+    while st.random_graph:
+        network_graph = nx.gnp_random_graph(st.n_nodes, st.p)
+        graph_matrix = nx.to_numpy_array(network_graph)
 
-"""system_tasks = {
-    'agent_0': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},                
-                {'prio':3, 'name':"formation", 'agents': [[0,1]]},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                ],
-    'agent_1': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},                
-                {'prio':4, 'name':"formation", 'agents': [[0,1]]},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                ],
-    'agent_2': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},                
-                {'prio':3, 'name':"formation", 'agents': [[1,2]]},
-                {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                ],
-}"""
-"""system_tasks = {
-    'agent_0': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                #{'prio':3, 'name':"formation", 'agents': [[0,1]]},
-                ],
-    'agent_1': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},
-                #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,}
-                ],
-    'agent_2': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                #{'prio':4, 'name':"formation", 'agents': [[2,3]]},
-                ],
-    'agent_3': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':3, 'name':"formation", 'agents': [[2,3]]},
-                ]
-}"""
-"""system_tasks = {
-    'agent_0': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                #{'prio':4, 'name':"obstacle_avoidance"},
-                {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
-                ],
-    'agent_1': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                {'prio':3, 'name':"collision_avoidance"},
-                {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
-                #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                ],
-    'agent_2': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 5},
-                {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 2}
-                ],
-    'agent_3': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3}
-                ],
-    'agent_4': [{'prio':1, 'name':"input_limits"},
-                {'prio':2, 'name':"input_smooth"},
-                #{'prio':3, 'name':"collision_avoidance"},
-                {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 5},
-                {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                ]
-}"""
-system_tasks = {
-    'agent_0': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
-        {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
-    ],
-    'agent_1': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        {'prio': 2, 'name': 'obstacle_avoidance'},
-        # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
-        {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
-        # {'prio':4, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
-    ],
-    'agent_2': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
-        {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
-    ],
-    'agent_3': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
-        # {'prio':4, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
-        # {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
-        # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
-    ],
-    'agent_4': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[8, 4]], 'distance': 5},
-        {'prio': 3, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
-    ],
-    'agent_5': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':2, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
-        # {'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
-        {'prio': 3, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
-    ],
-    'agent_6': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        {'prio': 3, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
-        {'prio': 3, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
-    ],
-    'agent_7': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        # {'prio':3, 'name':"obstacle_avoidance"},
-        # {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
-        {'prio': 3, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
-        {'prio': 3, 'name': 'formation', 'agents': [[8, 7]], 'distance': 5},
-        # {'prio':4, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
-        # {'prio':4, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
-        # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
-    ],
-    'agent_8': [
-        {'prio': 1, 'name': 'input_limits'},
-        {'prio': 2, 'name': 'input_smooth'},
-        {'prio': 2, 'name': 'obstacle_avoidance'},
-        {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-        {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[4, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
-        {'prio': 4, 'name': 'formation', 'agents': [[7, 8]], 'distance': 5},
-    ],
-}
+        test = np.linalg.matrix_power((st.I_NN + graph_matrix), st.n_nodes)
 
-# ---------------------------------------------------------------------------- #
-#               Create the network and connection between agents               #
-# ---------------------------------------------------------------------------- #
+        if np.all(test > 0):
+            print('the graph is connected')
+            # nx.draw(network_graph)
+            # plt.show()
+            break
+        else:
+            print('the graph is NOT connected')
 
-# deterministic graphs
-if st.n_nodes == 2:
-    graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
-if st.n_nodes == 3:
-    graph_matrix = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
-if st.n_nodes == 4:
-    graph_matrix = np.array(
-        [
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-            [0.0, 0.0, 1.0, 0.0],
-        ]
-    )
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
-if st.n_nodes == 5:
-    graph_matrix = np.array(
-        [
-            [0.0, 1.0, 1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 1.0, 1.0],
-            [1.0, 0.0, 0.0, 1.0, 1.0],
-            [0.0, 1.0, 1.0, 0.0, 1.0],
-            [0.0, 1.0, 1.0, 1.0, 0.0],
-        ]
-    )
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-if st.n_nodes == 9:
-    graph_matrix = np.array(
-        [
-            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
-            [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-            [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0, 1.0],
-            [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-        ]
-    )
-network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4, 5, 6, 7, 8])
-# graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    # update task manifold with the neighbours tasks
+    neigh_tasks = {}
+    for i in range(st.n_nodes):
+        id = 0
+        neigh_tasks[f'agent_{i}'] = {}
+        for j in graph_matrix[i]:
+            if int(j) != 0:
+                neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(
+                    system_tasks[f'agent_{id}']
+                )
+            id += 1
 
+    # ----------------------------------------------------------------------------- #
+    #         Create agents and initialize them based on settings and tasks        #
+    # ---------------------------------------------------------------------------- #
 
-# random graph 🎲
-while st.random_graph:
-    network_graph = nx.gnp_random_graph(st.n_nodes, st.p)
-    graph_matrix = nx.to_numpy_array(network_graph)
+    nodes = []  # list of agents of the system
 
-    test = np.linalg.matrix_power((st.I_NN + graph_matrix), st.n_nodes)
+    # Create an agents of the same type for each node of the system
+    for i in range(st.n_nodes):
+        node = Node(
+            i,  # ID
+            graph_matrix[i],  # Neighbours
+            model['unicycle'],  # robot model
+            st.dt,  # time step
+            system_tasks[f'agent_{i}'],  # agent's tasks
+            neigh_tasks[f'agent_{i}'],  # neighbours tasks
+            goals,  # goals to be reached
+            st.n_steps,  # max simulation steps
+        )
+        nodes.append(node)
 
-    if np.all(test > 0):
-        print('the graph is connected')
-        # nx.draw(network_graph)
-        # plt.show()
-        break
-    else:
-        print('the graph is NOT connected')
+        # create frameworks for the agents
+        nodes[i].Tasks()
+        nodes[i].MPC()
 
-# update task manifold with the neighbours tasks
-neigh_tasks = {}
-for i in range(st.n_nodes):
-    id = 0
-    neigh_tasks[f'agent_{i}'] = {}
-    for j in graph_matrix[i]:
-        if int(j) != 0:
-            neigh_tasks[f'agent_{i}'][f'agent_{id}'] = copy.deepcopy(system_tasks[f'agent_{id}'])
-        id += 1
+    # ---------------------------------------------------------------------------- #
+    #     iterate through the nodes, transmitting datas and the receiving them     #
+    # ---------------------------------------------------------------------------- #
 
-# ----------------------------------------------------------------------------- #
-#         Create agents and initialize them based on settings and tasks        #
-# ---------------------------------------------------------------------------- #
+    # DISTANCES BETWEEN AGENTS
+    state = [None] * st.n_nodes  # list of x for inizialization of optimization
 
-nodes = []  # list of agents of the system
+    num_robots = st.n_nodes
+    num_pairs = int(num_robots * (num_robots - 1) / 2)
 
-# Create an agents of the same type for each node of the system
-for i in range(st.n_nodes):
-    node = Node(
-        i,  # ID
-        graph_matrix[i],  # Neighbours
-        model['unicycle'],  # robot model
-        st.dt,  # time step
-        system_tasks[f'agent_{i}'],  # agent's tasks
-        neigh_tasks[f'agent_{i}'],  # neighbours tasks
-        goals,  # goals to be reached
-        st.n_steps,  # max simulation steps
-    )
-    nodes.append(node)
+    # Initialize one list per robot pair
+    pairwise_distances = [[] for _ in range(num_pairs)]
 
-    # create frameworks for the agents
-    nodes[i].Tasks()
-    nodes[i].MPC()
-
-
-# ---------------------------------------------------------------------------- #
-#     iterate through the nodes, transmitting datas and the receiving them     #
-# ---------------------------------------------------------------------------- #
-
-# DISTANCES BETWEEN AGENTS
-state = [None] * st.n_nodes  # list of x for inizialization of optimization
-
-num_robots = st.n_nodes
-num_pairs = int(num_robots * (num_robots - 1) / 2)
-
-# Initialize one list per robot pair
-pairwise_distances = [[] for _ in range(num_pairs)]
-
-for j in range(st.n_nodes):
-    state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-# neigh_connection(state, nodes, graph_matrix, st.communication_range)
-for j in range(st.n_nodes):
-    nodes[j].reorder_s_init(state)
-    nodes[j].update()  # Update primal solution and state evolution
-for j in range(st.n_nodes):
-    state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    for ij in nodes[j].neigh:  # select my neighbours
-        msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-        nodes[ij].receive_data(msg)  # neighbour receives the message
-for j in range(st.n_nodes):
-    nodes[j].dual_update()  # linear update of dual problem
-
-for i in range(st.n_steps):
-    if i == 30:
-        None
-    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-            nodes[ij].receive_data(msg)  # neighbour receives the message
+        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
         nodes[j].reorder_s_init(state)
         nodes[j].update()  # Update primal solution and state evolution
@@ -409,75 +318,98 @@ for i in range(st.n_steps):
             nodes[ij].receive_data(msg)  # neighbour receives the message
     for j in range(st.n_nodes):
         nodes[j].dual_update()  # linear update of dual problem
-    pairwise_distances = agents_distance(state, pairwise_distances)
 
+    for i in range(st.n_steps):
+        if i == 30:
+            None
+        # neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for j in range(st.n_nodes):
+            for ij in nodes[j].neigh:  # select my neighbours
+                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
+        for j in range(st.n_nodes):
+            nodes[j].reorder_s_init(state)
+            nodes[j].update()  # Update primal solution and state evolution
+        for j in range(st.n_nodes):
+            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+            for ij in nodes[j].neigh:  # select my neighbours
+                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
+        for j in range(st.n_nodes):
+            nodes[j].dual_update()  # linear update of dual problem
+        pairwise_distances = agents_distance(state, pairwise_distances)
 
-if st.simulation:
-    robot_pairs = list(combinations(range(num_robots), 2))
-    x = np.arange(1, st.n_steps + 1) * st.dt
-    plt.figure(figsize=(10, 6))
-    for i, dist_list in enumerate(pairwise_distances):
-        plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+    if st.simulation:
+        robot_pairs = list(combinations(range(num_robots), 2))
+        x = np.arange(1, st.n_steps + 1) * st.dt
+        plt.figure(figsize=(10, 6))
+        for i, dist_list in enumerate(pairwise_distances):
+            plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
 
-    plt.title('Time Evolution of Pairwise Robot Distances')
-    plt.xlabel('Time Step')
-    plt.ylabel('Distance')
-    # plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f'distances.pdf', bbox_inches='tight', format='pdf')
-    plt.close()
+        plt.title('Time Evolution of Pairwise Robot Distances')
+        plt.xlabel('Time Step')
+        plt.ylabel('Distance')
+        # plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'distances.pdf', bbox_inches='tight', format='pdf')
+        plt.close()
 
-    # ---------------------------------------------------------------------------- #
-    #                          plot the states evolutions                          #
-    # ---------------------------------------------------------------------------- #
-    # handle different lenght of the states due to add/remove of nodes
-    for i in nodes:
-        for n in range(len(i.s_history)):
-            max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
-            if len(i.s_history[n][0]) < max_len:
-                dd = max_len - len(i.s_history[n][0])
-                for d in range(dd):
-                    if n == 0:
-                        if len(i.s_history[n + 1][0]) <= dd:
-                            i.s_history[n][0].append(
-                                np.array([30, 30])
-                            )  # value out of the limits of the simulation
+        # ---------------------------------------------------------------------------- #
+        #                          plot the states evolutions                          #
+        # ---------------------------------------------------------------------------- #
+        # handle different lenght of the states due to add/remove of nodes
+        for i in nodes:
+            for n in range(len(i.s_history)):
+                max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
+                if len(i.s_history[n][0]) < max_len:
+                    dd = max_len - len(i.s_history[n][0])
+                    for d in range(dd):
+                        if n == 0:
+                            if len(i.s_history[n + 1][0]) <= dd:
+                                i.s_history[n][0].append(
+                                    np.array([30, 30])
+                                )  # value out of the limits of the simulation
+                            else:
+                                i.s_history[n][0].append(i.s_history[1][0][d])  # take next value
                         else:
-                            i.s_history[n][0].append(i.s_history[1][0][d])  # take next value
-                    else:
-                        i.s_history[n][0].append(
-                            i.s_history[n - 1][0][d + 1]
-                        )  # take previous value
+                            i.s_history[n][0].append(
+                                i.s_history[n - 1][0][d + 1]
+                            )  # take previous value
 
-    s_hist_merged = [
-        sum((node.s_history[i][:1] for node in nodes), []) for i in range(len(nodes[0].s_history))
-    ]
+        s_hist_merged = [
+            sum((node.s_history[i][:1] for node in nodes), [])
+            for i in range(len(nodes[0].s_history))
+        ]
 
-    artist_flags = MultiRobotArtists(
-        centroid=True,
-        goals=False,
-        obstacles=True,
-        past_trajectory=False,
-        omnidir=True,
-        unicycles=False,
-        # robots=RobCont(omni=True),
-        # robot_names=True,
-        voronoi=False,
-    )
+        artist_flags = MultiRobotArtists(
+            centroid=True,
+            goals=False,
+            obstacles=True,
+            past_trajectory=False,
+            omnidir=True,
+            unicycles=False,
+            # robots=RobCont(omni=True),
+            # robot_names=True,
+            voronoi=False,
+        )
 
-    # save_snapshots(
-    #     s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
-    #     show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
-    # )
+        # save_snapshots(
+        #     s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
+        #     show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
+        # )
 
-    display_animation(
-        s_hist_merged,
-        None,
-        [7, 7, 1.2],
-        st.dt,
-        st.visual_method,
-        show_voronoi=False,
-        show_trajectory=True,
-        estim=st.estimation_plotting,
-    )
+        display_animation(
+            s_hist_merged,
+            None,
+            [7, 7, 1.2],
+            st.dt,
+            st.visual_method,
+            show_voronoi=False,
+            show_trajectory=True,
+            estim=st.estimation_plotting,
+        )
+
+
+if __name__ == '__main__':
+    main()

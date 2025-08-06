@@ -10,9 +10,6 @@ from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.coverage_omni.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC
-from distributed_ho_mpc.ho_mpc.tasks_creator_ho_mpc_mr import (
-    TasksCreatorHOMPCMultiRobot,
-)
 from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -22,10 +19,8 @@ from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc_multi_robot import
 from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.robot_models import (
     RobCont,
     get_omnidirectional_model,
-    get_unicycle_model,
 )
 from distributed_ho_mpc.scenarios.coverage_omni.message import (
-    Message,
     MessageReceiver,
     MessageSender,
 )

@@ -1,7 +1,5 @@
 import copy
 import csv
-import time
-from datetime import datetime, timedelta
 
 import casadi as ca
 import numpy as np
@@ -21,7 +19,6 @@ from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.robot_models import (
     get_unicycle_model,
 )
 from distributed_ho_mpc.scenarios.coverage_unicycle.message import (
-    Message,
     MessageReceiver,
     MessageSender,
 )

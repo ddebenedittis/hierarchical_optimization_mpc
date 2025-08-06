@@ -1,6 +1,5 @@
 import copy
 import csv
-import time
 
 import casadi as ca
 import numpy as np

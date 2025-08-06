@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist
 
-from distributed_ho_mpc.ho_mpc.robot_models import get_unicycle_model
+from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.robot_models import get_unicycle_model
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     QPSolver,

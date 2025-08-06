@@ -1,28 +1,29 @@
 import copy
 import csv
-import time
-from datetime import datetime, timedelta
 
 import casadi as ca
 import numpy as np
-import settings as st
-from ho_mpc.ho_mpc import HOMPC
-from ho_mpc.ho_mpc_multi_robot import (
+from matplotlib import pyplot as plt
+from scipy.spatial.distance import pdist
+
+import distributed_ho_mpc.scenarios.radial_switching.settings as st
+from distributed_ho_mpc.ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
+from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
     TaskType,
 )
-from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
-from matplotlib import pyplot as plt
-from scipy.spatial.distance import pdist
-
-from distributed_ho_mpc.ho_mpc.robot_models import (
+from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.robot_models import (
     RobCont,
     get_omnidirectional_model,
     get_unicycle_model,
 )
-from distributed_ho_mpc.message import Message, MessageReceiver, MessageSender
+from distributed_ho_mpc.scenarios.radial_switching.message import (
+    Message,
+    MessageReceiver,
+    MessageSender,
+)
 from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 
 

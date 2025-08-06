@@ -5,19 +5,18 @@ from itertools import combinations
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import settings as st
 from scipy.spatial.distance import pdist
 
+import distributed_ho_mpc.scenarios.radial_switching.settings as st
+
 # from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation
-from distributed_ho_mpc.ho_mpc.disp_het_multi_rob import (
+from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.disp_het_multi_rob import (
     MultiRobotArtists,
     display_animation,
-    plot_distances,
     save_snapshots,
 )
-from distributed_ho_mpc.node import Node
+from distributed_ho_mpc.scenarios.radial_switching.node import Node
 from hierarchical_optimization_mpc.utils.robot_models import (
-    RobCont,
     get_omnidirectional_model,
     get_unicycle_model,
 )

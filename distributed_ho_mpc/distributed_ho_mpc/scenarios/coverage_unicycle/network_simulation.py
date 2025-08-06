@@ -518,17 +518,17 @@ if st.simulation:
         voronoi=False,
     )
 
-    save_snapshots(
-        s_hist_merged,
-        None,
-        None,
-        st.dt,
-        [38],
-        'snapshot',
-        show_trajectory=True,
-        show_voronoi=True,
-        estim=st.estimation_plotting,
-    )
+    # save_snapshots(
+    #     s_hist_merged,
+    #     None,
+    #     None,
+    #     st.dt,
+    #     [38],
+    #     'snapshot',
+    #     show_trajectory=True,
+    #     show_voronoi=True,
+    #     estim=st.estimation_plotting,
+    # )
 
     display_animation(
         s_hist_merged,

@@ -9,23 +9,22 @@ import settings as st
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import pdist
 
-from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
     TaskType,
 )
-from distributed_ho_mpc.ho_mpc.robot_models import (
+from distributed_ho_mpc.scenarios.coverage_unicycle.ho_mpc.robot_models import (
     RobCont,
     get_omnidirectional_model,
     get_unicycle_model,
 )
-from distributed_ho_mpc.ho_mpc.tasks_creator_ho_mpc_mr import (
-    TasksCreatorHOMPCMultiRobot,
+from distributed_ho_mpc.scenarios.coverage_unicycle.message import (
+    Message,
+    MessageReceiver,
+    MessageSender,
 )
-from distributed_ho_mpc.message import Message, MessageReceiver, MessageSender
-from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 
 
 class Node:

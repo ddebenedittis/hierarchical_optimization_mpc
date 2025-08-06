@@ -1,6 +1,7 @@
 __pycache__
+.ruff_cache
 .venv
-.vscode/launch.json
+.vscode
 
 *.csv
 *.mp4

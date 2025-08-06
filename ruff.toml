@@ -1,0 +1,12 @@
+line-length = 100
+
+[format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+
+[lint]
+select = ["I"]
+fixable = ["I"]

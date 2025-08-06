@@ -1,5 +1,6 @@
 import argparse
 
+
 def str2bool(b):
     if isinstance(b, bool):
         return b
@@ -7,5 +8,5 @@ def str2bool(b):
         return True
     if b.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
-    
+
     raise argparse.ArgumentTypeError('Boolean value expected.')

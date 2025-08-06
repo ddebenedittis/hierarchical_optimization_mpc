@@ -8,11 +8,14 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
   - [Installation](#installation)
-    - [Dependencies](#dependencies)
   - [Usage](#usage)
     - [Scripts](#scripts)
       - [With ROS](#with-ros)
       - [With Python](#with-python)
+        - [Distributed](#distributed)
+  - [Development](#development)
+    - [Pre-Commit](#pre-commit)
+    - [Tests](#tests)
   - [Known Bugs](#known-bugs)
   - [Author](#author)
 
@@ -23,32 +26,6 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
 These packages have been tested with ROS 2 Humble and ROS 2 Iron on an Ubuntu system.
 
 To use Torch with an NVIDIA graphics card, it is necessary to install the NVIDIA drivers for Ubuntu. [Here](https://letmegooglethat.com/?q=Install+nvidia+drivers+ubuntu).
-
-### Dependencies
-
-Ubuntu packages:
-- `git`
-
-Python 3 packages:
-- `casadi`
-- `clarabel`
-- `cvxpy`
-- `matplotlib`
-- `numpy`
-- `osqp`
-- `pandas`
-- `proxsuite`
-- `quadprog`
-- `qpsolvers`
-- `scipy`
-- `reluqp`
-- `torch`
-- `torchaudio`
-- `torchvision`
-
-`Torch`, `torchaudio`, and `torchvision` are necessary for the neural network approximator and ReLuQP.
-
-`ffmepg` is required for saving the videos in .mp4 format.
 
 ## Usage
 
@@ -107,10 +84,37 @@ Parameters:
 - `--solver {clarabel, osqp, proxqp, quadprog, reluqp}`: QP solver to use.
 - `--visual_method {plot, save, none}`: how to display the results.
 
+##### Distributed
+
+Distributed examples can be run with the scripts `network_simulation.py` in the `scenarios` folder in `distributed_ho_mpc` package.
+
+## Development
+
+### Pre-Commit
+
+Install `pre-commit` and `ruff` (already installed in Docker)
+```shell
+pip3 install pre-commit ruff
+```
+
+Run
+```shell
+pre-commit install
+```
+This will format all the Python code with Ruff.
+
+### Tests
+
+Tests can be run with
+```
+colcon test
+```
+
 ## Known Bugs
 
-No known bugs.
+- **Problem**: `qpsolvers` does return both the solution and the cost. This breaks older centralized code. **Solution**: create another function `solve_qp_cost` that does also return the cost, and have `solve_qp` only return the solution. ToDo.
 
 ## Author
 
-[Davide De Benedittis](https://3.bp.blogspot.com/-xvFfjYBPegM/VvFp02nHUjI/AAAAAAAAIoc/Mysj-ESrXPQFQI_yOJFQQz2kwZuIQiAKA/s1600/He-Man.png)
+- [Davide De Benedittis](https://3.bp.blogspot.com/-xvFfjYBPegM/VvFp02nHUjI/AAAAAAAAIoc/Mysj-ESrXPQFQI_yOJFQQz2kwZuIQiAKA/s1600/He-Man.png)
+- [Federico Iadarola](https://github.com/fedeiada)

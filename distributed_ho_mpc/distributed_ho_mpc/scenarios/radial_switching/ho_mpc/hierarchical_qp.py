@@ -143,9 +143,7 @@ class HierarchicalQP:
 
         self._solver = solver
         if not TORCH_AVAILABLE and self._solver.to_string() == 'reluqp':
-            raise ValueError(
-                'The solver cannot be ReluQP if torch and others ' 'are not available.'
-            )
+            raise ValueError('The solver cannot be ReluQP if torch and others are not available.')
 
         self.hierarchical = hierarchical
 
@@ -176,9 +174,7 @@ class HierarchicalQP:
     @solver.setter
     def solver(self, value):
         if not TORCH_AVAILABLE and self._solver.to_string() == 'reluqp':
-            raise ValueError(
-                'The solver cannot be ReluQP if torch and others ' 'are not available.'
-            )
+            raise ValueError('The solver cannot be ReluQP if torch and others are not available.')
 
         if isinstance(value, QPSolver):
             self._solver = value

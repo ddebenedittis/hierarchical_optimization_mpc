@@ -338,24 +338,12 @@ class Animation:
         if self.n_robots[1] > 0:
             legend_elements.append(
                 Line2D(
-                    [],
-                    [],
-                    marker='o',
-                    color='C1',
-                    linestyle='None',
-                    label='Omnidirectional robot',
+                    [], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot'
                 )
             )
         if sum(self.n_robots) > 1:
             legend_elements.append(
-                Line2D(
-                    [],
-                    [],
-                    marker='o',
-                    color='C2',
-                    linestyle='None',
-                    label='Fleet centroid',
-                )
+                Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
             )
         if self.goals is not None:
             if len(self.goals) > 0:

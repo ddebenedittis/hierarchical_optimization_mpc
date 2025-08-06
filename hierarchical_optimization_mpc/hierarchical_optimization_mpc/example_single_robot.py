@@ -31,9 +31,7 @@ def main():
 
     # state_{k+1} = s_kpi(state_k, input_k)
     s_kp1 = ca.vertcat(
-        s[0] + dt * u[0] * ca.cos(s[2]),
-        s[1] + dt * u[0] * ca.sin(s[2]),
-        s[2] + dt * u[1],
+        s[0] + dt * u[0] * ca.cos(s[2]), s[1] + dt * u[0] * ca.sin(s[2]), s[2] + dt * u[1]
     )
 
     # =========================== Define The Tasks =========================== #

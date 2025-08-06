@@ -75,12 +75,7 @@ class Animation:
         self.artists.past_trajectory = [self.ax.plot([], []) for _ in range(sum(self.n_robots))]
         self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
 
-        self.ax.set(
-            xlim=[-20.0, 20.0],
-            ylim=[-20.0, 20.0],
-            xlabel='$x$ [$m$]',
-            ylabel='$y$ [$m$]',
-        )
+        self.ax.set(xlim=[-20.0, 20.0], ylim=[-20.0, 20.0], xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
 
         self.artists.goals = self.ax.scatter(
             [g[0] for g in self.goals] if self.goals is not None else [],
@@ -109,35 +104,18 @@ class Animation:
         if self.n_robots[1] > 0:
             legend_elements.append(
                 Line2D(
-                    [],
-                    [],
-                    marker='o',
-                    color='C1',
-                    linestyle='None',
-                    label='Omnidirectional robot',
+                    [], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot'
                 )
             )
         if sum(self.n_robots) > 1:
             legend_elements.append(
-                Line2D(
-                    [],
-                    [],
-                    marker='o',
-                    color='C2',
-                    linestyle='None',
-                    label='Fleet centroid',
-                )
+                Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
             )
         if self.goals is not None:
             if len(self.goals) > 0:
                 legend_elements.append(
                     Line2D(
-                        [],
-                        [],
-                        marker='x',
-                        color='k',
-                        linestyle='None',
-                        label='Optimal position',
+                        [], [], marker='x', color='k', linestyle='None', label='Optimal position'
                     )
                 )
         legend_elements.append(
@@ -346,11 +324,7 @@ def display_animation(s_history, goals, dt: float, method: str = 'plot'):
 
     n_steps = len(s_history)
     ani = FuncAnimation(
-        fig=fig,
-        func=anim.update,
-        init_func=anim.init,
-        frames=range(n_steps),
-        interval=dt * 1000,
+        fig=fig, func=anim.update, init_func=anim.init, frames=range(n_steps), interval=dt * 1000
     )
 
     if method == 'plot':

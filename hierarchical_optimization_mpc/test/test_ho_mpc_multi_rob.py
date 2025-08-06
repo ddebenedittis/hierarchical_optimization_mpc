@@ -4,9 +4,7 @@ import casadi as ca
 import numpy as np
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, QPSolver
-from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import (
-    TasksCreatorHOMPCMultiRobot,
-)
+from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 
 
 class TestHOMPCMultiRobot:
@@ -66,12 +64,7 @@ class TestHOMPCMultiRobot:
             hierarchical = True
             self.hompcs_desc.append(
                 self.HOMPCDesc(
-                    s[0:1],
-                    u[0:1],
-                    s_kp1[0:1],
-                    n_robots,
-                    hierarchical,
-                    QPSolver.quadprog,
+                    s[0:1], u[0:1], s_kp1[0:1], n_robots, hierarchical, QPSolver.quadprog
                 )
             )
 
@@ -94,11 +87,7 @@ class TestHOMPCMultiRobot:
         for hompc_desc in self.hompcs_desc:
             try:
                 tasks_creator = TasksCreatorHOMPCMultiRobot(
-                    hompc_desc.states,
-                    hompc_desc.inputs,
-                    hompc_desc.fs,
-                    dt,
-                    hompc_desc.n_robots,
+                    hompc_desc.states, hompc_desc.inputs, hompc_desc.fs, dt, hompc_desc.n_robots
                 )
 
                 tasks_creator.bounding_box = np.array([-20, 20, -20, 20])

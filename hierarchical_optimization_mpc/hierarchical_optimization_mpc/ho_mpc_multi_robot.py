@@ -888,18 +888,12 @@ class HOMPCMultiRobot(HOMPC):
                             - subs(
                                 [t.eq_task_ls[c]],
                                 [self._states[c], self._inputs[c]],
-                                [
-                                    self._state_bar[c][j][k + 1],
-                                    self._input_bar[c][j][ki],
-                                ],
+                                [self._state_bar[c][j][k + 1], self._input_bar[c][j][ki]],
                             )
                             + subs(
                                 [t.eq_task_ls[c]],
                                 [self._states[c], self._inputs[c]],
-                                [
-                                    self._state_bar[c][j][k],
-                                    self._input_bar[c][j][ki - 1],
-                                ],
+                                [self._state_bar[c][j][k], self._input_bar[c][j][ki - 1]],
                             )
                         )
 
@@ -910,18 +904,12 @@ class HOMPCMultiRobot(HOMPC):
                             - subs(
                                 [t.ineq_task_ls[c]],
                                 [self._states[c], self._inputs[c]],
-                                [
-                                    self._state_bar[c][j][k + 1],
-                                    self._input_bar[c][j][ki],
-                                ],
+                                [self._state_bar[c][j][k + 1], self._input_bar[c][j][ki]],
                             )
                             + subs(
                                 [t.ineq_task_ls[c]],
                                 [self._states[c], self._inputs[c]],
-                                [
-                                    self._state_bar[c][j][k],
-                                    self._input_bar[c][j][ki - 1],
-                                ],
+                                [self._state_bar[c][j][k], self._input_bar[c][j][ki - 1]],
                             )
                         )
 
@@ -963,25 +951,13 @@ class HOMPCMultiRobot(HOMPC):
 
                         for k in range(n_c + n_p):
                             [
-                                A[
-                                    ie : ie + ne_block,
-                                    self._get_idx_state_kp1(c0, j0, k),
-                                ],
-                                A[
-                                    ie : ie + ne_block,
-                                    self._get_idx_state_kp1(c1, j1, k),
-                                ],
+                                A[ie : ie + ne_block, self._get_idx_state_kp1(c0, j0, k)],
+                                A[ie : ie + ne_block, self._get_idx_state_kp1(c1, j1, k)],
                                 A[ie : ie + ne_block, self._get_idx_input_k(c0, j0, k)],
                                 A[ie : ie + ne_block, self._get_idx_input_k(c1, j1, k)],
                                 b[ie : ie + ne_block],
-                                C[
-                                    ii : ii + ni_block,
-                                    self._get_idx_state_kp1(c0, j0, k),
-                                ],
-                                C[
-                                    ii : ii + ni_block,
-                                    self._get_idx_state_kp1(c1, j1, k),
-                                ],
+                                C[ii : ii + ni_block, self._get_idx_state_kp1(c0, j0, k)],
+                                C[ii : ii + ni_block, self._get_idx_state_kp1(c1, j1, k)],
                                 C[ii : ii + ni_block, self._get_idx_input_k(c0, j0, k)],
                                 C[ii : ii + ni_block, self._get_idx_input_k(c1, j1, k)],
                                 d[ii : ii + ni_block],
@@ -1195,18 +1171,12 @@ class HOMPCMultiRobot(HOMPC):
                         subs(
                             [t.mapping[c0]],
                             [self._states[c0], self._inputs[c0]],
-                            [
-                                self._state_bar[c0][j0][k + 1],
-                                self._input_bar[c0][j0][ki],
-                            ],
+                            [self._state_bar[c0][j0][k + 1], self._input_bar[c0][j0][ki]],
                         ),
                         subs(
                             [t.mapping[c1]],
                             [self._states[c1], self._inputs[c1]],
-                            [
-                                self._state_bar[c1][j1][k + 1],
-                                self._input_bar[c1][j1][ki],
-                            ],
+                            [self._state_bar[c1][j1][k + 1], self._input_bar[c1][j1][ki]],
                         ),
                     ],
                 ),

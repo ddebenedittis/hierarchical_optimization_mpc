@@ -5,9 +5,7 @@ from contextlib import redirect_stdout
 
 import pandas as pd
 
-from hierarchical_optimization_mpc.example_multi_robot import (
-    main_formation as ex_multi_robot_main,
-)
+from hierarchical_optimization_mpc.example_multi_robot import main_formation as ex_multi_robot_main
 
 # from hierarchical_optimization_mpc.ho_mpc_multi_robot import QPSolver
 
@@ -79,9 +77,7 @@ def compare_method_solve_times():
             print(f'Running code for n_robots = {n_robots}.')
             with redirect_stdout(trap):
                 time = ex_multi_robot_main(
-                    n_robots=n_robots,
-                    hierarchical=methods[method],
-                    visual_method='none',
+                    n_robots=n_robots, hierarchical=methods[method], visual_method='none'
                 )
 
             times[method][f'[{n_robots[0]},{n_robots[1]}]'] = time

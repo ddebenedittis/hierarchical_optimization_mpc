@@ -545,7 +545,7 @@ class Animation:
             # )[0]
 
         # Time on plot.
-        self.fr_number.set_text(f'$t = {frame*self.dt:.2f} \, s$')
+        self.fr_number.set_text(f'$t = {frame * self.dt:.2f} \, s$')
 
         return self.artists
 

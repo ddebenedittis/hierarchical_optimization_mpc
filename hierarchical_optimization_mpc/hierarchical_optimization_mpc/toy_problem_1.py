@@ -5,18 +5,9 @@ import numpy as np
 import progressbar as pb
 
 from hierarchical_optimization_mpc.auxiliary.evolve import evolve
-from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
-    HOMPCMultiRobot,
-    QPSolver,
-    TaskType,
-)
-from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import (
-    TasksCreatorHOMPCMultiRobot,
-)
-from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    display_animation,
-    save_snapshots,
-)
+from hierarchical_optimization_mpc.ho_mpc_multi_robot import HOMPCMultiRobot, QPSolver, TaskType
+from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import display_animation, save_snapshots
 from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,

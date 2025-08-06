@@ -1,13 +1,13 @@
-casadi==3.6.5
-clarabel==0.7.1
-matplotlib==3.8.4
-numpy==1.26.4
-osqp==0.6.5
-pandas==2.2.2
-proxsuite==0.6.3
-quadprog==0.1.12
-qpsolvers==4.3.2
-scipy==1.11.4
-torch==2.2.2
-torchaudio==2.2.2
-torchvision==0.17.2
+casadi==3.7.1
+clarabel==0.11.1
+matplotlib==3.10.5
+numpy==2.2.6
+osqp==1.0.4
+pandas==2.3.1
+proxsuite==0.7.2
+quadprog==0.1.13
+qpsolvers @ git+https://github.com/fedeiada/qpsolvers.git@2808e3e471f3e501648ebc36d0d9db61f931f983
+scipy==1.15.3
+torch==2.8.0
+torchaudio==2.8.0
+torchvision==0.23.0

@@ -7,13 +7,12 @@ from enum import Enum, auto
 import casadi as ca
 import numpy as np
 from scipy.special import binom
-from sympy import Matrix
 
 from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
-from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.ho_mpc import HOMPC, subs
+from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, subs
 
 np.set_printoptions(threshold=np.inf)
 

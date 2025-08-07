@@ -12,7 +12,7 @@ from distributed_ho_mpc.ho_mpc.hierarchical_qp import (
     HierarchicalQP,
     QPSolver,
 )
-from distributed_ho_mpc.scenarios.formation_obstacle_omni.ho_mpc.ho_mpc import (
+from distributed_ho_mpc.ho_mpc.ho_mpc import (
     HOMPC,
     subs,
 )

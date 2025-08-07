@@ -347,6 +347,8 @@ class HOMPC:
             A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
 
         hqp = HierarchicalQP(solver=self.solver)
+        hqp.ns = self._n_state
+        hqp.ni = self._n_input
 
         x_star = hqp(A, b, C, d)
 

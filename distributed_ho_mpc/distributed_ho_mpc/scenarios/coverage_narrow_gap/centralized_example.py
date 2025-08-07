@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist
 
-from distributed_ho_mpc.ho_mpc.robot_models import get_unicycle_model
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     QPSolver,
@@ -27,6 +26,7 @@ from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
 from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
+    get_unicycle_model,
 )
 
 

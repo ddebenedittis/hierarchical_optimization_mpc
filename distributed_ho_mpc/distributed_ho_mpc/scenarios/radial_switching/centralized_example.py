@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist
 
-from distributed_ho_mpc.ho_mpc.robot_models import get_unicycle_model
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -18,7 +17,7 @@ from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     display_animation,
     save_snapshots,
 )
-from hierarchical_optimization_mpc.utils.robot_models import RobCont
+from hierarchical_optimization_mpc.utils.robot_models import RobCont, get_unicycle_model
 
 
 def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):

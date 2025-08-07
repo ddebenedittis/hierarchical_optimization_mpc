@@ -17,13 +17,13 @@ from ho_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import pdist
 
-from distributed_ho_mpc.ho_mpc.robot_models import (
+from distributed_ho_mpc.message import Message, MessageReceiver, MessageSender
+from hierarchical_optimization_mpc.auxiliary.evolve import evolve
+from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
     get_unicycle_model,
 )
-from distributed_ho_mpc.message import Message, MessageReceiver, MessageSender
-from hierarchical_optimization_mpc.auxiliary.evolve import evolve
 
 
 class Node:
@@ -865,8 +865,8 @@ class Node:
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.expand(state_meas, neigh_dyn)  # expand the state of the robot to be added
-            self.s_init.expand(state_meas, neigh_dyn)  # expand the state of the robot to be added
+            self.s.uni.append(state_meas)
+            self.s_init.uni.append(state_meas)
 
             self.neigh_tasks.update(neigh_task)  # expand dictionary with neighbour tasks
 
@@ -978,8 +978,8 @@ class Node:
 
         self.hompc.remove_robots([[id_to_remove]])
 
-        self.s.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
-        self.s_init.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
+        self.s.uni.pop(id_to_remove)
+        self.s_init.uni.pop(id_to_remove)
 
         rho_idx = list(self.neigh).index(neigh_id)
 

@@ -18,10 +18,11 @@ class RobCont:
     """
 
     omni: Any = None
+    uni: Any = None
 
     def tolist(self) -> list:
         """Convert the class to a list of its attributes."""
-        return [self.omni]
+        return [attr for attr in [self.omni, self.uni] if attr is not None]
 
 
 def get_unicycle_model(dt: float):

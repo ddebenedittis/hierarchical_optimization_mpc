@@ -12,14 +12,14 @@ from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.ho_mpc_multi_robot imp
     TaskIndexes,
     TaskType,
 )
-from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.robot_models import (
-    RobCont,
-    get_omnidirectional_model,
-    get_unicycle_model,
-)
 from distributed_ho_mpc.scenarios.radial_switching.message import (
     MessageReceiver,
     MessageSender,
+)
+from hierarchical_optimization_mpc.utils.robot_models import (
+    RobCont,
+    get_omnidirectional_model,
+    get_unicycle_model,
 )
 
 
@@ -796,8 +796,8 @@ class Node:
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.expand(state_meas, 'omni')  # expand the state of the robot to be added
-            self.s_init.expand(state_meas, 'omni')  # expand the state of the robot to be added
+            self.s.omni.append(state_meas)
+            self.s_init.omni.append(state_meas)
 
             self.neigh_tasks.update(neigh_task)  # expand dictionary with neighbour tasks
 
@@ -906,8 +906,8 @@ class Node:
 
         self.hompc.remove_robots([[id_to_remove]])
 
-        self.s.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
-        self.s_init.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
+        self.s.omni.pop(id_to_remove)
+        self.s_init.omni.pop(id_to_remove)
 
         rho_idx = list(self.neigh).index(neigh_id)
 

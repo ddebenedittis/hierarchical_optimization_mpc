@@ -12,9 +12,6 @@ from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     TaskBiCoeff,
     TaskType,
 )
-from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import (
-    TasksCreatorHOMPCMultiRobot,
-)
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtists,
     display_animation,
@@ -74,14 +71,6 @@ def main():
     s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 10)
 
     # =========================== Define The Tasks ========================== #
-
-    tasks_creator = TasksCreatorHOMPCMultiRobot(
-        s.tolist(),
-        u.tolist(),
-        s_kp1.tolist(),
-        dt,
-        n_robots.tolist(),
-    )
 
     task_input_limits = RobCont(
         omni=ca.vertcat(

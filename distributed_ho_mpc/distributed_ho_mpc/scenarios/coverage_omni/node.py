@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.coverage_omni.settings as st
-from distributed_ho_mpc.scenarios.coverage_omni.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -200,40 +200,6 @@ class Node:
         self.robot_idx_global = [self.node_id] + self.neigh
         self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
 
-        """self.tasks_creator = TasksCreatorHOMPCMultiRobot(
-            self.s.tolist(),
-            self.u.tolist(),
-            self.s_kp1.tolist(),
-            st.dt,
-            self.n_robots.tolist(),
-        )
-
-        self.task_input_limits = self.tasks_creator.get_task_input_limits()
-        self.aux, self.mapping, self.task_formation, self.task_formation_coeff = self.tasks_creator.get_task_formation()
-
-        self.task_pos       = [None for i in range(len(self.goals))]
-        self.task_pos_coeff = [None for i in range(len(self.goals))]
-        for i, g in enumerate(self.goals):
-            self.task_pos[i], self.task_pos_coeff[i] = self.tasks_creator.get_task_pos_ref(
-                [[g for n_j in range(self.n_robots.tolist())] for c in range(len(self.n_robots.tolist()))], robot_idx=self.robot_idx
-        )
-        self.task_input_smooth, self.task_input_smooth_coeffs = self.tasks_creator.get_task_input_smooth()
-        self.task_input_limits_coeffs = [
-            np.array([0, 0, 0, 0])
-        ]
-        
-        self.task_vel_reference = ca.vertcat(
-            (self.s_kp1[0] - self.s[0]) / self.dt - 1,
-            (self.s_kp1[1] - self.s[1]) / self.dt - 0
-        )
-            
-        self.task_input_min = self.tasks_creator.get_task_input_min()
-
-        # obstacle_pos = np.array([1, 1])
-        # obstacle_size = st.formation_distance
-        # self.task_obs_avoidance = self.tasks_creator.get_task_obs_avoidance(
-        #                                             obstacle_pos, obstacle_size
-        #                                     )"""
         # =========================== Define The Tasks ========================== #
 
         # self.task_input_limits = RobCont(omni=ca.vertcat(

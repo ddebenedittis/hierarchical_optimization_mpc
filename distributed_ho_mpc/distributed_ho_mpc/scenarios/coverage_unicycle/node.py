@@ -12,7 +12,7 @@ from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     TaskIndexes,
     TaskType,
 )
-from distributed_ho_mpc.scenarios.coverage_unicycle.message import (
+from distributed_ho_mpc.ho_mpc.message import (
     MessageReceiver,
     MessageSender,
 )

@@ -369,7 +369,6 @@ def main():
             st.visual_method,
             show_voronoi=True,
             show_trajectory=True,
-            # estim=st.estimation_plotting,
             video_name=f'{out_dir}/video.mp4',
         )
 

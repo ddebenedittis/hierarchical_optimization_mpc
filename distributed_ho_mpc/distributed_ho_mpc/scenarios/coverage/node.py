@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
 
-import distributed_ho_mpc.scenarios.coverage_omni.settings as st
+import distributed_ho_mpc.scenarios.coverage.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -19,6 +19,7 @@ from distributed_ho_mpc.ho_mpc.message import (
 from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
+    get_unicycle_model,
 )
 
 
@@ -37,7 +38,7 @@ class Node:
         self,
         node_id: int,
         adjacency_vector: np.array,
-        model: str,
+        model_name: str,
         dt: float,
         self_tasks: list,
         neigh_tasks: dict,
@@ -52,10 +53,14 @@ class Node:
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()  # index of neighbours
         self.degree = len(self.neigh)  # numbers of neighbours
 
+        self.model_name = model_name
+
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
         self.n_xi = st.n_control * 4  # dimension of primal variables
+        if self.model_name == 'uni':
+            self.n_xi = st.n_control * 5
 
         self.cost_history = []  # history of cost function values
         # ======================== Variables updater ======================= #
@@ -125,8 +130,9 @@ class Node:
         self.u = RobCont(omni=None)
         self.s_kp1 = RobCont(omni=None)
 
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 10)
+        if self.model_name == 'uni':
+            self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt * 10)
 
         self.goals = copy.deepcopy(goals)
 
@@ -173,12 +179,6 @@ class Node:
 
         # =========================== Define The Tasks ========================== #
 
-        # self.task_input_limits = RobCont(omni=ca.vertcat(
-        #       self.u.omni[0] - self.v_max,   #vmax
-        #     - self.u.omni[0] + 0,   #vmin
-        #       self.u.omni[1] - 1.5,   #vmax
-        #     - self.u.omni[1] - 1.5    #vmin
-        # ))
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
                 self.u.omni[0] - self.v_max,  # vmax
@@ -187,6 +187,15 @@ class Node:
                 -self.u.omni[1] - 2,  # vmin
             )
         )
+        if self.model_name == 'uni':
+            self.task_input_limits = RobCont(
+                omni=ca.vertcat(
+                    self.u.omni[0] - self.v_max,  # vmax
+                    -self.u.omni[0] - 0,  # vmin
+                    self.u.omni[1] - 2,  # vmax
+                    -self.u.omni[1] - 2,  # vmin
+                )
+            )
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
 
@@ -416,6 +425,32 @@ class Node:
         else:
             raise ValueError('Missing agent init on s')
 
+        if self.model_name == 'uni':
+            if self.node_id == 0:
+                self.s = RobCont(
+                    omni=[np.array([0, 1, 0]) for _ in range(self.n_robots.omni)],
+                )
+            elif self.node_id == 1:
+                self.s = RobCont(omni=[np.array([1, 1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 2:
+                self.s = RobCont(omni=[np.array([2, 1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 3:
+                self.s = RobCont(omni=[np.array([-1, 1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 4:
+                self.s = RobCont(omni=[np.array([-2, 1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 5:
+                self.s = RobCont(omni=[np.array([0, -1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 6:
+                self.s = RobCont(omni=[np.array([-1, -1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 7:
+                self.s = RobCont(omni=[np.array([-2, -1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 8:
+                self.s = RobCont(omni=[np.array([1, -1, 0]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 9:
+                self.s = RobCont(omni=[np.array([2, -1, 0]) for _ in range(self.n_robots.omni)])
+            else:
+                raise ValueError('Missing agent init on s')
+
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
@@ -557,12 +592,21 @@ class Node:
         #         ])
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
-                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-                    [
-                        u_star.omni[j][0],
-                        u_star.omni[j][1],
-                    ]
-                )
+                if self.model_name == 'omni':
+                    s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                        [
+                            u_star.omni[j][0],
+                            u_star.omni[j][1],
+                        ]
+                    )
+                elif self.model_name == 'uni':
+                    s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                        [
+                            u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                            u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                            u_star.omni[j][1],
+                        ]
+                    )
 
         return s
 
@@ -729,8 +773,8 @@ class Node:
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.omni.append(state_meas)  # expand the state of the robot to be added
-            self.s_init.omni.append(state_meas)  # expand the state of the robot to be added
+            self.s.omni.append(state_meas)
+            self.s_init.omni.append(state_meas)
 
             self.neigh_tasks.update(neigh_task)  # expand dictionary with neighbour tasks
 

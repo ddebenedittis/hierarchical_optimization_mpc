@@ -8,8 +8,8 @@ import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
-import distributed_ho_mpc.scenarios.coverage_unicycle.settings as st
-from distributed_ho_mpc.scenarios.coverage_unicycle.node import Node
+import distributed_ho_mpc.scenarios.coverage.settings as st
+from distributed_ho_mpc.scenarios.coverage.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     display_animation,
     save_snapshots,
@@ -20,11 +20,12 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 )
 
 
-def main():
-    model = {
-        'unicycle': get_unicycle_model(st.dt),
-        'omnidirectional': get_omnidirectional_model(st.dt),
-    }
+def main(model_name='omni'):
+    model = None
+    if model_name == 'omni':
+        model = get_omnidirectional_model(dt=st.dt)
+    elif model_name == 'unicycle':
+        model = get_unicycle_model(dt=st.dt)
 
     def neigh_connection(states, nodes, graph_matrix, communication_range):
         """
@@ -232,7 +233,9 @@ def main():
 
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-coverage_uni/'
+    out_dir = (
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-coverage_{model_name}/'
+    )
     os.makedirs(out_dir, exist_ok=True)
 
     # Create an agents of the same type for each node of the system
@@ -240,7 +243,7 @@ def main():
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model['unicycle'],  # robot model
+            model_name,  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -348,7 +351,10 @@ def main():
             for i in range(len(nodes[0].s_history))
         ]
 
-        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        if model_name == 'unicycle':
+            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        elif model_name == 'omni':
+            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
         save_snapshots(
             s_hist_merged,
@@ -374,4 +380,16 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--model',
+        type=str,
+        choices=['omni', 'unicycle'],
+        default='omni',
+        help='Model type to use for simulation',
+    )
+    args = parser.parse_args()
+
+    main(model_name=args.model)

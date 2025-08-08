@@ -8,11 +8,11 @@ import numpy as np
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.radial_switching.settings as st
-from distributed_ho_mpc.scenarios.radial_switching.ho_mpc.disp_het_multi_rob import (
+from distributed_ho_mpc.scenarios.radial_switching.node import Node
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtists,
     display_animation,
 )
-from distributed_ho_mpc.scenarios.radial_switching.node import Node
 from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
@@ -436,79 +436,21 @@ def main():
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
         s_hist_merged = [
-            sum((node.s_history[i][:1] for node in nodes), [])
+            sum(([node.s_history[i][0][0]] for node in nodes), [])
             for i in range(len(nodes[0].s_history))
         ]
 
-        # handle different lenght of the states due to add/remove of nodes
-        for i in nodes:
-            for n in range(len(i.s_history)):
-                max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
-                if len(i.s_history[n][0]) < max_len:
-                    dd = max_len - len(i.s_history[n][0])
-                    for d in range(dd):
-                        if n == 0:
-                            if len(i.s_history[n + 1][0]) <= dd:
-                                i.s_history[n][0].append(
-                                    np.array([30, 30, 0])
-                                )  # value out of the limits of the simulation
-                            else:
-                                i.s_history[n][0].append(i.s_history[1][0][d])  # take next value
-                        else:
-                            i.s_history[n][0].append(
-                                i.s_history[n - 1][0][d + 1]
-                            )  # take previous value
-
-        # s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
-        if st.n_nodes == 2:
-            s_hist_merged = [
-                nodes[0].s_history[i] + nodes[1].s_history[i]
-                for i in range(len(nodes[0].s_history))
-            ]
-        if st.n_nodes == 3:
-            s_hist_merged = [
-                nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i]
-                for i in range(len(nodes[0].s_history))
-            ]
-        if st.n_nodes == 4:
-            s_hist_merged = [
-                nodes[0].s_history[i]
-                + nodes[1].s_history[i]
-                + nodes[2].s_history[i]
-                + nodes[3].s_history[i]
-                for i in range(len(nodes[0].s_history))
-            ]
-        if st.n_nodes == 5:
-            s_hist_merged = [
-                nodes[0].s_history[i]
-                + nodes[1].s_history[i]
-                + nodes[2].s_history[i]
-                + nodes[3].s_history[i]
-                + nodes[4].s_history[i]
-                for i in range(len(nodes[0].s_history))
-            ]
-
-        artist_flags = MultiRobotArtists(
-            centroid=True,
-            goals=True,
-            obstacles=False,
-            past_trajectory=True,
-            omnidir=True,
-            unicycles=False,
-            # robots=RobCont(omni=True),
-            # robot_names=True,
-            voronoi=False,
-        )
+        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
         display_animation(
             s_hist_merged,
-            goals,
+            None,
             None,
             st.dt,
             st.visual_method,
             show_voronoi=False,
             show_trajectory=True,
-            estim=st.estimation_plotting,
+            # estim=st.estimation_plotting,
         )
 
 

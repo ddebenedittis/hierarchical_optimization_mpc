@@ -7,12 +7,12 @@ import numpy as np
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
-from distributed_ho_mpc.scenarios.formation_obstacle_omni.ho_mpc.disp_het_multi_rob import (
+from distributed_ho_mpc.scenarios.formation_obstacle_omni.node import Node
+from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtists,
     display_animation,
     save_snapshots,
 )
-from distributed_ho_mpc.scenarios.formation_obstacle_omni.node import Node
 from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
@@ -24,52 +24,6 @@ def main():
         'unicycle': get_unicycle_model(st.dt),
         'omnidirectional': get_omnidirectional_model(st.dt),
     }
-
-    def neigh_connection(states, nodes, graph_matrix, communication_range):
-        """
-        Check if the distance between two nodes is less than the communication range,
-        and if so create a connection between the two nodes which become neighbours
-        and cooperate one with the other
-        """
-
-        for i, node in enumerate(nodes):
-            for idx, state in enumerate(states):
-                if i == idx:
-                    continue
-                # Calculate the Euclidean distance between two points and compare with comm range
-                if np.linalg.norm(states[i] - state) < communication_range:
-                    if graph_matrix[i][idx] == 0.0:
-                        graph_matrix[i][idx] = 1.0  # modify the graph matrix to add a connection
-
-                        # update task manifold with the neighbours tasks of the new neighbours
-                        neigh_tasks = {}
-
-                        neigh_tasks[f'agent_{i}'] = {}
-
-                        if graph_matrix[i][idx] != 0:
-                            neigh_tasks[f'agent_{i}'][f'agent_{idx}'] = copy.deepcopy(
-                                system_tasks[f'agent_{idx}']
-                            )
-
-                        # modify the inner structure of the node
-                        nodes[i].create_connection(
-                            graph_matrix[i],  # Update the neighbours of the node
-                            neigh_tasks[f'agent_{i}'],  # Update the neighbours tasks
-                            states[idx],  # pass state of the new neighbour
-                        )
-                else:
-                    if (
-                        graph_matrix[i][idx] == 1.0
-                    ):  # If the distance is greater than the communication range, remove the connection
-                        graph_matrix[i][idx] = 0.0
-
-                        # modify the inner structure of the node
-                        nodes[i].remove_connection(
-                            graph_matrix[i],  # Update the neighbours of the node
-                            f'agent_{idx}',  # Update the neighbours tasks
-                            idx,  # Index of the neighbour to remove
-                            # states[np.nonzero(graph_matrix[i])[0][0]]
-                        )
 
     def agents_distance(state, pairwise_distances):
         """
@@ -359,40 +313,12 @@ def main():
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
         # handle different lenght of the states due to add/remove of nodes
-        for i in nodes:
-            for n in range(len(i.s_history)):
-                max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
-                if len(i.s_history[n][0]) < max_len:
-                    dd = max_len - len(i.s_history[n][0])
-                    for d in range(dd):
-                        if n == 0:
-                            if len(i.s_history[n + 1][0]) <= dd:
-                                i.s_history[n][0].append(
-                                    np.array([30, 30])
-                                )  # value out of the limits of the simulation
-                            else:
-                                i.s_history[n][0].append(i.s_history[1][0][d])  # take next value
-                        else:
-                            i.s_history[n][0].append(
-                                i.s_history[n - 1][0][d + 1]
-                            )  # take previous value
-
         s_hist_merged = [
-            sum((node.s_history[i][:1] for node in nodes), [])
+            sum(([node.s_history[i][0][0]] for node in nodes), [])
             for i in range(len(nodes[0].s_history))
         ]
 
-        artist_flags = MultiRobotArtists(
-            centroid=True,
-            goals=False,
-            obstacles=True,
-            past_trajectory=False,
-            omnidir=True,
-            unicycles=False,
-            # robots=RobCont(omni=True),
-            # robot_names=True,
-            voronoi=False,
-        )
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
         # save_snapshots(
         #     s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
@@ -407,7 +333,7 @@ def main():
             st.visual_method,
             show_voronoi=False,
             show_trajectory=True,
-            estim=st.estimation_plotting,
+            # estim=st.estimation_plotting,
         )
 
 

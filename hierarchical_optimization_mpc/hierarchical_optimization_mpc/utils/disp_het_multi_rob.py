@@ -224,6 +224,7 @@ class Animation:
         self.y_lim = [-20.0, 20.0]
 
         self.n_robots = [len(data_i) for data_i in data[0]]
+        print(self.n_robots)
 
         self.artists = None
 

@@ -8,6 +8,9 @@ import mpl_toolkits.axes_grid1
 import numpy as np
 from cycler import cycler
 from matplotlib.animation import FFMpegWriter, FuncAnimation
+from matplotlib.cm import get_cmap
+from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
@@ -55,6 +58,42 @@ def gen_arrow_head_marker(rot):
     arrow_head_marker = mpl.path.Path(arr, codes)
 
     return arrow_head_marker, scale
+
+
+def _plot_colour_line(x, y, cmap='viridis', alpha=0.9, lw=2.0, dash_on=5, dash_off=3):
+    """
+    Plot a coloured line with a dashed effect by making some segments transparent.
+
+    Parameters
+    ----------
+    dash_on : int
+        Number of visible segments in each dash.
+    dash_off : int
+        Number of invisible (transparent) segments after each dash.
+    """
+    if len(x) < 2:
+        return plt.plot(x, y, color='gray', linestyle='--', alpha=alpha)[0]
+
+    # Build segments between points
+    pts = np.column_stack([x, y]).reshape(-1, 1, 2)
+    segments = np.concatenate([pts[:-1], pts[1:]], axis=1)
+
+    n_segments = len(segments)
+    cmap_fn = get_cmap(cmap)
+    norm = Normalize(vmin=0, vmax=len(x) - 1)
+
+    # Compute dash pattern mask
+    pattern = ([True] * dash_on) + ([False] * dash_off)
+    full_pattern = np.resize(pattern, n_segments)
+
+    # Colorize and apply alpha mask
+    color_vals = np.arange(n_segments)
+    colors = cmap_fn(norm(color_vals))
+    colors[~full_pattern, 3] = 0.0  # Transparent segments
+
+    lc = LineCollection(segments, colors=colors, linewidths=lw)
+    plt.gca().add_collection(lc)
+    return lc
 
 
 @dataclass
@@ -148,8 +187,6 @@ class Player(FuncAnimation):
         self.fig.canvas.draw_idle()
 
     def setup(self, pos):
-        button_font = {'family': 'sans-serif', 'size': 12}
-
         playerax = self.fig.add_axes([pos[0], pos[1], 0.22, 0.04])
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(playerax)
         bax = divider.append_axes('right', size='80%', pad=0.05)
@@ -224,12 +261,12 @@ class Animation:
         self.y_lim = [-20.0, 20.0]
 
         self.n_robots = [len(data_i) for data_i in data[0]]
-        print(self.n_robots)
 
         self.artists = None
 
         self.show_trajectory = True
         self.show_voronoi = True
+        self.coloured_trajectory = True
 
     # ================================= Init ================================= #
 
@@ -488,13 +525,15 @@ class Animation:
             cnt = 0
             for c in range(len(self.data[frame])):
                 for j, s_c_j in enumerate(state[c]):
-                    self.artists.past_trajectory[cnt] = plt.plot(
-                        x_history[c][j, :, 0],
-                        x_history[c][j, :, 1],
-                        color='k',
-                        linestyle='--',
-                        alpha=0.5,
-                    )[0]
+                    x = x_history[c][j, :, 0]
+                    y = x_history[c][j, :, 1]
+
+                    if self.coloured_trajectory:
+                        self.artists.past_trajectory[cnt] = _plot_colour_line(x, y)
+                    else:
+                        self.artists.past_trajectory[cnt] = plt.plot(
+                            x, y, linestyle='--', color='k', alpha=0.5
+                        )[0]
                     cnt += 1
 
             # Sum of x_history along c and j indices

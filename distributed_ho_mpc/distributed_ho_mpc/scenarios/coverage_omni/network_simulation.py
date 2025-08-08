@@ -1,15 +1,18 @@
 import copy
+import os
 import time
+from datetime import datetime
 
 import networkx as nx
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.coverage_omni.settings as st
 from distributed_ho_mpc.scenarios.coverage_omni.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
     display_animation,
+    save_snapshots,
 )
 from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
@@ -227,6 +230,11 @@ def main():
 
     nodes = []  # list of agents of the system
 
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-coverage_omni/'
+    os.makedirs(out_dir, exist_ok=True)
+
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         node = Node(
@@ -238,6 +246,7 @@ def main():
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
+            out_dir=out_dir,
         )
         nodes.append(node)
 
@@ -341,10 +350,16 @@ def main():
 
         s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
-        # save_snapshots(
-        #     s_hist_merged, None, None, st.dt, [38], 'snapshot',
-        #     show_trajectory=True, show_voronoi=True, estim=st.estimation_plotting
-        # )
+        save_snapshots(
+            s_hist_merged,
+            None,
+            None,
+            st.dt,
+            [20],
+            f'{out_dir}/snapshot',
+            show_trajectory=True,
+            show_voronoi=True,
+        )
 
         display_animation(
             s_hist_merged,
@@ -354,7 +369,7 @@ def main():
             st.visual_method,
             show_voronoi=True,
             show_trajectory=True,
-            # estim=st.estimation_plotting,
+            video_name=f'{out_dir}/video.mp4',
         )
 
 

@@ -565,6 +565,7 @@ def display_animation(
     show_voronoi: bool = True,
     x_lim=[-20.0, 20.0],
     y_lim=[-20.0, 20.0],
+    video_name: str = 'video.mp4',
 ):
     fig, ax = plt.subplots()
 
@@ -598,7 +599,7 @@ def display_animation(
         plt.show()
     elif method == 'save':
         writervideo = FFMpegWriter(fps=int(1 / dt))
-        ani.save('video.mp4', writer=writervideo)
+        ani.save(video_name, writer=writervideo)
     else:
         raise ValueError(
             'The input method is {method}. Acceptable values are ' + 'plot, save, and none.'

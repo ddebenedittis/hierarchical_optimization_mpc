@@ -44,6 +44,7 @@ class Node:
         neigh_tasks: dict,
         goals: np.array,
         n_steps: int,
+        out_dir: str = 'out',
     ):
         super(Node, self).__init__()
 
@@ -88,37 +89,7 @@ class Node:
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
 
-        """self.filename = f"node_{self.node_id}_data.csv"
-        with open(self.filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # Write the header
-            header = ['Time']
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p4_{i}') 
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p4_{i}') 
-            header.append(f'stateX_{self.node_id}')
-            header.append(f'stateY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'stateX_{j}')
-                header.append(f'stateY_{j}')
-            header.append(f'inputX_{self.node_id}')
-            header.append(f'inputY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'inputX_{j}')
-                header.append(f'inputY_{j}') 
-            header.append('cost')
-            # Write the header
-            writer.writerow(header) """
-        self.filename = f'node_{self.node_id}_data.csv'
+        self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 

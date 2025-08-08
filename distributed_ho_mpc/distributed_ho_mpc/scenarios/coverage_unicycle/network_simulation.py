@@ -1,14 +1,16 @@
 import copy
+import os
 import time
+from datetime import datetime
 
 import networkx as nx
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.coverage_unicycle.settings as st
 from distributed_ho_mpc.scenarios.coverage_unicycle.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
     display_animation,
     save_snapshots,
 )
@@ -108,60 +110,6 @@ def main():
         np.array([-8, -3]),
     ]
 
-    """system_tasks = {
-        'agent_0': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    #{'prio':3, 'name':"formation", 'agents': [[0,1]]},
-                    ],
-        'agent_1': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},
-                    #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,}
-                    ],
-        'agent_2': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    #{'prio':4, 'name':"formation", 'agents': [[2,3]]},
-                    ],
-        'agent_3': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    {'prio':3, 'name':"formation", 'agents': [[2,3]]},
-                    ]
-    }"""
-    """system_tasks = {
-        'agent_0': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':4, 'name':"obstacle_avoidance"},
-                    {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
-                    ],
-        'agent_1': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"collision_avoidance"},
-                    {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
-                    #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    ],
-        'agent_2': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 5},
-                    {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 2}
-                    ],
-        'agent_3': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3}
-                    ],
-        'agent_4': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 5},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    ]
-    }"""
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
@@ -282,6 +230,11 @@ def main():
 
     nodes = []  # list of agents of the system
 
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-coverage_uni/'
+    os.makedirs(out_dir, exist_ok=True)
+
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         node = Node(
@@ -293,6 +246,7 @@ def main():
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
+            out_dir=out_dir,
         )
         nodes.append(node)
 
@@ -386,20 +340,6 @@ def main():
     print(f'Total solving time is {tot_solve}s')
 
     if st.simulation:
-        """robot_pairs = list(combinations(range(num_robots), 2))
-        x = np.arange(1, last_step+1) * st.dt
-        plt.figure(figsize=(10, 6))
-        for i, dist_list in enumerate(pairwise_distances):
-            plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
-        plt.axhline(y = 2, color='green', lw=4, linestyle='--')
-        plt.title("Time Evolution of Pairwise Robot Distances")
-        plt.xlabel("Time Step")
-        plt.ylabel("Distance")
-        #plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()"""
-
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
@@ -410,17 +350,16 @@ def main():
 
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        # save_snapshots(
-        #     s_hist_merged,
-        #     None,
-        #     None,
-        #     st.dt,
-        #     [1],
-        #     'snapshot',
-        #     show_trajectory=True,
-        #     show_voronoi=True,
-        #     # estim=st.estimation_plotting,
-        # )
+        save_snapshots(
+            s_hist_merged,
+            None,
+            None,
+            st.dt,
+            [20],
+            f'{out_dir}/snapshot',
+            show_trajectory=True,
+            show_voronoi=True,
+        )
 
         display_animation(
             s_hist_merged,
@@ -431,6 +370,7 @@ def main():
             show_voronoi=True,
             show_trajectory=True,
             # estim=st.estimation_plotting,
+            video_name=f'{out_dir}/video.mp4',
         )
 
 

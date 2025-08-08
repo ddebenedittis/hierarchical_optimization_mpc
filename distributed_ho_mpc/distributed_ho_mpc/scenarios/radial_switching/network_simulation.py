@@ -1,17 +1,20 @@
 import copy
+import os
 import time
+from datetime import datetime
 from itertools import combinations
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.radial_switching.settings as st
 from distributed_ho_mpc.scenarios.radial_switching.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
     display_animation,
+    save_snapshots,
 )
 from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
@@ -113,60 +116,6 @@ def main():
         np.array([-8, -3]),
     ]
 
-    """system_tasks = {
-        'agent_0': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    #{'prio':3, 'name':"formation", 'agents': [[0,1]]},
-                    ],
-        'agent_1': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"formation", 'agents': [[0,1],[1,2]]},
-                    #{'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,}
-                    ],
-        'agent_2': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    #{'prio':4, 'name':"formation", 'agents': [[2,3]]},
-                    ],
-        'agent_3': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    {'prio':3, 'name':"formation", 'agents': [[2,3]]},
-                    ]
-    }"""
-    """system_tasks = {
-        'agent_0': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':4, 'name':"obstacle_avoidance"},
-                    {'prio':3, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
-                    ],
-        'agent_1': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    {'prio':3, 'name':"collision_avoidance"},
-                    {'prio':4, 'name':"formation", 'agents': [[0,1]], 'distance': 3},
-                    #{'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0,},
-                    ],
-        'agent_2': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"formation", 'agents': [[2,3]], 'distance': 5},
-                    {'prio':4, 'name':"formation", 'agents': [[1,2]], 'distance': 2}
-                    ],
-        'agent_3': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    {'prio':4, 'name':"formation", 'agents': [[3,4]], 'distance': 3}
-                    ],
-        'agent_4': [{'prio':1, 'name':"input_limits"},
-                    {'prio':2, 'name':"input_smooth"},
-                    #{'prio':3, 'name':"collision_avoidance"},
-                    {'prio':3, 'name':"formation", 'agents': [[3,4]], 'distance': 5},
-                    {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1,},
-                    ]
-    }"""
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
@@ -223,31 +172,6 @@ def main():
             {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
         ],
     }
-    """             'agent_8': [{'prio':1, 'name':"input_limits"},
-                                {'prio':2, 'name':"input_smooth"},
-                                {'prio':3, 'name':"collision_avoidance"},
-                                #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                                {'prio':4, 'name':"position", 'goal': goals[8],'goal_index':8},
-                    ],
-                    'agent_9': [{'prio':1, 'name':"input_limits"},
-                                {'prio':2, 'name':"input_smooth"},
-                                {'prio':3, 'name':"collision_avoidance"},
-                                #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                                {'prio':4, 'name':"position", 'goal': goals[9],'goal_index':9},
-                    ],
-                    'agent_10': [{'prio':1, 'name':"input_limits"},
-                                {'prio':2, 'name':"input_smooth"},
-                                {'prio':3, 'name':"collision_avoidance"},
-                                #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                                {'prio':4, 'name':"position", 'goal': goals[10],'goal_index':10},
-                    ],
-                    'agent_11': [{'prio':1, 'name':"input_limits"},
-                                {'prio':2, 'name':"input_smooth"},
-                                {'prio':3, 'name':"collision_avoidance"},
-                                #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-                                {'prio':4, 'name':"position", 'goal': goals[11],'goal_index':11},
-                    ],
-    }"""
 
     # ---------------------------------------------------------------------------- #
     #               Create the network and connection between agents               #
@@ -316,6 +240,13 @@ def main():
 
     nodes = []  # list of agents of the system
 
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = (
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
+    )
+    os.makedirs(out_dir, exist_ok=True)
+
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         node = Node(
@@ -327,6 +258,7 @@ def main():
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
+            out_dir=out_dir,
         )
         nodes.append(node)
 
@@ -442,15 +374,26 @@ def main():
 
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        display_animation(
+        save_snapshots(
             s_hist_merged,
             None,
+            None,
+            st.dt,
+            [10],
+            f'{out_dir}/snapshot',
+            show_trajectory=True,
+            show_voronoi=False,
+        )
+
+        display_animation(
+            s_hist_merged,
+            goals,
             None,
             st.dt,
             st.visual_method,
             show_voronoi=False,
             show_trajectory=True,
-            # estim=st.estimation_plotting,
+            video_name=f'{out_dir}/video.mp4',
         )
 
 

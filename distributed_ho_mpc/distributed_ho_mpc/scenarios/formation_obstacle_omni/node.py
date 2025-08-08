@@ -43,6 +43,7 @@ class Node:
         neigh_tasks: dict,
         goals: np.array,
         n_steps: int,
+        out_dir: str = 'out',
     ):
         super(Node, self).__init__()
 
@@ -87,37 +88,9 @@ class Node:
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
 
-        """self.filename = f"node_{self.node_id}_data.csv"
-        with open(self.filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # Write the header
-            header = ['Time']
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p4_{i}') 
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p4_{i}') 
-            header.append(f'stateX_{self.node_id}')
-            header.append(f'stateY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'stateX_{j}')
-                header.append(f'stateY_{j}')
-            header.append(f'inputX_{self.node_id}')
-            header.append(f'inputY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'inputX_{j}')
-                header.append(f'inputY_{j}') 
-            header.append('cost')
-            # Write the header
-            writer.writerow(header) """
-        self.filename = f'node_{self.node_id}_data.csv'
+        self.out_dir = out_dir
+
+        self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 
@@ -538,27 +511,9 @@ class Node:
 
     def save_data(self):
         # TODO: partizionare vettori e mettere none
-        """if not st.save_data or self.step <= 20:
-            return
-        with open(self.filename, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # Write the data
-            row = [self.step]
-            row.extend(self.rho_i[0, 0, :])
-            row.extend(self.rho_i[0, 1, :])
-            row.extend(self.rho_j[0, 0, :])
-            row.extend(self.rho_j[0, 1, :])
-            for s in self.s.tolist():
-                for ss in s:
-                    row.extend(ss)
-            for u in self.u_star[0]:
-                row.extend(list(u))
-            row.append(self.cost_history[-1])
-
-
-            writer.writerow(row)"""
         if not st.save_data:
             return
+        self.filename = f'{self.out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             row = [self.step]

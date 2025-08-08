@@ -1,15 +1,17 @@
 import copy
+import os
+from datetime import datetime
 from itertools import combinations
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
 from distributed_ho_mpc.scenarios.formation_obstacle_omni.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
     display_animation,
     save_snapshots,
 )
@@ -38,12 +40,6 @@ def main():
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
-
-    # goals = [
-    #         np.array([4, 6]),
-    #         np.array([-6, -8]),
-    #         np.array([0,0])
-    #     ]
 
     goals = [
         np.array([0, 0]),
@@ -228,6 +224,13 @@ def main():
 
     nodes = []  # list of agents of the system
 
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = (
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-formation_obstacle/'
+    )
+    os.makedirs(out_dir, exist_ok=True)
+
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         node = Node(
@@ -239,6 +242,7 @@ def main():
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
+            out_dir=out_dir,
         )
         nodes.append(node)
 
@@ -320,10 +324,16 @@ def main():
 
         s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
-        # save_snapshots(
-        #     s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
-        #     show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
-        # )
+        save_snapshots(
+            s_hist_merged,
+            None,
+            [7, 7, 1.2],
+            st.dt,
+            [10],
+            f'{out_dir}/snapshot',
+            show_trajectory=True,
+            show_voronoi=False,
+        )
 
         display_animation(
             s_hist_merged,
@@ -333,7 +343,7 @@ def main():
             st.visual_method,
             show_voronoi=False,
             show_trajectory=True,
-            # estim=st.estimation_plotting,
+            video_name=f'{out_dir}/video.mp4',
         )
 
 

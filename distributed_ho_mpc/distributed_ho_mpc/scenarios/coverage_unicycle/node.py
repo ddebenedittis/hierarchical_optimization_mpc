@@ -3,9 +3,9 @@ import csv
 
 import casadi as ca
 import numpy as np
-import settings as st
 from matplotlib import pyplot as plt
 
+import distributed_ho_mpc.scenarios.coverage_unicycle.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -43,6 +43,7 @@ class Node:
         neigh_tasks: dict,
         goals: np.array,
         n_steps: int,
+        out_dir: str = 'out',
     ):
         super(Node, self).__init__()
 
@@ -87,37 +88,7 @@ class Node:
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
 
-        """self.filename = f"node_{self.node_id}_data.csv"
-        with open(self.filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            # Write the header
-            header = ['Time']
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_(i{j})_i_p4_{i}') 
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p3_{i}')
-            for j in self.neigh:
-                for i in range(self.n_xi):
-                    header.append(f'rho_({j}i)_i_p4_{i}') 
-            header.append(f'stateX_{self.node_id}')
-            header.append(f'stateY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'stateX_{j}')
-                header.append(f'stateY_{j}')
-            header.append(f'inputX_{self.node_id}')
-            header.append(f'inputY_{self.node_id}')
-            for j in self.neigh:
-                header.append(f'inputX_{j}')
-                header.append(f'inputY_{j}') 
-            header.append('cost')
-            # Write the header
-            writer.writerow(header) """
-        self.filename = f'node_{self.node_id}_data.csv'
+        self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 
@@ -524,22 +495,6 @@ class Node:
                         self.dist_hist[i - 1].append(
                             np.linalg.norm(self.s_.omni[0] - self.s.omni[i])
                         )
-                """if self.step == 900 and (self.node_id==0):# or self.node_id==1):
-                        self.goals = [
-                            np.array([-6, -7]),
-                            np.array([-4, -5]),
-                        ]
-                        for i, g in enumerate(self.goals):
-                            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
-                            self.task_pos_coeff[i] = RobCont(
-                                omni=[[g] for _ in range(self.n_robots.omni)],
-                            )
-                    
-                        self.hompc.update_task(
-                            name = "position",
-                            eq_task_coeff = self.task_pos_coeff[0].tolist(),
-                            # robot_index = cov_rob_idx,
-                        )"""
 
                 if self.step == st.n_steps - 1:
                     plt.figure(figsize=(10, 6))
@@ -602,26 +557,6 @@ class Node:
         return self.rho_i, self.neigh
 
     def save_data(self):
-        # TODO: partizionare vettori e mettere none
-        """if not st.save_data or self.step <= 20:
-            return
-        with open(self.filename, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # Write the data
-            row = [self.step]
-            row.extend(self.rho_i[0, 0, :])
-            row.extend(self.rho_i[0, 1, :])
-            row.extend(self.rho_j[0, 0, :])
-            row.extend(self.rho_j[0, 1, :])
-            for s in self.s.tolist():
-                for ss in s:
-                    row.extend(ss)
-            for u in self.u_star[0]:
-                row.extend(list(u))
-            row.append(self.cost_history[-1])
-
-
-            writer.writerow(row)"""
         if not st.save_data:
             return
         with open(self.filename, mode='a', newline='') as file:
@@ -795,29 +730,6 @@ class Node:
                 )
 
             # collision for radial switching
-            """if self.degree == 1:
-               self.hompc.create_task_bi(
-                    name = "collision", prio = 3,
-                    type = TaskType.Bi,
-                    aux = self.aux_avoid_collision,
-                    mapping = self.mapping_avoid_collision.tolist(),
-                    ineq_task_ls= self.task_avoid_collision,
-                    ineq_task_coeff= self.task_avoid_collision_coeff,
-                    robot_index= [self.robot_idx[1:]]
-                )
-            else:  
-                n = [p for p, v in enumerate(self.hompc._tasks) if v.name == "collision"]
-
-                self.hompc.update_task_bi(
-                    name = "collision", prio = 3,
-                    type = TaskType.Bi,
-                    #aux = self.aux_avoid_collision,
-                    #mapping = self.mapping_avoid_collision.tolist(),
-                    #ineq_task_ls= self.task_avoid_collision,
-                    ineq_task_coeff= self.task_avoid_collision_coeff,
-                    robot_index= [self.robot_idx[1:]],
-                    pos = n[0] 
-                )"""
 
             self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
             self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])

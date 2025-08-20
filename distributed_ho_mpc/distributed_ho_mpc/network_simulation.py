@@ -480,6 +480,10 @@ if st.simulation:
         voronoi=False,
     )
 
+    '''save_snapshots(
+        s_hist_merged, None, [7,7,1.2], st.dt, [9, 10, 11], 'snapshot',
+        show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
+    )'''
 
-    display_animation(s_hist_merged, None, None, st.dt, st.visual_method, show_voronoi=True, show_trajectory=True, estim=st.estimation_plotting)
+    display_animation(s_hist_merged, None, [[0,6,5],[0,-6,5]], st.dt, st.visual_method, show_voronoi=True, show_trajectory=False, estim=st.estimation_plotting)
 

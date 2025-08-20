@@ -321,11 +321,16 @@ class Node():
         
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([2,2])
-        self.obstacle_size = 3
-        self.task_obs_avoidance = [ 
-            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+        self.obstacle_pos_1 = np.array([0,6])
+        self.obstacle_pos_2 = np.array([0,-6])
+        self.obstacle_size = 5
+        self.task_obs_avoidance_1 = [ 
+            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos_1[0])**2 - (self.s.omni[1] - self.obstacle_pos_1[1])**2 + self.obstacle_size**2)
         ]
+        self.task_obs_avoidance_2 = [ 
+            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos_2[0])**2 - (self.s.omni[1] - self.obstacle_pos_2[1])**2 + self.obstacle_size**2)
+        ]
+
 
     def task_formation_method(self, agents, distance):
         aux = ca.SX.sym('aux', 2, 2)

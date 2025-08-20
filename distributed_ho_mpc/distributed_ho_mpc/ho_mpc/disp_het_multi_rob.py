@@ -505,7 +505,7 @@ def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
     show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
-    x_lim = [-20., 20.], y_lim = [-20., 20.],
+    x_lim = [-11., 11.], y_lim = [-11., 11.],
 ):
     fig, ax = plt.subplots()
     
@@ -542,8 +542,8 @@ def display_animation(
 def save_snapshots(
     s_history, goals, obstacles,
     dt: float, times: int | list[int], filename: str,
-    show_trajectory: bool = True, show_voronoi: bool = True,
-    x_lim = [-20., 20.], y_lim = [-20., 20.],
+    show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = False,
+    x_lim = [-10, 10], y_lim = [-10., 10.],
 ):
     if isinstance(times, int):
         times = [times]
@@ -552,7 +552,7 @@ def save_snapshots(
         frame = int(time / dt)
         
         fig, ax = plt.subplots()
-        anim = Animation(s_history, goals, obstacles, ax, dt)
+        anim = Animation(s_history, goals, obstacles, ax, dt, estim)
         anim.show_trajectory = show_trajectory
         anim.show_voronoi = show_voronoi
         anim.x_lim = x_lim

@@ -458,7 +458,8 @@ if st.simulation:
     #plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"distances.pdf", bbox_inches='tight', format='pdf')
+    plt.close()
 
     # ---------------------------------------------------------------------------- #
     #                          plot the states evolutions                          #
@@ -502,6 +503,11 @@ if st.simulation:
         #robots=RobCont(omni=True),
         #robot_names=True,
         voronoi=False,
+    )
+
+    save_snapshots(
+        s_hist_merged, goals, None, st.dt, [9.45 ,19], 'snapshot',
+        show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
     )
 
 

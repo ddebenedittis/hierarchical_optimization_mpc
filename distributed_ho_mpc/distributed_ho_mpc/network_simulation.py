@@ -143,10 +143,10 @@ def agents_distance(state, pairwise_distances):
 time_start = time.time()
 
 goals = [
-    np.array([5, -6]),
-    np.array([-5, -6]),
-    np.array([-5, 6]),
-    np.array([5, 6]),
+    np.array([3, 1]),
+    np.array([-3, 1]),
+    np.array([3, -1]),
+    np.array([-3, -1]),
     np.array([8,3]),
     np.array([-8,3]),
     np.array([8,-3]),
@@ -210,23 +210,25 @@ goals = [
 system_tasks = {'agent_0': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':2, 'name':"obstacle_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[0],'goal_index':0},
                 ],
                 'agent_1': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
-                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                             {'prio':3, 'name':"collision_avoidance"},
+                            {'prio':2, 'name':"obstacle_avoidance"},
+                            {'prio':4, 'name':"position", 'goal': goals[1],'goal_index':1},
                 ],
-                'agent_2': [{'prio':1, 'name':"input_limits"},
+                'agent_2':[{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
+                            {'prio':2, 'name':"obstacle_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[2],'goal_index':2},
                 ],
                 'agent_3': [{'prio':1, 'name':"input_limits"},
                             {'prio':2, 'name':"input_smooth"},
                             {'prio':3, 'name':"collision_avoidance"},
-                            #{'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+                            {'prio':2, 'name':"obstacle_avoidance"},
                             {'prio':4, 'name':"position", 'goal': goals[3],'goal_index':3},
                 ],
                 'agent_4': [{'prio':1, 'name':"input_limits"},
@@ -295,9 +297,9 @@ if st.n_nodes == 3:
                              [0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
 if st.n_nodes == 4:
-    graph_matrix = np.array([[0., 0., 0., 0.],
-                             [0., 0., 0., 0.],
-                             [0., 0., 0., 1.],
+    graph_matrix = np.array([[0., 1., 0., 0.],
+                             [1., 0., 1., 0.],
+                             [0., 1., 0., 1.],
                              [0., 0., 1., 0.]])
     network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
 if st.n_nodes == 5:
@@ -382,6 +384,7 @@ gg = np.array([
         [8,-3],
         [-8,-3],
     ])
+gg = np.array(goals[:st.n_nodes]) 
 
 
 
@@ -451,7 +454,7 @@ if st.simulation:
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
         plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
-    plt.axhline(y = 2, color='green', lw=4, linestyle='--')
+    #plt.axhline(y = 2, color='green', lw=4, linestyle='--')
     plt.title("Time Evolution of Pairwise Robot Distances")
     plt.xlabel("Time Step")
     plt.ylabel("Distance")
@@ -505,11 +508,11 @@ if st.simulation:
         voronoi=False,
     )
 
-    save_snapshots(
-        s_hist_merged, goals, None, st.dt, [9.45 ,19], 'snapshot',
-        show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
-    )
+    # save_snapshots(
+    #     s_hist_merged, goals, None, st.dt, [9.45 ,19], 'snapshot',
+    #     show_trajectory=True, show_voronoi=False, estim=st.estimation_plotting
+    # )
 
 
-    display_animation(s_hist_merged, goals, None, st.dt, st.visual_method, show_voronoi=False, show_trajectory=True, estim=st.estimation_plotting)
+    display_animation(s_hist_merged, None, [[0,6,4.5],[0,-6,4.5]], st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, estim=st.estimation_plotting)
 

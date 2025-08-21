@@ -278,8 +278,9 @@ class Animation():
         #     )
         
         if self.obstacles is not None:
-            self.artists.obstacles = plt.Circle(self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5)
-            self.ax.add_patch(self.artists.obstacles)
+            for obst in self.obstacles:
+                self.artists.obstacles = plt.Circle(obst[0:2], obst[2], color='grey', alpha=0.5)
+                self.ax.add_patch(self.artists.obstacles)
         
         # ============================== Legend ============================== #
         
@@ -505,7 +506,7 @@ def display_animation(
     s_history, goals, obstacles,
     dt: float, method: str = 'plot',
     show_trajectory: bool = True, show_voronoi: bool = True, estim: bool = True,
-    x_lim = [-11., 11.], y_lim = [-11., 11.],
+    x_lim = [-8., 8.], y_lim = [-7., 7.],
 ):
     fig, ax = plt.subplots()
     

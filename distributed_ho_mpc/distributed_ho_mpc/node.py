@@ -49,7 +49,7 @@ class Node():
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(self.n_xi * (self.degree)) # step size for primal and dual variables
         
-        self.a = 2
+        self.a = 1
         
         self.y_i = np.zeros((self.n_priority, self.n_xi*(self.degree+1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi*(self.degree))) 
@@ -238,8 +238,8 @@ class Node():
         self.task_input_limits = RobCont(omni=ca.vertcat(
               self.u.omni[0] - self.v_max,   #vmax
             - self.u.omni[0] + 0,   #vmin
-              self.u.omni[1] - 1.5,   #vmax
-            - self.u.omni[1] - 1.5    #vmin
+              self.u.omni[1] - 1.4,   #vmax
+            - self.u.omni[1] - 1.4    #vmin
         ))
         
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
@@ -294,7 +294,7 @@ class Node():
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         
         # =====================Collision Avoidance=================================== #
-        self.threshold = 2
+        self.threshold = 0.5
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -311,11 +311,18 @@ class Node():
         
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([2,2])
-        self.obstacle_size = 3
-        self.task_obs_avoidance = [ 
-            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos[0])**2 - (self.s.omni[1] - self.obstacle_pos[1])**2 + self.obstacle_size**2)
+        self.obstacle_pos_1 = np.array([0, 6])
+        self.obstacle_pos_2 = np.array([0, -6])
+        self.obstacle_size = 4.5
+        self.task_obs_avoidance = [None, None]
+        self.task_obs_avoidance[0] = [ 
+            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos_1[0])**2 - (self.s.omni[1] - self.obstacle_pos_1[1])**2 + self.obstacle_size**2)
         ]
+        self.task_obs_avoidance[1] = [ 
+            ca.vertcat(- (self.s.omni[0] - self.obstacle_pos_2[0])**2 - (self.s.omni[1] - self.obstacle_pos_2[1])**2 + self.obstacle_size**2)
+        ]
+
+
 
     def task_formation_method(self, agents, distance):
         aux = ca.SX.sym('aux', 2, 2)
@@ -406,11 +413,13 @@ class Node():
                             robot_index= [self.robot_idx[1:]]
                         )
                     elif task['name'] == 'obstacle_avoidance':
-                        self.hompc.create_task(
-                            name = "obstacle_avoidance", prio = task['prio'],
-                            type = TaskType.Same,
-                            ineq_task_ls = self.task_obs_avoidance,
-                        )
+                        for task_obs in self.task_obs_avoidance:
+                            self.hompc.create_task(
+                                name = "obstacle_avoidance", prio = task['prio'],
+                                type = TaskType.Same,
+                                ineq_task_ls = task_obs,
+                                robot_index = [self.robot_idx]
+                            )
         for neigh in self.neigh_tasks:
             self.create_neigh_tasks(neigh)
         
@@ -418,22 +427,22 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-4, 4, 0.1])
+                [np.array([-5, 1, 0.1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([3.5, 4, -2.1])
+                [np.array([5, 1, -2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([3.5, -4, 2.1])
+                [np.array([-5, -1, 0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([-4, -4, 0.75])
+                [np.array([5, -1, -2.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 4:
@@ -733,12 +742,14 @@ class Node():
             #         ineq_task_coeff= self.task_avoid_collision_coeff,
             #         robot_index= [self.robot_idx[1:]]
             #     )
-            elif task['name'] == 'obstacle_avoidance':
-                self.hompc.create_task(
-                    name = "obstacle_avoidance", prio = task['prio'],
-                    type = TaskType.Same,
-                    ineq_task_ls = self.task_obs_avoidance,
-                )
+            # elif task['name'] == 'obstacle_avoidance':
+            #     for task_obs in self.task_obs_avoidance: 
+            #         self.hompc.create_task(
+            #             name = "obstacle_avoidance", prio = task['prio'],
+            #             type = TaskType.Same,
+            #             ineq_task_ls = task_obs,
+            #             robot_index = [[robot_idx]]
+            #         )
 
 
     def create_connection(self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]):
@@ -855,6 +866,10 @@ class Node():
                 name = "input_smooth", prio = 2,
                 robot_index= [self.robot_idx]
             )
+            self.hompc.update_task(
+                name= 'obstacle_avoidance', prio = 2,
+                robot_index= [self.robot_idx]
+            )
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
 
@@ -944,6 +959,11 @@ class Node():
             name = "input_smooth", prio = 2,
             robot_index= [self.robot_idx]
         )
+        self.hompc.update_task(
+                name= 'obstacle_avoidance', prio = 2,
+                robot_index= [self.robot_idx]
+            )
+        
         
         for n, task in enumerate(self.hompc._tasks):
             if task.type == TaskType.Bi and task.prio > 2:                

@@ -71,7 +71,7 @@ RUN pip3 install \
     pre-commit \
     progressbar2 \
     proxsuite \
-    git+https://github.com/fedeiada/qpsolvers.git#egg=qpsolvers \
+    qpsolvers \
     quadprog \
     ruff \
     scipy \

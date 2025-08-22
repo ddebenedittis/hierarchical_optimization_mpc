@@ -535,7 +535,7 @@ class HierarchicalQP:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])
-                return x_star_bar, x_star_bar_p
+                return x_star_bar, x_star_bar_p, w_star_bar
 
             # ======================== Post-processing ======================= #
 
@@ -578,7 +578,7 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p
+                return x_star_bar, x_star_bar_p, w_star_bar
 
         return x_star_bar, x_star_bar_p, w_star_bar
 

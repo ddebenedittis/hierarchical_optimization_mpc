@@ -1434,7 +1434,7 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
+            x_star, x_star_p, w_star = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]

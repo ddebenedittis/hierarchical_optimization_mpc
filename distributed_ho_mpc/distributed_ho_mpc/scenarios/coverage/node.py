@@ -62,7 +62,6 @@ class Node:
         if self.model_name == 'uni':
             self.n_xi = st.n_control * 5
 
-        self.cost_history = []  # history of cost function values
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
             self.n_xi * (self.degree)
@@ -114,7 +113,6 @@ class Node:
                 header.append(f'stateY_{i}')
                 header.append(f'inputX_{i}')
                 header.append(f'inputY_{i}')
-            # header.append('cost')
 
             writer.writerow(header)
 
@@ -512,12 +510,11 @@ class Node:
             print(self.step)
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
             self.y_i = copy.deepcopy(self.y)
 
-            self.cost_history.append(cost)
             # put in message u and s
             if self.step % self.a == 0:
                 self.s = self.evolve(
@@ -637,7 +634,6 @@ class Node:
                     row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 4)
-            # row.append(self.cost_history[-1])
 
             writer.writerow(row)
 
@@ -832,7 +828,6 @@ class Node:
             #     for j in self.neigh:
             #         header.append(f'inputX_{j}')
             #         header.append(f'inputY_{j}')
-            #     header.append('cost')
             #     # Write the header
             #     writer.writerow(header)
 

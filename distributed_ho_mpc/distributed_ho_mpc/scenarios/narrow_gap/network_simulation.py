@@ -10,8 +10,8 @@ import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
-import distributed_ho_mpc.scenarios.radial_switching.settings as st
-from distributed_ho_mpc.scenarios.radial_switching.node import Node
+import distributed_ho_mpc.scenarios.narrow_gap.settings as st
+from distributed_ho_mpc.scenarios.narrow_gap.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     display_animation,
     save_snapshots,
@@ -172,21 +172,21 @@ def main():
         network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1])
     if st.n_nodes == 3:
         graph_matrix = np.array([[0., 1., 0.],
-                                [1., 0., 1.],
-                                [0., 1., 0.]])
+                                 [1., 0., 1.],
+                                 [0., 1., 0.]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2])
     if st.n_nodes == 4:
         graph_matrix = np.array([[0., 1., 0., 0.],
-                                [1., 0., 1., 0.],
-                                [0., 1., 0., 1.],
-                                [0., 0., 1., 0.]])
+                                 [1., 0., 1., 0.],
+                                 [0., 1., 0., 1.],
+                                 [0., 0., 1., 0.]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
     if st.n_nodes == 5:
         graph_matrix = np.array([[0., 1., 0., 0., 0.],
-                                [1., 0., 1., 0., 0.],
-                                [0., 1., 0., 1., 0.],
-                                [0., 0., 1., 0., 1.],
-                                [0., 0., 0., 1., 0.]])
+                                 [1., 0., 1., 0., 0.],
+                                 [0., 1., 0., 1., 0.],
+                                 [0., 0., 1., 0., 1.],
+                                 [0., 0., 0., 1., 0.]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3,4])
     graph_matrix = np.zeros((st.n_nodes, st.n_nodes)) 
 
@@ -226,7 +226,7 @@ def main():
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     out_dir = (
-        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-narrow_gap/'
     )
     os.makedirs(out_dir, exist_ok=True)
 
@@ -391,7 +391,15 @@ def main():
         # )
 
 
-        display_animation(s_hist_merged, None, [[0,6,4.5],[0,-6,4.5]], st.dt, st.visual_method, show_voronoi=False, show_trajectory=False, video_name=f'{out_dir}/video.mp4')
+        display_animation(s_hist_merged, 
+                          None, [[0,6,4.5],[0,-6,4.5]], 
+                          st.dt, 
+                          st.visual_method, 
+                          show_voronoi=False, 
+                          show_trajectory=False, 
+                          x_lim= [-8,8], y_lim= [-8,8],
+                          video_name=f'{out_dir}/video.mp4',
+                          )
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
 
-import distributed_ho_mpc.scenarios.radial_switching.settings as st
+import distributed_ho_mpc.scenarios.narrow_gap.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -378,7 +378,7 @@ class Node():
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([5, 1, -2.1])
+                [np.array([5, 1, -2.7])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
@@ -388,7 +388,7 @@ class Node():
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([5, -1, -2.1])
+                [np.array([5, -1, -2.7])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 4:
@@ -484,12 +484,11 @@ class Node():
             print(self.step)
             rho_delta = self.rho_i - self.rho_j #! to be controlled
             
-            self.u_star, self.y, cost = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
             self.y_i = copy.deepcopy(self.y)
 
-            self.cost_history.append(cost)
             # put in message u and s
             if self.step % self.a == 0:
                 self.s = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
@@ -742,8 +741,9 @@ class Node():
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.expand(state_meas, 'omni')  # expand the state of the robot to be added
-            self.s_init.expand(state_meas, 'omni')  # expand the state of the robot to be added
+            # expand the state of the robot to be added
+            self.s.omni.append(state_meas)
+            self.s_init.omni.append(state_meas) 
 
             self.neigh_tasks.update(neigh_task) # expand dictionary with neighbour tasks
 
@@ -863,8 +863,9 @@ class Node():
 
         self.hompc.remove_robots([[id_to_remove]])
 
-        self.s.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
-        self.s_init.reduce(id_to_remove, 'omni')  # remove the state of the robot to be removed
+        # remove the state of the robot to be removed
+        self.s.omni.pop(id_to_remove)
+        self.s_init.omni.pop(id_to_remove)
 
         rho_idx = list(self.neigh).index(neigh_id)
 

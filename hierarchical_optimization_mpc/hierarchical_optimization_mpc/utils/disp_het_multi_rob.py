@@ -352,10 +352,13 @@ class Animation:
         #     )
 
         if self.obstacles is not None:
-            self.artists.obstacles = plt.Circle(
-                self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5
-            )
-            self.ax.add_patch(self.artists.obstacles)
+            for obst in self.obstacles:
+                self.artists.obstacles = plt.Circle(obst[0:2], obst[2], color='grey', alpha=0.5)
+                self.ax.add_patch(self.artists.obstacles)
+            # self.artists.obstacles = plt.Circle(
+            #     self.obstacles[0:2], self.obstacles[2], color='grey', alpha=0.5
+            # )
+            # self.ax.add_patch(self.artists.obstacles)
 
         # ============================== Legend ============================== #
 

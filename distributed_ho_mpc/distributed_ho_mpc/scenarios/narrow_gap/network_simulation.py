@@ -279,32 +279,17 @@ def main():
 
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
-    #neigh_connection(state, nodes, graph_matrix, st.communication_range) 
-    for j in range(st.n_nodes):
-        nodes[j].reorder_s_init(state)
-        nodes[j].update()    # Update primal solution and state evolution
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-            nodes[ij].receive_data(msg) # neighbour receives the message
-    for j in range(st.n_nodes):
-        nodes[j].dual_update()    # linear update of dual problem
-        
     for i in range(st.n_steps):
         if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
             last_step = i
             break
         if i == st.n_steps-1:
             last_step = i+1
-        neigh_connection(state, nodes, graph_matrix, st.communication_range) 
+        if i > 0:
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
-                nodes[ij].receive_data(msg) # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state) 
-            nodes[j].update()    # Update primal solution and state evolution
+            nodes[j].reorder_s_init(state)
+            nodes[j].update('1')    # Update primal solution and state evolution
         for j in range(st.n_nodes):
             state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
             for ij in nodes[j].neigh:  # select my neighbours
@@ -312,8 +297,38 @@ def main():
                 nodes[ij].receive_data(msg) # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].dual_update()    # linear update of dual problem
+        for j in range(st.n_nodes):
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
+                    nodes[ij].receive_data(msg) # neighbour receives the message
+        for j in range(st.n_nodes):
+                nodes[j].reorder_s_init(state) 
+                nodes[j].update('2')    # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
 
+    # for i in range(st.n_steps):
+    #     if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
+    #         last_step = i
+    #         break
+    #     if i == st.n_steps-1:
+    #         last_step = i+1
+    #     neigh_connection(state, nodes, graph_matrix, st.communication_range) 
+    #     for j in range(st.n_nodes):
+    #         for ij in nodes[j].neigh:  # select my neighbours
+    #             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
+    #             nodes[ij].receive_data(msg) # neighbour receives the message
+    #     for j in range(st.n_nodes):
+    #         nodes[j].reorder_s_init(state) 
+    #         nodes[j].update()    # Update primal solution and state evolution
+    #     for j in range(st.n_nodes):
+    #         state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+    #         for ij in nodes[j].neigh:  # select my neighbours
+    #             msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
+    #             nodes[ij].receive_data(msg) # neighbour receives the message
+    #     for j in range(st.n_nodes):
+    #         nodes[j].dual_update()    # linear update of dual problem
+    #     pairwise_distances = agents_distance(state, pairwise_distances)
+    
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop

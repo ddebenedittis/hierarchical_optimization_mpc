@@ -473,7 +473,7 @@ class Node():
         return self.sender.send_message(receiver_id, update)
         
 
-    def update(self):          
+    def update(self, round: str):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
         if self.step != 0:
@@ -489,14 +489,14 @@ class Node():
             
             self.y_i = copy.deepcopy(self.y)
 
-            # put in message u and s
-            if self.step % self.a == 0:
-                self.s = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
-                #self.a = self.a * 2
-                self.counter.append(self.step)
-            else:
-                self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
-            
+            if round == '2':
+                if self.step % self.a == 0:
+                    self.s = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
+                    #self.a = self.a * 2
+                    self.counter.append(self.step)
+                else:
+                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+                
             if st.inner_plot:
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                 
@@ -504,22 +504,6 @@ class Node():
                     self.delta_hist[i].append(np.linalg.norm(self.s_.omni[i] - self.s.omni[i]))
                     if i != 0:
                         self.dist_hist[i-1].append(np.linalg.norm(self.s_.omni[0] - self.s.omni[i]))
-                '''if self.step == 900 and (self.node_id==0):# or self.node_id==1):
-                        self.goals = [
-                            np.array([-6, -7]),
-                            np.array([-4, -5]),
-                        ]
-                        for i, g in enumerate(self.goals):
-                            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
-                            self.task_pos_coeff[i] = RobCont(
-                                omni=[[g] for _ in range(self.n_robots.omni)],
-                            )
-                    
-                        self.hompc.update_task(
-                            name = "position",
-                            eq_task_coeff = self.task_pos_coeff[0].tolist(),
-                            # robot_index = cov_rob_idx,
-                        )'''
                 
                 if self.step == st.n_steps-1:
                     plt.figure(figsize=(10, 6))
@@ -541,10 +525,10 @@ class Node():
             print(f's:\t{self.s.tolist()}\n'
                   f'u:\t{self.u_star}\n')
 
-
-            self.s_history[self.step] = copy.deepcopy(self.s.tolist())
-            self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
-            self.step += 1
+            if round == '2':
+                self.s_history[self.step] = copy.deepcopy(self.s.tolist())
+                self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
+                self.step += 1
                 
         return 
         

@@ -290,6 +290,7 @@ def main():
             [-8, -3],
         ]
     )
+    gg = np.array(goals[:st.n_nodes]) 
 
     start_time_coop = time.time()
 

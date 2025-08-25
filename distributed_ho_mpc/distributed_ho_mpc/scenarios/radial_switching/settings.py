@@ -8,12 +8,12 @@ n_nodes = 8  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.1
-n_steps = 101
+dt = 0.05
+n_steps = 480
 
-communication_range = 7
+communication_range = 6
 
-v_max = 1.8
+v_max = 1.5
 v_min = -0.9
 
 # ---------------------------------------------------------------------------- #

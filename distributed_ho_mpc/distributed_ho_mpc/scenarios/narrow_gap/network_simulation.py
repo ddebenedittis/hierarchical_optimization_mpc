@@ -240,7 +240,8 @@ def main():
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],   # neighbours tasks
             goals,                       # goals to be reached
-            st.n_steps                   # max simulation steps
+            st.n_steps,                   # max simulation steps
+            out_dir=out_dir,
         )
         nodes.append(node)
 
@@ -400,10 +401,15 @@ def main():
 
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
        
-        # save_snapshots(
-        #     s_hist_merged, goals, None, st.dt, [9.45 ,19], f'{out_dir}/snapshot',
-        #     show_trajectory=True, show_voronoi=False
-        # )
+        save_snapshots(
+            s_hist_merged, 
+            None,  [[0,6,4.5],[0,-6,4.5]], 
+            st.dt, 
+            [9.7], 
+            f'{out_dir}/snapshot',
+            show_trajectory=True, show_voronoi=False,
+            x_lim=[-10, 10], y_lim=[-10, 10],
+        )
 
 
         display_animation(s_hist_merged, 

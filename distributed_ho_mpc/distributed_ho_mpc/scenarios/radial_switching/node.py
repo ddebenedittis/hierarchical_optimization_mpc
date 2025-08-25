@@ -63,7 +63,7 @@ class Node:
             self.n_xi * (self.degree)
         )  # step size for primal and dual variables
 
-        self.a = 2
+        self.a = 1
 
         self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi * (self.degree)))
@@ -176,8 +176,8 @@ class Node:
             omni=ca.vertcat(
                 self.u.omni[0] - self.v_max,  # vmax
                 -self.u.omni[0] + 0,  # vmin
-                self.u.omni[1] - 1.5,  # vmax
-                -self.u.omni[1] - 1.5,  # vmin
+                self.u.omni[1] - 1.4,  # vmax
+                -self.u.omni[1] - 1.4,  # vmin
             )
         )
 
@@ -367,30 +367,22 @@ class Node:
 
         if self.node_id == 0:
             self.s = RobCont(
-                omni=[np.array([-4, 4, 0.1]) for _ in range(self.n_robots.omni)],
+                omni=[np.array([-2.57, 4.29, 0.05]) for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([3.5, 4, -2.1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([2.2, 4.37, -2.1]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([3.5, -4, 2.1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([2.02, -4.57, 2.1]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-4, -4, 0.75]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-3, -4.59, 0.75]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 4:
-            self.s = RobCont(omni=[np.array([-5, -2, 0.25]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-4.71, -1.67, 0.25]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 5:
-            self.s = RobCont(omni=[np.array([5, 2, 3]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([4.48, 2.23, 3]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 6:
-            self.s = RobCont(omni=[np.array([-5, 2, 0.25]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-4.32, 2.51, 0.05]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 7:
-            self.s = RobCont(omni=[np.array([5, -2, 3]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([-7, 0, 0.25]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 9:
-            self.s = RobCont(omni=[np.array([7, 0, 3]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 10:
-            self.s = RobCont(omni=[np.array([0, -5, 2.1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 11:
-            self.s = RobCont(omni=[np.array([0, 5, -2.1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([4.42, -1.8, 3]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -433,7 +425,7 @@ class Node:
 
         return self.sender.send_message(receiver_id, update)
 
-    def update(self):
+    def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
         if self.step != 0:
@@ -448,15 +440,15 @@ class Node:
 
             self.y_i = copy.deepcopy(self.y)
 
-            # put in message u and s
-            if self.step % self.a == 0:
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
-                # self.a = self.a * 2
-                self.counter.append(self.step)
-            else:
-                self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+            if round == '2':
+                if self.step % self.a == 0:
+                    self.s = self.evolve(
+                        copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                    )
+                    # self.a = self.a * 2
+                    self.counter.append(self.step)
+                else:
+                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot:
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -467,23 +459,7 @@ class Node:
                         self.dist_hist[i - 1].append(
                             np.linalg.norm(self.s_.omni[0] - self.s.omni[i])
                         )
-                """if self.step == 900 and (self.node_id==0):# or self.node_id==1):
-                        self.goals = [
-                            np.array([-6, -7]),
-                            np.array([-4, -5]),
-                        ]
-                        for i, g in enumerate(self.goals):
-                            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
-                            self.task_pos_coeff[i] = RobCont(
-                                omni=[[g] for _ in range(self.n_robots.omni)],
-                            )
-                    
-                        self.hompc.update_task(
-                            name = "position",
-                            eq_task_coeff = self.task_pos_coeff[0].tolist(),
-                            # robot_index = cov_rob_idx,
-                        )"""
-
+                        
                 if self.step == st.n_steps - 1:
                     plt.figure(figsize=(10, 6))
                     plt.suptitle(f'Node_{self.node_id}  and Delta')
@@ -503,9 +479,10 @@ class Node:
 
             print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
 
-            self.s_history[self.step] = copy.deepcopy(self.s.tolist())
-            self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
-            self.step += 1
+            if round == '2':
+                self.s_history[self.step] = copy.deepcopy(self.s.tolist())
+                self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
+                self.step += 1
 
         return
 

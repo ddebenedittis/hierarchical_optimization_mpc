@@ -144,6 +144,9 @@ class Node:
 
         self.v_max = copy.deepcopy(st.v_max)
         self.v_min = copy.deepcopy(st.v_min)
+        self.omega_max = copy.deepcopy(st.omega_max)
+        self.omega_min = copy.deepcopy(st.omega_min)
+
 
         self.dist_hist = [[], [], []]
         self.delta_hist = [[], [], [], []]
@@ -176,9 +179,9 @@ class Node:
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
                 self.u.omni[0] - self.v_max,  # vmax
-                -self.u.omni[0] + 0,  # vmin
-                self.u.omni[1] - 1.4,  # vmax
-                -self.u.omni[1] - 1.4,  # vmin
+                -self.u.omni[0] + self.v_min,  # vmin
+                self.u.omni[1] - self.omega_max,  # vmax
+                -self.u.omni[1] + self.omega_min,  # vmin
             )
         )
 

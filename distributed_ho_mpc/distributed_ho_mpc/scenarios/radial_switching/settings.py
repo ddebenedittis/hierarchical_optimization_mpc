@@ -9,18 +9,20 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 480
+n_steps = 300
 
 communication_range = 6
 
 v_max = 1.5
-v_min = -0.9
+v_min = 0
+omega_max = 1.4
+omega_min = -1.4
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['save']  # change the key to decide the output visualization
+visual_method = output['display']  # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False  # plot the inner state of the robots

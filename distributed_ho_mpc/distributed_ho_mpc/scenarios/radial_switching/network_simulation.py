@@ -103,6 +103,11 @@ def main():
     #         np.array([0,0])
     #     ]
 
+    snap = [0] # time for snapshot
+    for tt in snap:
+        if tt > st.n_steps*st.dt:
+            raise ValueError('Time instant for snapshot out of simulation lenght')
+    
     time_start = time.time()
 
     goals = [
@@ -304,20 +309,21 @@ def main():
             last_step = i+1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update('1')    # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-                nodes[ij].receive_data(msg) # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()    # linear update of dual problem
-        for j in range(st.n_nodes):
+        for i in range(1):
+            for j in range(st.n_nodes):
+                nodes[j].reorder_s_init(state)
+                nodes[j].update('1')    # Update primal solution and state evolution
+            for j in range(st.n_nodes):
+                state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
                 for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
+                    msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
                     nodes[ij].receive_data(msg) # neighbour receives the message
+            for j in range(st.n_nodes):
+                nodes[j].dual_update()    # linear update of dual problem
+            for j in range(st.n_nodes):
+                    for ij in nodes[j].neigh:  # select my neighbours
+                        msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
+                        nodes[ij].receive_data(msg) # neighbour receives the message
         for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state) 
                 nodes[j].update('2')    # Update primal solution and state evolution
@@ -405,18 +411,19 @@ def main():
 
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        save_snapshots(
+        
+        '''save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
-            [8, 19],
+            snap,
             f'{out_dir}/snapshot',
             show_trajectory=True,
             show_voronoi=False,
             x_lim=[-10, 10],
             y_lim=[-10, 10],
-        )
+        )'''
 
         display_animation(
             s_hist_merged,

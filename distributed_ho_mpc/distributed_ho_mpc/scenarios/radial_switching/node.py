@@ -107,8 +107,9 @@ class Node:
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
-                header.append(f'inputX_{i}')
-                header.append(f'inputY_{i}')
+                header.append(f'stateRHO_{i}')
+                header.append(f'inputV_{i}')
+                header.append(f'inputOM_{i}')
 
             writer.writerow(header)
 
@@ -489,8 +490,8 @@ class Node:
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
-        # if self.step > 0:
-        #     self.save_data()
+        if self.step > 0:
+            self.save_data()
 
         self.y_j = self.receiver.process_messages('P')
 
@@ -569,7 +570,7 @@ class Node:
                     row.extend(self.s.omni[ii])
                     row.extend(self.u_star[0][ii])
                 else:
-                    row.extend([None] * 4)
+                    row.extend([None] * 5)
 
             writer.writerow(row)
 

@@ -103,7 +103,12 @@ def main():
     #         np.array([-6, -8]),
     #         np.array([0,0])
     #     ]
-
+    snap = [0] # time for snapshot
+    for tt in snap:
+        if tt > st.n_steps*st.dt:
+            raise ValueError('Time instant for snapshot out of simulation lenght')
+    
+    
     time_start = time.time()
 
     goals = [

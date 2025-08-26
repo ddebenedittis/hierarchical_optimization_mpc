@@ -417,6 +417,7 @@ def main():
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
+        flags.centroid = False
 
         save_snapshots(
             s_hist_merged,

@@ -392,7 +392,7 @@ class Animation:
                     [], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot'
                 )
             )
-        if sum(self.n_robots) > 1:
+        if sum(self.n_robots) > 1 and self.artists_flags.centroid:
             legend_elements.append(
                 Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
             )
@@ -507,7 +507,7 @@ class Animation:
         # )
 
         # Fleet centroid. Plotted only if more than one robot.
-        if sum(self.n_robots) > 1:
+        if sum(self.n_robots) > 1 and self.artists_flags.centroid:
             self.artists.centroid.set_offsets(
                 sum(
                     [
@@ -550,14 +550,19 @@ class Animation:
                     cnt += 1
 
             # Sum of x_history along c and j indices
-            x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
-            self.artists.past_trajectory[cnt] = plt.plot(
-                x_centroid_hist[:, 0],
-                x_centroid_hist[:, 1],
-                color='C2',
-                linestyle='--',
-                alpha=0.75,
-            )[0]
+            if (
+                sum(self.n_robots) > 1
+                and self.artists_flags.centroid
+                and self.artists_flags.past_trajectory
+            ):
+                x_centroid_hist = np.sum(x_history[1], axis=(0)) / self.n_robots[1]
+                self.artists.past_trajectory[cnt] = plt.plot(
+                    x_centroid_hist[:, 0],
+                    x_centroid_hist[:, 1],
+                    color='C2',
+                    linestyle='--',
+                    alpha=0.75,
+                )[0]
 
         # Time on plot.
         self.fr_number.set_text(f'$t = {frame * self.dt:.2f} \, s$')

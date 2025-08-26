@@ -409,13 +409,14 @@ def main():
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
+        flags.centroid = False
 
         save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
-            snap,
+            [10.0],
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
             y_lim=[-10, 10],

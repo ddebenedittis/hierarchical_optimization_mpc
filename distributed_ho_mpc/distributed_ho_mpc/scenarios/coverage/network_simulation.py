@@ -358,6 +358,7 @@ def main(model_name='omni'):
             s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
         flags = MultiRobotArtistFlags()
+        flags.centroid = False
 
         save_snapshots(
             s_hist_merged,

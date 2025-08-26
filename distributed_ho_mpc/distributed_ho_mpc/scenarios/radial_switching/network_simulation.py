@@ -13,6 +13,7 @@ from scipy.spatial.distance import pdist
 import distributed_ho_mpc.scenarios.radial_switching.settings as st
 from distributed_ho_mpc.scenarios.radial_switching.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    MultiRobotArtistFlags,
     display_animation,
     save_snapshots,
 )
@@ -103,11 +104,6 @@ def main():
     #         np.array([0,0])
     #     ]
 
-    snap = [0] # time for snapshot
-    for tt in snap:
-        if tt > st.n_steps*st.dt:
-            raise ValueError('Time instant for snapshot out of simulation lenght')
-    
     time_start = time.time()
 
     goals = [
@@ -295,41 +291,41 @@ def main():
             [-8, -3],
         ]
     )
-    gg = np.array(goals[:st.n_nodes]) 
+    gg = np.array(goals[: st.n_nodes])
 
     start_time_coop = time.time()
 
     for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
-        if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
             last_step = i
             break
-        if i == st.n_steps-1:
-            last_step = i+1
+        if i == st.n_steps - 1:
+            last_step = i + 1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for i in range(1):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
-                nodes[j].update('1')    # Update primal solution and state evolution
+                nodes[j].update('1')  # Update primal solution and state evolution
             for j in range(st.n_nodes):
-                state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+                state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
                 for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-                    nodes[ij].receive_data(msg) # neighbour receives the message
+                    msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
             for j in range(st.n_nodes):
-                nodes[j].dual_update()    # linear update of dual problem
+                nodes[j].dual_update()  # linear update of dual problem
             for j in range(st.n_nodes):
-                    for ij in nodes[j].neigh:  # select my neighbours
-                        msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
-                        nodes[ij].receive_data(msg) # neighbour receives the message
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
-                nodes[j].reorder_s_init(state) 
-                nodes[j].update('2')    # Update primal solution and state evolution
+            nodes[j].reorder_s_init(state)
+            nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-    
-    '''for j in range(st.n_nodes):
+
+    """for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
@@ -364,7 +360,7 @@ def main():
                 nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)'''
+        pairwise_distances = agents_distance(state, pairwise_distances)"""
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop
@@ -398,7 +394,7 @@ def main():
         # plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f"{out_dir}/distances.pdf", bbox_inches='tight', format='pdf')
+        plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
         plt.close()
 
         # ---------------------------------------------------------------------------- #
@@ -411,19 +407,20 @@ def main():
 
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        
-        '''save_snapshots(
+        flags = MultiRobotArtistFlags()
+        flags.voronoi = False
+
+        save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
             snap,
             f'{out_dir}/snapshot',
-            show_trajectory=True,
-            show_voronoi=False,
             x_lim=[-10, 10],
             y_lim=[-10, 10],
-        )'''
+            flags=flags,
+        )
 
         display_animation(
             s_hist_merged,
@@ -431,11 +428,10 @@ def main():
             None,
             st.dt,
             st.visual_method,
-            show_voronoi=False,
-            show_trajectory=True,
             video_name=f'{out_dir}/video.mp4',
             x_lim=[-10, 10],
             y_lim=[-10, 10],
+            flags=flags,
         )
 
 

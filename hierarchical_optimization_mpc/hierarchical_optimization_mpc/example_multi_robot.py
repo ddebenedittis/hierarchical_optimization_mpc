@@ -16,6 +16,7 @@ from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
 )
 from hierarchical_optimization_mpc.tasks_creator_ho_mpc_mr import TasksCreatorHOMPCMultiRobot
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    MultiRobotArtistFlags,
     display_animation,
     plot_distances,
     save_snapshots,
@@ -202,6 +203,8 @@ def main_coverage(
 
     # ========================= Visualization Options ======================== #
 
+    flags = MultiRobotArtistFlags()
+
     if visual_method is not None and visual_method != 'none':
         display_animation(
             s_history,
@@ -209,8 +212,7 @@ def main_coverage(
             None,
             dt,
             visual_method,
-            show_trajectory=True,
-            show_voronoi=True,
+            flags=flags,
         )
 
     if visual_method == 'save':
@@ -221,8 +223,7 @@ def main_coverage(
             dt,
             [0, 10, 25],
             'snapshot',
-            show_trajectory=True,
-            show_voronoi=True,
+            flags=flags,
         )
 
     return time_elapsed
@@ -410,6 +411,9 @@ def main_formation(
 
     # ========================= Visualization Options ======================== #
 
+    flags = MultiRobotArtistFlags()
+    flags.voronoi = False
+
     obstacles = np.concatenate((obstacle_pos, [obstacle_size]))
     if visual_method is not None and visual_method != 'none':
         display_animation(
@@ -418,10 +422,9 @@ def main_formation(
             obstacles,
             dt,
             visual_method,
-            show_trajectory=True,
-            show_voronoi=False,
             x_lim=[-5, 20],
             y_lim=[-5, 15],
+            flags=flags,
         )
 
     if visual_method == 'save':
@@ -432,10 +435,9 @@ def main_formation(
             dt,
             [0, 18],
             'snapshot',
-            show_trajectory=True,
-            show_voronoi=False,
             x_lim=[-5, 20],
             y_lim=[-5, 15],
+            flags=flags,
         )
 
         plot_distances(

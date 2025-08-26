@@ -11,6 +11,7 @@ from scipy.spatial.distance import pdist
 import distributed_ho_mpc.scenarios.coverage.settings as st
 from distributed_ho_mpc.scenarios.coverage.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    MultiRobotArtistFlags,
     display_animation,
     save_snapshots,
 )
@@ -356,6 +357,8 @@ def main(model_name='omni'):
         elif model_name == 'omni':
             s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
+        flags = MultiRobotArtistFlags()
+
         save_snapshots(
             s_hist_merged,
             None,
@@ -363,8 +366,7 @@ def main(model_name='omni'):
             st.dt,
             [20],
             f'{out_dir}/snapshot',
-            show_trajectory=True,
-            show_voronoi=True,
+            flags=flags,
         )
 
         display_animation(
@@ -373,9 +375,8 @@ def main(model_name='omni'):
             None,
             st.dt,
             st.visual_method,
-            show_voronoi=True,
-            show_trajectory=True,
             video_name=f'{out_dir}/video.mp4',
+            flags=flags,
         )
 
 

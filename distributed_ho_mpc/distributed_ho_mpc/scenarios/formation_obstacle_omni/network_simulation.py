@@ -12,6 +12,7 @@ from scipy.spatial.distance import pdist
 import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
 from distributed_ho_mpc.scenarios.formation_obstacle_omni.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
+    MultiRobotArtistFlags,
     display_animation,
     save_snapshots,
 )
@@ -100,7 +101,7 @@ def main():
         'agent_5': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio':2, 'name':"obstacle_avoidance"},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
             {'prio': 3, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
             # {'prio':4, 'name':"formation", 'agents': [[5,7]], 'distance': 7.07},
@@ -131,7 +132,7 @@ def main():
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-            #{'prio': 3, 'name': 'vel_ref'},
+            # {'prio': 3, 'name': 'vel_ref'},
             {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
@@ -265,34 +266,34 @@ def main():
     pairwise_distances = [[] for _ in range(num_pairs)]
 
     for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
         # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
         #     last_step = i
         #     break
-        if i == st.n_steps-1:
-            last_step = i+1
-        #if i > 0:
+        if i == st.n_steps - 1:
+            last_step = i + 1
+        # if i > 0:
         #    neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
-            nodes[j].update('1')    # Update primal solution and state evolution
+            nodes[j].update('1')  # Update primal solution and state evolution
         for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
+            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-                nodes[ij].receive_data(msg) # neighbour receives the message
+                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
-            nodes[j].dual_update()    # linear update of dual problem
+            nodes[j].dual_update()  # linear update of dual problem
         for j in range(st.n_nodes):
-                for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
-                    nodes[ij].receive_data(msg) # neighbour receives the message
+            for ij in nodes[j].neigh:  # select my neighbours
+                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
-                nodes[j].reorder_s_init(state) 
-                nodes[j].update('2')    # Update primal solution and state evolution
+            nodes[j].reorder_s_init(state)
+            nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-    '''for j in range(st.n_nodes):
+    """for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
@@ -324,7 +325,7 @@ def main():
                 nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)'''
+        pairwise_distances = agents_distance(state, pairwise_distances)"""
 
     if st.simulation:
         robot_pairs = list(combinations(range(num_robots), 2))
@@ -353,16 +354,19 @@ def main():
 
         s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
+        flags = MultiRobotArtistFlags()
+        flags.voronoi = False
+
         save_snapshots(
             s_hist_merged,
             None,
             [[7, 7, 1.8]],
             st.dt,
-            [4,12],
+            [4, 12],
             f'{out_dir}/snapshot',
-            show_trajectory=True,
-            show_voronoi=False,
-            x_lim=[-6, 20], y_lim=[-6, 20],
+            x_lim=[-6, 20],
+            y_lim=[-6, 20],
+            flags=flags,
         )
 
         display_animation(
@@ -371,10 +375,10 @@ def main():
             [[7, 7, 1.8]],
             st.dt,
             st.visual_method,
-            show_voronoi=False,
-            show_trajectory=True,
             video_name=f'{out_dir}/video.mp4',
-            x_lim=[-6, 20], y_lim=[-6, 20],
+            x_lim=[-6, 20],
+            y_lim=[-6, 20],
+            flags=flags,
         )
 
 

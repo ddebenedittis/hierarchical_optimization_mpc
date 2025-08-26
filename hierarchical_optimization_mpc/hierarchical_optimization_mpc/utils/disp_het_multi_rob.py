@@ -107,6 +107,17 @@ class MultiRobotArtists:
     obstacles: ...
 
 
+@dataclass
+class MultiRobotArtistFlags:
+    unicycles: bool = True
+    omnidir: bool = True
+    centroid: bool = True
+    voronoi: bool = True
+    past_trajectory: bool = True
+    goals: bool = True
+    obstacles: bool = True
+
+
 # =========================================================================== #
 
 
@@ -263,9 +274,8 @@ class Animation:
         self.n_robots = [len(data_i) for data_i in data[0]]
 
         self.artists = None
+        self.artists_flags = MultiRobotArtistFlags
 
-        self.show_trajectory = True
-        self.show_voronoi = True
         self.coloured_trajectory = True
 
     # ================================= Init ================================= #
@@ -298,7 +308,7 @@ class Animation:
 
         self.artists.voronoi = [self.ax.plot([], [])]
 
-        if self.show_trajectory:
+        if self.artists_flags.past_trajectory:
             self.artists.past_trajectory = [
                 self.ax.plot([], []) for _ in range(sum(self.n_robots) + 1)
             ]
@@ -509,7 +519,7 @@ class Animation:
             )
 
         # Voronoi.
-        if self.show_voronoi:
+        if self.artists_flags.voronoi:
             towers = np.array([e[0:2] for e in state[0]] + [e[0:2] for e in state[1]])
             bounding_box = np.array([-20, 20, -20, 20])
             vor = BoundedVoronoi(towers, bounding_box)
@@ -521,7 +531,7 @@ class Animation:
             self.artists.voronoi = vor.plot()
 
         # Past trajectory.
-        if self.show_trajectory:
+        if self.artists_flags.past_trajectory:
             for e in self.artists.past_trajectory:
                 e.remove()
 
@@ -564,17 +574,15 @@ def display_animation(
     obstacles,
     dt: float,
     method: str = 'plot',
-    show_trajectory: bool = True,
-    show_voronoi: bool = True,
     x_lim=[-20.0, 20.0],
     y_lim=[-20.0, 20.0],
     video_name: str = 'video.mp4',
+    flags: MultiRobotArtistFlags = MultiRobotArtistFlags(),
 ):
     fig, ax = plt.subplots()
 
     anim = Animation(s_history, goals, obstacles, ax, dt)
-    anim.show_trajectory = show_trajectory
-    anim.show_voronoi = show_voronoi
+    anim.artists_flags = flags
     anim.x_lim = x_lim
     anim.y_lim = y_lim
 
@@ -619,10 +627,9 @@ def save_snapshots(
     dt: float,
     times: int | list[int],
     filename: str,
-    show_trajectory: bool = True,
-    show_voronoi: bool = True,
     x_lim=[-20.0, 20.0],
     y_lim=[-20.0, 20.0],
+    flags: MultiRobotArtistFlags = MultiRobotArtistFlags(),
 ):
     if isinstance(times, int):
         times = [times]
@@ -632,8 +639,7 @@ def save_snapshots(
 
         fig, ax = plt.subplots()
         anim = Animation(s_history, goals, obstacles, ax, dt)
-        anim.show_trajectory = show_trajectory
-        anim.show_voronoi = show_voronoi
+        anim.artists_flags = flags
         anim.x_lim = x_lim
         anim.y_lim = y_lim
 

@@ -184,6 +184,19 @@ class Node:
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
 
+        # ===========================Velocity Reference================================== #
+        
+        self.task_vel_ref = RobCont(
+            omni=ca.vertcat(
+                (self.s_kp1.omni[0] - self.s.omni[0]) / self.dt - 1,
+                (self.s_kp1.omni[1] - self.s.omni[1]) / self.dt - 1,
+            ),
+        )
+
+        self.task_vel_ref_coeff = RobCont(
+            omni = [np.array([3.0, 3.0])],
+        )
+                
         # ===========================Go-to-Goal====================================== #
         self.task_pos = [None for i in range(len(self.goals))]
         self.task_pos_coeff = [None for i in range(len(self.goals))]
@@ -214,7 +227,7 @@ class Node:
 
         # =====================Obstacle Avoidance===================================== #
         self.obstacle_pos = np.array([7, 7])
-        self.obstacle_size = 1.5
+        self.obstacle_size = 2
         self.task_obs_avoidance = [
             ca.vertcat(
                 -((self.s.omni[0] - self.obstacle_pos[0]) ** 2)
@@ -323,6 +336,16 @@ class Node:
                     type=TaskType.Same,
                     ineq_task_ls=self.task_obs_avoidance,
                 )
+            elif task['name'] == 'vel_ref':
+                self.hompc.create_task(
+                    name = "vel_ref", 
+                    prio = task['prio'],
+                    type = TaskType.Same,
+                    eq_task_ls = self.task_vel_ref.tolist(),
+                    eq_task_coeff = self.task_vel_ref_coeff.tolist(),
+                    time_index = [0],
+                    robot_index=[[0]]
+                )
         for neigh in self.neigh_tasks:
             self.create_neigh_tasks(neigh)
 
@@ -390,7 +413,7 @@ class Node:
 
         return self.sender.send_message(receiver_id, update)
 
-    def update(self):
+    def update(self, round):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
         if self.step != 0:
@@ -428,14 +451,15 @@ class Node:
             self.y_i = copy.deepcopy(self.y)
 
             # put in message u and s
-            if self.step % self.a == 0:
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
-                # self.a = self.a * 2
-                self.counter.append(self.step)
-            else:
-                self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+            if round == '2':
+                if self.step % self.a == 0:
+                    self.s = self.evolve(
+                        copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                    )
+                    # self.a = self.a * 2
+                    self.counter.append(self.step)
+                else:
+                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot:
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -466,9 +490,10 @@ class Node:
 
             print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
 
-            self.s_history[self.step] = copy.deepcopy(self.s.tolist())
-            self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
-            self.step += 1
+            if round == '2':
+                self.s_history[self.step] = copy.deepcopy(self.s.tolist())
+                self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
+                self.step += 1
 
         return
 
@@ -564,6 +589,16 @@ class Node:
                     time_index=TaskIndexes.All,
                     robot_index=[[robot_idx]],
                 )
+            elif task['name'] == 'vel_ref':
+                self.hompc.create_task(
+                    name = "vel_ref", 
+                    prio = task['prio'],
+                    type = TaskType.Same,
+                    eq_task_ls = self.task_vel_ref.tolist(),
+                    eq_task_coeff = self.task_vel_ref_coeff.tolist(),
+                    time_index = [0],
+                    robot_index=[[robot_idx]]
+                )    
             elif task['name'] == 'formation':
                 for t in task['agents']:
                     if is_formation_with_neigh(t, self.robot_idx_global):

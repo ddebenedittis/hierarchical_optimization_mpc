@@ -8,13 +8,13 @@ n_nodes = 9  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.1
-n_steps = 101
+dt = 0.05
+n_steps = 300
 
 communication_range = 9
 
-v_max = 2
-v_min = -2
+v_max = 1.8
+v_min = -1.8
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #

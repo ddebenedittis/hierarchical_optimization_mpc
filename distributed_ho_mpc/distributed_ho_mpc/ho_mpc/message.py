@@ -13,6 +13,7 @@ class Message:
     x_j: np.ndarray  # primal variable of the neighbour j estimated by the sender i
     rho_i: np.ndarray  # dual variable of the sender
     rho_j: np.ndarray  # dual variable of the neighbour j estimated by the sender i
+    N_j: np.ndarray = None # neighbour Null of i projected for j 
     update: str  # update type: 'P' for primal, 'D' for dual
 
 
@@ -31,6 +32,7 @@ class MessageSender:
         rho: np.ndarray,
         n_xi: int,
         n_priorities: int,
+        S: np.ndarray = None,
     ):
         self.sender_id = sender_id
         self.adjacency_vector = adjacency_vector
@@ -38,6 +40,7 @@ class MessageSender:
         self.rho = rho
         self.n_xi = n_xi
         self.n_priorities = n_priorities
+        self.S = S # Global selector matrix for one-hop null space computation
 
     def send_message(self, receiver_id: int, update: str) -> Message:
         """
@@ -52,7 +55,8 @@ class MessageSender:
         if update == 'P':
             x_i = self.y[:, 0 : self.n_xi]
             x_j = self.y[:, receiver_idx * self.n_xi : (receiver_idx + 1) * self.n_xi]
-
+            #N_j = 
+            
             return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
 
         if update == 'D':

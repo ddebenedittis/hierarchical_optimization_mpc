@@ -45,6 +45,7 @@ class Node:
         goals: np.array,
         n_steps: int,
         out_dir: str = 'out',
+        S: np.array = None,
     ):
         super(Node, self).__init__()
 
@@ -52,6 +53,7 @@ class Node:
         self.adjacency_vector = copy.deepcopy(adjacency_vector)  # neighbours
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()  # index of neighbours
         self.degree = len(self.neigh)  # numbers of neighbours
+        #self.S = S # Global selector matrix for one-hop null space computation
 
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
@@ -83,7 +85,7 @@ class Node:
         # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
 
         self.sender = MessageSender(
-            self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority
+            self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority, S
         )
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
@@ -437,9 +439,9 @@ class Node:
 
         if self.step < self.n_steps:
             print(self.step)
-            rho_delta = self.rho_i - self.rho_j  #! to be controlled
+            rho_delta = self.rho_i - self.rho_j  
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, null_method= st.null_method)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
             self.y_i = copy.deepcopy(self.y)

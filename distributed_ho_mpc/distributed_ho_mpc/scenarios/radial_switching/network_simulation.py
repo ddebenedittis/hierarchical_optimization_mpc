@@ -82,6 +82,8 @@ def main():
 
                 # idx disconnects from i
                 nodes[idx].remove_connection(graph_matrix[idx], f'agent_{i}', i)
+            
+            
 
     def agents_distance(state, pairwise_distances):
         """
@@ -93,6 +95,16 @@ def main():
         for i, d in enumerate(distances):
             pairwise_distances[i].append(d)
         return pairwise_distances
+    
+    def null_update(I_connection, A):
+        S_all = []
+        for i in range(st.n_nodes):
+            #neighbors = np.where(A[i] == 1)[0]  # indices of neighbors
+            neighbors = np.nonzero(A[i])[0].tolist() # indices of neighbors
+            # stack their selector blocks
+            S_i = np.vstack([I_connection[j*st.n_xi:(j+1)*st.n_xi, :] for j in neighbors])
+            S_all.append(S_i)
+            return S_all
 
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
@@ -241,6 +253,15 @@ def main():
             id += 1
 
     # ----------------------------------------------------------------------------- #
+    #                        One - Hop Neighbour Selector                           #
+    # ----------------------------------------------------------------------------- #
+    I_full = np.eye(st.n_nodes * st.n_xi, dtype=int)
+
+    S_blocks = null_update(I_full, graph_matrix)
+
+    
+    
+    # ----------------------------------------------------------------------------- #
     #         Create agents and initialize them based on settings and tasks        #
     # ---------------------------------------------------------------------------- #
 
@@ -265,6 +286,7 @@ def main():
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
             out_dir=out_dir,
+            S = S_blocks,  # one-hop selector
         )
         nodes.append(node)
 
@@ -310,6 +332,10 @@ def main():
             last_step = i + 1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
+            if st.null_method == 'one-hop':
+                S_blocks = null_update(I_full, graph_matrix)
+                for jj in range(st.n_nodes):
+                    nodes[jj].hompc.sender.S = S_blocks
         for i in range(1):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
@@ -421,7 +447,7 @@ def main():
             goals,
             None,
             st.dt,
-            [10.0],
+            snap,
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
             y_lim=[-10, 10],

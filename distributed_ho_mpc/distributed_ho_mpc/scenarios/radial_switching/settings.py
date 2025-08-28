@@ -9,9 +9,9 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 300
+n_steps = 200
 
-communication_range = 6
+communication_range = 12
 
 v_max = 1.5
 v_min = 0
@@ -38,7 +38,11 @@ n_xi = n_control * 2
 # ---------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #
-
-
 n_priority = 2
 step_size = 1e-6
+
+# ---------------------------------------------------------------------------- #
+#                                 Null Method                                  #
+# ---------------------------------------------------------------------------- #
+null_computation = {'local': 'local', 'shared': 'one-hop'}
+null_method = null_computation['shared']  # change the key to decide the null space computation method

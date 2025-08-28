@@ -1358,6 +1358,7 @@ class HOMPCMultiRobot(HOMPC):
         rho_delta: np.ndarray = None,
         inputs: list[np.ndarray] = None,
         id: int = None,
+        null_method: str = 'local'
     ) -> np.ndarray:
         start_time = time.time()
 
@@ -1434,7 +1435,11 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p, w_star = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
+            if null_method == 'local':
+                x_star, x_star_p, w_star = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
+            else:
+                x_star, x_star_p, Z = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio, null_OH = True)
+                
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]

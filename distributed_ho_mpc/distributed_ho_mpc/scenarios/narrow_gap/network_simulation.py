@@ -419,7 +419,7 @@ def main():
         flags.voronoi = False
         flags.centroid = False
 
-        save_snapshots(
+        '''save_snapshots(
             s_hist_merged,
             None,
             [[0, 6, 4.5], [0, -6, 4.5]],
@@ -429,7 +429,7 @@ def main():
             x_lim=[-10, 10],
             y_lim=[-10, 10],
             flags=flags,
-        )
+        )'''
 
         flags.trajectory = False
 

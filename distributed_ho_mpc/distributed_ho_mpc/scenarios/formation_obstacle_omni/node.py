@@ -194,7 +194,7 @@ class Node:
         )
 
         self.task_vel_ref_coeff = RobCont(
-            omni = [np.array([3.0, 3.0])],
+            omni = [np.array([2, 2])],
         )
                 
         # ===========================Go-to-Goal====================================== #
@@ -370,7 +370,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([-2, 2]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([1, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -419,7 +419,7 @@ class Node:
         if self.step != 0:
             self.rho_j = self.receiver.process_messages('D')
 
-        if self.step == 50:
+        if self.step == 30:
             # self.goals = [
             #     np.array([5, 5]),
             #     np.array([8.53, 8.53]),
@@ -431,10 +431,10 @@ class Node:
             #         omni=[[g] for _ in range(self.n_robots.omni)],
             #     )
             for n, tt in enumerate(self.hompc._tasks):
-                if tt.name == 'position':
+                if tt.name == 'vel_ref':
                     for j in tt.eq_coeff[0]:
                         if j[0] is not None:
-                            j[0] += 15
+                            j[0] += 40
                     # self.hompc.update_task(
                     #     name = "position",
                     #     eq_task_coeff = self.task_pos_coeff[0].tolist(),

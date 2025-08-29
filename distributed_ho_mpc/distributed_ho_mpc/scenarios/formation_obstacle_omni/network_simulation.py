@@ -131,8 +131,8 @@ def main():
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
-            {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-            # {'prio': 3, 'name': 'vel_ref'},
+            #{'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+            {'prio': 3, 'name': 'vel_ref'},
             {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
@@ -357,7 +357,7 @@ def main():
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
 
-        save_snapshots(
+        '''save_snapshots(
             s_hist_merged,
             None,
             [[7, 7, 1.8]],
@@ -367,7 +367,7 @@ def main():
             x_lim=[-6, 20],
             y_lim=[-6, 20],
             flags=flags,
-        )
+        )'''
 
         display_animation(
             s_hist_merged,

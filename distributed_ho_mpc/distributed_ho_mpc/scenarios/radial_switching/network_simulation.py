@@ -310,7 +310,7 @@ def main():
             last_step = i + 1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for i in range(1):
+        for rr in range(3):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution

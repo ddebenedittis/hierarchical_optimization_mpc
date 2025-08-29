@@ -308,6 +308,8 @@ def main():
             break
         if i == st.n_steps - 1:
             last_step = i + 1
+        if i == 150:
+            None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for rr in range(3):
@@ -396,7 +398,7 @@ def main():
         plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')
-        # plt.legend()
+        plt.legend()
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')

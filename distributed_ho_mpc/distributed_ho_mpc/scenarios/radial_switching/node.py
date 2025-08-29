@@ -62,7 +62,7 @@ class Node:
         self.alpha = st.step_size * np.ones(
             self.n_xi * (self.degree)
         )  # step size for primal and dual variables
-
+        self.w = None
         self.a = 1
 
         self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
@@ -439,30 +439,29 @@ class Node:
             
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-
+            self.w = self.w[1:-1]
             self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
                 if self.step % self.a == 0:
+                    self.s_ = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
+                    
                     self.s = self.evolve(
                         copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                     )
                     # self.a = self.a * 2
-                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+                    #self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                     self.counter.append(self.step)
-                else:
-                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot and round == '2':
-                self.s_ = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 for i in range(len(self.s_.omni)):
                     self.delta_hist[i].append(np.linalg.norm(self.s_.omni[i] - self.s.omni[i]))
                     if i != 0:
                         self.dist_hist[i - 1].append(
-                            np.linalg.norm(self.s_.omni[0] - self.s.omni[i])
+                            np.linalg.norm(copy.deepcopy(self.s.omni[0]) - copy.deepcopy(self.s.omni[i]))
                         )
                         
                 if self.step == st.n_steps - 1:

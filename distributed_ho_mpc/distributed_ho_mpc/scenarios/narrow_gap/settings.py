@@ -24,7 +24,7 @@ output = {
     'save': 'save', 
     'nothing' :'none'
 }
-visual_method = output['save'] # change the key to decide the output visualization
+visual_method = output['display'] # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False # plot the inner state of the robots

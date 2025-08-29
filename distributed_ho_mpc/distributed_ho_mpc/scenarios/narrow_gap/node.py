@@ -140,6 +140,7 @@ class Node():
 
         self.n_steps = n_steps
         self.step = 0
+        self.step_p = 0
         self.tasks = self_tasks
         self.neigh_tasks = neigh_tasks
      
@@ -477,8 +478,8 @@ class Node():
     def update(self, round: str):          
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
         
-        if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
+        #if self.step != 0:
+        self.rho_j = self.receiver.process_messages('D')
         
         if self.step < self.n_steps:
             
@@ -597,7 +598,7 @@ class Node():
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [self.step]
+            row = [self.step_p]
             for i in range(st.n_nodes):
                 if i == self.node_id:
                     continue
@@ -619,6 +620,8 @@ class Node():
             #row.append(self.cost_history[-1])
             
             writer.writerow(row)
+        
+        self.step_p += 1
 
     def create_neigh_tasks(self, neigh):
         """

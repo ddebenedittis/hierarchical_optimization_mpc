@@ -148,8 +148,8 @@ class Node:
         self.omega_min = copy.deepcopy(st.omega_min)
 
 
-        self.dist_hist = [[], [], []]
-        self.delta_hist = [[], [], [], []]
+        self.dist_hist = [[], [], [], [], [], [], [],[]]
+        self.delta_hist = [[], [], [], [], [], [], [],[]]
         self.counter = []
 
     def index_local_to_global(self, r) -> int:
@@ -436,7 +436,7 @@ class Node:
             self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
-            print(self.step)
+            
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
             self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
@@ -450,12 +450,13 @@ class Node:
                         copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                     )
                     # self.a = self.a * 2
+                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                     self.counter.append(self.step)
                 else:
                     self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
 
-            if st.inner_plot:
-                self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+            if st.inner_plot and round == '2':
+                self.s_ = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 for i in range(len(self.s_.omni)):
                     self.delta_hist[i].append(np.linalg.norm(self.s_.omni[i] - self.s.omni[i]))
@@ -481,9 +482,10 @@ class Node:
                     plt.legend()
                     plt.show()
 
-            print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
-
             if round == '2':
+                print(self.step)
+                print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
+                
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
                 self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
                 self.step += 1

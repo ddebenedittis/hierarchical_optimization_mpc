@@ -499,7 +499,7 @@ class Node():
                 else:
                     self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                 
-            if st.inner_plot:
+            if st.inner_plot and round == '2':
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                 
                 for i in range(len(self.s_.omni)):
@@ -524,10 +524,10 @@ class Node():
                     plt.legend()
                     plt.show()
 
-            print(f's:\t{self.s.tolist()}\n'
-                  f'u:\t{self.u_star}\n')
-
             if round == '2':
+                print(f's:\t{self.s.tolist()}\n'
+                      f'u:\t{self.u_star}\n')
+                
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
                 self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
                 self.step += 1

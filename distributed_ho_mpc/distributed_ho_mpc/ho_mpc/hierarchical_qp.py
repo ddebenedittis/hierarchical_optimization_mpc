@@ -402,7 +402,8 @@ class HierarchicalQP:
                 ]
             )
         ]
-
+        
+        
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
@@ -515,6 +516,7 @@ class HierarchicalQP:
             )
             d_tilde = d_tilde.flatten()
 
+            
             # =========================== Solve The QP =========================== #
 
             # Quadprog library QP problem formulation
@@ -693,7 +695,7 @@ class HierarchicalQP:
         prio_list=None,
         we=None,
         wi=None,
-        null_OH=False,
+        null_OH=None,
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -720,9 +722,9 @@ class HierarchicalQP:
         self._check_dimensions(A, b, C, d, we, wi, priorities=None)
 
         if self.hierarchical:
-            if null_OH:
+            if null_OH != None:
                 return self._solve_hierarchical_OH(
-                    A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list
+                    A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list, null_OH
                 )
             else:              
                 return self._solve_hierarchical(
@@ -745,6 +747,7 @@ class HierarchicalQP:
             wi=None,
             priorities=None,
             prio_list=None,
+            null_OH=None,
         ) -> np.ndarray:
             """
             Given a set of tasks in the form \\
@@ -953,6 +956,10 @@ class HierarchicalQP:
 
                 # Compute the new null space projector (skipped at the last iteration).
                 if (Ap.shape[0] != 0) and (priority != n_tasks - 1):
+                    if priority == n_tasks-2:
+                        for TA in null_OH:
+                            if len(TA) > 0:
+                                Z = Z @ null_space_projector(TA)
                     Z = Z @ null_space_projector(Ap @ Z)
                     #self.Z_old = Z_list
 

@@ -3,13 +3,13 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-p = 1  # probability of arc of communication
+p = 0.5  # probability of arc of communication
 n_nodes = 8  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 200
+n_steps = 250
 
 communication_range = 12
 
@@ -33,7 +33,7 @@ estimation_plotting = False
 n_control = 1  # mpc control step
 n_pred = 0  # mpc prediction step
 
-n_xi = n_control * 2
+n_xi = n_control * 5
 
 # ---------------------------------------------------------------------------- #
 #                                 PDD settings                               #

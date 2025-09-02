@@ -88,7 +88,7 @@ class Node:
             self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority, S
         )
 
-        self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
+        self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi, S)
 
         self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
@@ -434,16 +434,18 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
+        
+        self.rho_j, NA_neigh = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             print(self.step)
             rho_delta = self.rho_i - self.rho_j  
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, null_method= st.null_method)
+            self.u_star, self.y, A = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, null_method= st.null_method, A_neigh=NA_neigh)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-
+            if st.null_method == 'one-hop':
+                self.sender.A = copy.deepcopy(A)
+            
             self.y_i = copy.deepcopy(self.y)
 
             if round == '2':

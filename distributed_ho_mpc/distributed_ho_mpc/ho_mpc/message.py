@@ -13,8 +13,8 @@ class Message:
     x_j: np.ndarray  # primal variable of the neighbour j estimated by the sender i
     rho_i: np.ndarray  # dual variable of the sender
     rho_j: np.ndarray  # dual variable of the neighbour j estimated by the sender i
-    N_j: np.ndarray = None # neighbour Null of i projected for j 
     update: str  # update type: 'P' for primal, 'D' for dual
+    A_j: np.ndarray = None # neighbour matrix contraint 
 
 
 # TODO: support multiple priorities.
@@ -27,20 +27,21 @@ class MessageSender:
     def __init__(
         self,
         sender_id: int,
-        adjacency_vector: np.ndarray,
+        neigh: np.ndarray,
         y: np.ndarray,
         rho: np.ndarray,
         n_xi: int,
         n_priorities: int,
-        S: np.ndarray = None,
+        S_global: np.ndarray = None,
     ):
         self.sender_id = sender_id
-        self.adjacency_vector = adjacency_vector
+        self.neigh = neigh
         self.y = y
         self.rho = rho
         self.n_xi = n_xi
         self.n_priorities = n_priorities
-        self.S = S # Global selector matrix for one-hop null space computation
+        self.S_global = S_global # Global selector matrix for one-hop null space computation
+        self.A = []
 
     def send_message(self, receiver_id: int, update: str) -> Message:
         """
@@ -50,12 +51,11 @@ class MessageSender:
         """
 
         #! This assumes that all the x_i have the same size
-        receiver_idx = list(self.adjacency_vector).index(receiver_id)
+        receiver_idx = list(self.neigh).index(receiver_id)
 
         if update == 'P':
             x_i = self.y[:, 0 : self.n_xi]
             x_j = self.y[:, receiver_idx * self.n_xi : (receiver_idx + 1) * self.n_xi]
-            #N_j = 
             
             return Message(self.sender_id, x_i, x_j, rho_i=None, rho_j=None, update='P')
 
@@ -63,15 +63,15 @@ class MessageSender:
             rho_i = self.rho[0, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi]
             rho_j = self.rho[1, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi]
 
-            return Message(self.sender_id, x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D')
+            return Message(self.sender_id, x_i=None, x_j=None, rho_i=rho_i, rho_j=rho_j, update='D', A_j=self.A)
 
     def update(
         self,
-        adjacency_vector: np.ndarray,
+        neigh: np.ndarray,
         y: np.ndarray,
         rho: np.ndarray,
     ):
-        self.adjacency_vector = adjacency_vector
+        self.neigh = neigh
         self.y = copy.deepcopy(y)
         self.rho = copy.deepcopy(rho)
 
@@ -87,18 +87,21 @@ class MessageReceiver:
     def __init__(
         self,
         receiver_id: int,
-        adjacency_vector: np.ndarray,
+        neigh: np.ndarray,
         y_j: np.ndarray,
         rho_j: np.ndarray,
         n_xi: int,
+        S_global: np.ndarray = None,
     ):
         self.receiver_id = receiver_id
-        self.adjacency_vector = adjacency_vector
+        self.neigh = neigh
         self.y_j = y_j
         self.rho_j = rho_j
         self.messages = []
         self.n_xi = n_xi
-
+        self.S_global = S_global # Global selector matrix for one-hop null space computation
+        self.T_A = [[] for _ in range(S_global.shape[0])] if S_global is not None else None
+        
     def receive_message(self, message: Message):
         "Store the message received from neighbours in a local buffer"
 
@@ -112,7 +115,7 @@ class MessageReceiver:
 
         while self.messages:
             message = self.messages.pop(0)
-            receiver_idx = list(self.adjacency_vector).index(message.sender_id)
+            receiver_idx = list(self.neigh).index(message.sender_id)
             if message.update == 'P' and update == 'P':
                 self.y_j[0, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi] = (
                     message.x_j
@@ -120,6 +123,9 @@ class MessageReceiver:
                 self.y_j[1, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi] = (
                     message.x_i
                 )
+                #clear one hop null matrix
+                self.T_A = [[] for _ in range(self.S_global.shape[0])] if self.S_global is not None else None
+                
             if message.update == 'D' and update == 'D':
                 self.rho_j[0, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi] = (
                     message.rho_j
@@ -127,6 +133,13 @@ class MessageReceiver:
                 self.rho_j[1, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi] = (
                     message.rho_i
                 )
+                if len(message.A_j) != 0:
+                    T_ij = self.S_global[self.receiver_id] @ self.S_global[message.sender_id].T
+                    for A_p in message.A_j:
+                        if A_p.size != 0:
+                            self.T_A[message.sender_id].append(T_ij @ A_p.T)
+                    
+                    
             if message.update == 'P' and update == 'D':
                 raise ValueError('The update type must be the same')
             elif message.update == 'D' and update == 'P':
@@ -135,14 +148,15 @@ class MessageReceiver:
         if update == 'P':
             return self.y_j
         elif update == 'D':
-            return self.rho_j
+            return self.rho_j, self.T_A
 
     def update(
         self,
-        adjacency_vector: np.ndarray,
+        neigh: np.ndarray,
         y: np.ndarray,
         rho: np.ndarray,
     ):
-        self.adjacency_vector = adjacency_vector
+        self.neigh = neigh
         self.y_j = copy.deepcopy(y)
         self.rho_j = copy.deepcopy(rho)
+        

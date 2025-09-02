@@ -432,8 +432,8 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
+        
+        self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             

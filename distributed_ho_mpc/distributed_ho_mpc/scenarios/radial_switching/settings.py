@@ -8,8 +8,8 @@ n_nodes = 8  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.05
-n_steps = 232
+dt = 0.025
+n_steps = 750
 
 communication_range = 6
 

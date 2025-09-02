@@ -1481,7 +1481,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, y
+        return u_0, y, w_star
 
     # ======================================================================== #
 

@@ -312,7 +312,7 @@ def main():
             None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(3):
+        for rr in range(2):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution
@@ -398,7 +398,7 @@ def main():
         plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')
-        plt.legend()
+        #plt.legend()
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
@@ -418,7 +418,7 @@ def main():
         flags.voronoi = False
         #flags.centroid = False
 
-        save_snapshots(
+        '''save_snapshots(
             s_hist_merged,
             goals,
             None,
@@ -428,7 +428,7 @@ def main():
             x_lim=[-10, 10],
             y_lim=[-10, 10],
             flags=flags,
-        )
+        )'''
 
         display_animation(
             s_hist_merged,

@@ -11,7 +11,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 dt = 0.05
 n_steps = 250
 
-communication_range = 12
+communication_range = 6
 
 v_max = 1.5
 v_min = 0

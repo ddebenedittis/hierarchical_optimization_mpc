@@ -100,7 +100,7 @@ class MessageReceiver:
         self.messages = []
         self.n_xi = n_xi
         self.S_global = S_global # Global selector matrix for one-hop null space computation
-        self.T_A = [[] for _ in range(S_global.shape[0])] if S_global is not None else None
+        self.T_A = [[] for _ in range(len(S_global))] if S_global is not None else None
         
     def receive_message(self, message: Message):
         "Store the message received from neighbours in a local buffer"
@@ -124,7 +124,7 @@ class MessageReceiver:
                     message.x_i
                 )
                 #clear one hop null matrix
-                self.T_A = [[] for _ in range(self.S_global.shape[0])] if self.S_global is not None else None
+                self.T_A = [[] for _ in range(len(self.S_global))] if self.S_global is not None else None
                 
             if message.update == 'D' and update == 'D':
                 self.rho_j[0, :, (receiver_idx * self.n_xi) : (receiver_idx + 1) * self.n_xi] = (

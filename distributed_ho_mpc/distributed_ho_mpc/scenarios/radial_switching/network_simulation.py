@@ -96,44 +96,38 @@ def main():
             pairwise_distances[i].append(d)
         return pairwise_distances
     
-    '''def null_update(I_connection, A):
-        S_all = []
-        for i in range(st.n_nodes):
-            #neighbors = np.where(A[i] == 1)[0]  # indices of neighbors
-            neighbors = np.nonzero(A[i])[0].tolist() # indices of neighbors
-            # stack their selector blocks
-            S_i = np.vstack([I_connection[j*st.n_xi:(j+1)*st.n_xi, :] for j in neighbors])
-            S_all.append(S_i)
-        return S_all
-    '''
+
     def null_update(I_connection, A):
+        """
+            Build selection matrices S_i for each node i.
+            
+            Args:
+                I_connection (np.ndarray): Identity block of shape (n_xi*n_nodes, n_xi*n_nodes).
+                A (np.ndarray): Adjacency matrix of shape (n_nodes, n_nodes).
+                st: state object with attributes n_nodes and n_xi.
+            
+            Returns:
+                list of np.ndarray: Each entry is S_i of shape (n_xi * g_i, n_xi * n_nodes).
+        """
         n_nodes = st.n_nodes
         n_xi = st.n_xi
-        block_size = n_nodes * n_xi
-
-        # Allocate output tensor
-        S_all = np.zeros((n_nodes, block_size, block_size))
-
-        # Precompute zero block
-        zero_block = np.zeros((n_xi, block_size))
-
+        
+        S_all = []
+        
         for i in range(n_nodes):
+            # neighbors + self
+            neighbors = np.nonzero(A[i])[0].tolist()
+            
+            # Build blocks for this node
             blocks = []
-            for j in range(n_nodes):
-                if A[i, j] != 0:  
-                    # Take the block corresponding to node j
-                    block = I_connection[j * n_xi:(j + 1) * n_xi, :]
-                else:
-                    # Put zero block if not a neighbor
-                    block = zero_block
+            for j in neighbors:
+                block = I_connection[j * n_xi:(j + 1) * n_xi, :]
                 blocks.append(block)
-
-            # Concatenate into full block row
-            S_i = np.vstack(blocks)
-
-            # Store in tensor
-            S_all[i] = S_i
-
+            
+            # Stack blocks vertically
+            S_i = np.vstack(blocks)  # shape (n_xi * g_i, block_size)
+            S_all.append(S_i)
+        
         return S_all
 
 
@@ -367,12 +361,12 @@ def main():
             last_step = i + 1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for ii in range(1):
             if st.null_method == 'one-hop':
-                S_blocks = null_update(I_full, graph_matrix + np.eye(st.n_nodes))
+                S_blocks = null_update(I_full, graph_matrix + np.eye(st.n_nodes)) # have to include also self-loop in graph matrix
                 for jj in range(st.n_nodes):
                     nodes[jj].sender.S_global = S_blocks
                     nodes[jj].receiver.S_global = S_blocks
-        for ii in range(1):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution

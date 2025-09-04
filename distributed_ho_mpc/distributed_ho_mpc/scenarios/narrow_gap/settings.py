@@ -4,12 +4,12 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1   # probability of arc of communication
-n_nodes = 4 # numbers of nodes
+n_nodes = 10 # numbers of nodes
 random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.05
-n_steps = 195
+dt = 0.025
+n_steps = 600
 
 communication_range = 5
 
@@ -24,7 +24,8 @@ output = {
     'save': 'save', 
     'nothing' :'none'
 }
-visual_method = output['display'] # change the key to decide the output visualization
+visual_method = output['save'] # change the key to decide the output visualization
+snap = True 
 save_data = True
 simulation = True
 inner_plot = False # plot the inner state of the robots

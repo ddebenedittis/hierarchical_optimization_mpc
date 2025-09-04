@@ -375,52 +375,52 @@ class Node():
         
         if self.node_id == 0:
             self.s = RobCont(omni=
-                [np.array([-5, 1, 0.1])
+                [np.array([-5, 2, -0.1])
                 for _ in range(self.n_robots.omni)],
             )
         elif self.node_id == 1:
             self.s = RobCont(omni=
-                [np.array([5, 1, -2.7])
+                [np.array([5, 2, -3])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 2:
             self.s = RobCont(omni=
-                [np.array([-5, -1, 0.1])
+                [np.array([-5, -2, 0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 3:
             self.s = RobCont(omni=
-                [np.array([5, -1, -2.7])
+                [np.array([5, -2, 3])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-5, -2 , 0.25])
+                [np.array([-6, -1 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 5:
             self.s = RobCont(omni=
-                [np.array([5, 2 , 3])
+                [np.array([6, -1, 3.14])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-5, 2 , 0.25])
+                [np.array([-6, 1 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([5, -2, 3])
+                [np.array([6, 1, 3.14])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 8:
             self.s = RobCont(omni=
-                [np.array([-7, 0 , 0.25])
+                [np.array([-5, 0 , 0])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 9:
             self.s = RobCont(omni=
-                [np.array([7, 0, 3])
+                [np.array([5, 0, 3.14])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 10:

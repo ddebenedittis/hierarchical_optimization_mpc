@@ -98,23 +98,25 @@ def main():
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
 
-    # goals = [
-    #         np.array([4, 6]),
-    #         np.array([-6, -8]),
-    #         np.array([0,0])
-    #     ]
-
+    snap = [10, 12, 14] # time for snapshot
+    if st.snap:
+        for tt in snap:
+            if tt > st.n_steps*st.dt:
+                raise ValueError('Time instant for snapshot out of simulation lenght')
+    
     time_start = time.time()
 
     goals = [
-        np.array([3, 1]),
-        np.array([-3, 1]),
-        np.array([3, -1]),
-        np.array([-3, -1]),
-        np.array([8, 3]),
-        np.array([-8, 3]),
-        np.array([8, -3]),
-        np.array([-8, -3]),
+        np.array([3, 2]),
+        np.array([-3, 2]),
+        np.array([3, -2]),
+        np.array([-3, -2]),
+        np.array([4, -1]),
+        np.array([-4, -1]),
+        np.array([4, 1]),
+        np.array([-4, 1]),
+        np.array([4, 0]),
+        np.array([-4, 0]),
     ]
 
     system_tasks = {
@@ -150,29 +152,43 @@ def main():
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
         ],
         'agent_5': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
         ],
         'agent_6': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
         ],
         'agent_7': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
+        ],
+        'agent_8': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[8], 'goal_index': 8},
+        ],
+        'agent_9': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[9], 'goal_index': 9},
         ],
     }
 
@@ -397,17 +413,21 @@ def main():
         flags.voronoi = False
         #flags.centroid = False
 
-        '''save_snapshots(
-            s_hist_merged,
-            None,
-            [[0, 6, 4.5], [0, -6, 4.5]],
-            st.dt,
-            [9.7],
-            f'{out_dir}/snapshot',
-            x_lim=[-10, 10],
-            y_lim=[-10, 10],
-            flags=flags,
-        )'''
+        if st.snap:
+            for n, tt in enumerate(snap):
+                if tt > last_step*st.dt:
+                    snap[n] = (last_step-5)*st.dt 
+            save_snapshots(
+                s_hist_merged,
+                None,
+                [[0, 6, 4.5], [0, -6, 4.5]],
+                st.dt,
+                snap,
+                f'{out_dir}/snapshot',
+                x_lim=[-7, 7],
+                y_lim=[-5, 5],
+                flags=flags,
+            )
 
         flags.trajectory = False
 
@@ -417,8 +437,8 @@ def main():
             [[0, 6, 4.5], [0, -6, 4.5]],
             st.dt,
             st.visual_method,
-            x_lim=[-8, 8],
-            y_lim=[-8, 8],
+            x_lim=[-7, 7],
+            y_lim=[-5, 5],
             video_name=f'{out_dir}/video.mp4',
             flags=flags,
         )

@@ -437,7 +437,6 @@ class Node():
             raise ValueError('Missing agent init on s')
 
         self.s_history = [None for _ in range(self.n_steps)]
-        self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
         return
     
@@ -483,10 +482,10 @@ class Node():
         
         if self.step < self.n_steps:
             
-            print(self.step)
+            
             rho_delta = self.rho_i - self.rho_j #! to be controlled
             
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y, w = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)       # update copy of the states to share 
             
             self.y_i = copy.deepcopy(self.y)
@@ -525,11 +524,12 @@ class Node():
                     plt.show()
 
             if round == '2':
+                print(self.step)
                 print(f's:\t{self.s.tolist()}\n'
                       f'u:\t{self.u_star}\n')
                 
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
-                self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
+                #self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
                 self.step += 1
                 
         return 

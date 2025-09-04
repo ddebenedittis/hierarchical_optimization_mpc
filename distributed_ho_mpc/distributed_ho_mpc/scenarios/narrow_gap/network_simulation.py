@@ -204,7 +204,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    #graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -294,18 +294,13 @@ def main():
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i
-            break
         if i == st.n_steps - 1:
             last_step = i + 1
-        for j in range(st.n_nodes):
-                state[j] = nodes[j].s.omni[0]
-        #if i > 0:
-        #    neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(3):
+        if i > 0:
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for rr in range(2):
             for j in range(st.n_nodes):
-                #nodes[j].reorder_s_init(state)
+                nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution
             for j in range(st.n_nodes):
                 #state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
@@ -319,33 +314,15 @@ def main():
                     msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
                     nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
+            #nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
-        pairwise_distances = agents_distance(state, pairwise_distances)
-
-
-    # for i in range(st.n_steps):
-    #     if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
-    #         last_step = i
-    #         break
-    #     if i == st.n_steps-1:
-    #         last_step = i+1
-    #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
-    #     for j in range(st.n_nodes):
-    #         for ij in nodes[j].neigh:  # select my neighbours
-    #             msg = nodes[j].transmit_data(ij, 'D') # Transmit Dual variable
-    #             nodes[ij].receive_data(msg) # neighbour receives the message
-    #     for j in range(st.n_nodes):
-    #         nodes[j].reorder_s_init(state)
-    #         nodes[j].update()    # Update primal solution and state evolution
-    #     for j in range(st.n_nodes):
-    #         state[j] = nodes[j].s.omni[0] # TODO manage heterogeneous robots
-    #         for ij in nodes[j].neigh:  # select my neighbours
-    #             msg = nodes[j].transmit_data(ij, 'P') # Transmit primal variable
-    #             nodes[ij].receive_data(msg) # neighbour receives the message
-    #     for j in range(st.n_nodes):
-    #         nodes[j].dual_update()    # linear update of dual problem
-    #     pairwise_distances = agents_distance(state, pairwise_distances)
+            state[j] = nodes[j].s.omni[0]
+        pairwise_distances = agents_distance(state, pairwise_distances)                
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
+            last_step = i+1
+            for j in range(st.n_nodes):
+                nodes[j].s_history = nodes[j].s_history[:last_step]
+            break
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop
@@ -387,7 +364,7 @@ def main():
         # ---------------------------------------------------------------------------- #
 
         # handle different lenght of the states due to add/remove of nodes
-        for i in nodes:
+        '''for i in nodes:
             for n in range(len(i.s_history)):
                 max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
                 if len(i.s_history[n][0]) < max_len:
@@ -404,7 +381,7 @@ def main():
                             i.s_history[n][0].append(
                                 i.s_history[n - 1][0][d + 1]
                             )  # take previous value
-
+        '''
         # s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
         # if st.n_nodes == 4:
         #  s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] for i in range(len(nodes[0].s_history))]

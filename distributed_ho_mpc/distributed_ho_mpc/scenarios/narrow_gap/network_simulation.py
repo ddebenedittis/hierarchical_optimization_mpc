@@ -98,7 +98,7 @@ def main():
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
 
-    snap = [10, 12, 14] # time for snapshot
+    snap = [14, 15] # time for snapshot
     if st.snap:
         for tt in snap:
             if tt > st.n_steps*st.dt:
@@ -115,8 +115,10 @@ def main():
         np.array([-4, -1]),
         np.array([4, 1]),
         np.array([-4, 1]),
-        np.array([4, 0]),
+        np.array([5, 0]),
+        np.array([-5, 0]),
         np.array([-4, 0]),
+        np.array([4, 0]),
     ]
 
     system_tasks = {
@@ -189,6 +191,20 @@ def main():
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[9], 'goal_index': 9},
+        ],
+        'agent_10': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[10], 'goal_index': 10},
+        ],
+        'agent_11': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[11], 'goal_index': 11},
         ],
     }
 
@@ -291,18 +307,7 @@ def main():
 
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
-    gg = np.array(
-        [
-            [5, -6],
-            [-5, -6],
-            [-5, 6],
-            [5, 6],
-            [8, 3],
-            [-8, 3],
-            [8, -3],
-            [-8, -3],
-        ]
-    )
+    
     gg = np.array(goals[: st.n_nodes])
 
     start_time_coop = time.time()
@@ -314,25 +319,28 @@ def main():
             last_step = i + 1
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(2):
-            for j in range(st.n_nodes):
-                nodes[j].reorder_s_init(state)
-                nodes[j].update('1')  # Update primal solution and state evolution
-            for j in range(st.n_nodes):
-                #state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-                for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                    nodes[ij].receive_data(msg)  # neighbour receives the message
-            for j in range(st.n_nodes):
-                nodes[j].dual_update()  # linear update of dual problem
-            for j in range(st.n_nodes):
-                for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                    nodes[ij].receive_data(msg)  # neighbour receives the message
+        #for rr in range(1):
+        
         for j in range(st.n_nodes):
-            #nodes[j].reorder_s_init(state)
+            nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
-            state[j] = nodes[j].s.omni[0]
+        for j in range(st.n_nodes):
+            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+            for ij in nodes[j].neigh:  # select my neighbours
+                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
+        for j in range(st.n_nodes):
+            nodes[j].dual_update()  # linear update of dual problem
+        neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for j in range(st.n_nodes):
+            for ij in nodes[j].neigh:  # select my neighbours
+                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                nodes[ij].receive_data(msg)  # neighbour receives the message
+                
+        # for j in range(st.n_nodes):
+        #     #nodes[j].reorder_s_init(state)
+        #     nodes[j].update('2')  # Update primal solution and state evolution
+        #     state[j] = nodes[j].s.omni[0]
         pairwise_distances = agents_distance(state, pairwise_distances)                
         if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
             last_step = i+1
@@ -365,7 +373,7 @@ def main():
         plt.figure(figsize=(10, 6))
         for i, dist_list in enumerate(pairwise_distances):
             plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
-        plt.axhline(y = 0.5, color='green', lw=1, linestyle='--')
+        plt.axhline(y = 0.5, color='green', lw=4, linestyle='--')
         plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')

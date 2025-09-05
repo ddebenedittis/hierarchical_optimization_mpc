@@ -395,42 +395,42 @@ class Node():
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-6, -1 , 0])
+                [np.array([-6.5, -1 , 0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 5:
             self.s = RobCont(omni=
-                [np.array([6, -1, 3.14])
+                [np.array([6.5, -1, -3])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-6, 1 , 0])
+                [np.array([-6.5, 1 , -0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([6, 1, 3.14])
+                [np.array([6.5, 1, -3])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 8:
             self.s = RobCont(omni=
-                [np.array([-5, 0 , 0])
+                [np.array([-5, 0 , 0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 9:
             self.s = RobCont(omni=
-                [np.array([5, 0, 3.14])
+                [np.array([5, 0, -3])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 10:
             self.s = RobCont(omni=
-                [np.array([0, -5, 2.1])
+                [np.array([7, 0, 3.11])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 11:
             self.s = RobCont(omni=
-                [np.array([0, 5, -2.1])
+                [np.array([-7, 0, 0.04])
                 for _ in range(self.n_robots.omni)]
             )    
         else:
@@ -481,7 +481,6 @@ class Node():
         self.rho_j = self.receiver.process_messages('D')
         
         if self.step < self.n_steps:
-            
             
             rho_delta = self.rho_i - self.rho_j #! to be controlled
             

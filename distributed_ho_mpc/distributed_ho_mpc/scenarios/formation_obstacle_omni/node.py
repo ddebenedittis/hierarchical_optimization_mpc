@@ -370,7 +370,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([-2, 2]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -431,7 +431,7 @@ class Node:
             #         omni=[[g] for _ in range(self.n_robots.omni)],
             #     )
             for n, tt in enumerate(self.hompc._tasks):
-                if tt.name == 'vel_ref':
+                if tt.name == 'position':
                     for j in tt.eq_coeff[0]:
                         if j[0] is not None:
                             j[0] += 40
@@ -445,7 +445,7 @@ class Node:
             print(self.step)
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
             self.y_i = copy.deepcopy(self.y)

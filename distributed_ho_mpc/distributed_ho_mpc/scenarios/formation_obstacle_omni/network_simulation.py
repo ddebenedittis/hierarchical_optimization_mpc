@@ -131,8 +131,8 @@ def main():
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
-            #{'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+            #{'prio': 3, 'name': 'vel_ref'},
             {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
@@ -181,7 +181,7 @@ def main():
             [
                 [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
                 [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-                [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0, 1.0],
+                [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                 [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
                 [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0],
                 [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
@@ -265,7 +265,7 @@ def main():
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
-    for j in range(st.n_nodes):
+    '''for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
         # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
@@ -292,13 +292,13 @@ def main():
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
-        pairwise_distances = agents_distance(state, pairwise_distances)
-    """for j in range(st.n_nodes):
+        pairwise_distances = agents_distance(state, pairwise_distances)'''
+    for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
         nodes[j].reorder_s_init(state)
-        nodes[j].update()  # Update primal solution and state evolution
+        nodes[j].update('2')  # Update primal solution and state evolution
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
         for ij in nodes[j].neigh:  # select my neighbours
@@ -317,7 +317,7 @@ def main():
                 nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
-            nodes[j].update()  # Update primal solution and state evolution
+            nodes[j].update('2')  # Update primal solution and state evolution
         for j in range(st.n_nodes):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             for ij in nodes[j].neigh:  # select my neighbours
@@ -325,7 +325,7 @@ def main():
                 nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)"""
+        pairwise_distances = agents_distance(state, pairwise_distances)
 
     if st.simulation:
         robot_pairs = list(combinations(range(num_robots), 2))

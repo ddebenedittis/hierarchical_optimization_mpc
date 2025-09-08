@@ -303,16 +303,13 @@ def main():
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i
-            break
         if i == st.n_steps - 1:
             last_step = i + 1
         if i == 150:
             None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(2):
+        for rr in range(1):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution
@@ -331,7 +328,11 @@ def main():
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
+            last_step = i +1
+            for j in range(st.n_nodes):
+                nodes[j].s_history = nodes[j].s_history[:last_step]
+            break
     """for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     # neigh_connection(state, nodes, graph_matrix, st.communication_range)
@@ -418,17 +419,17 @@ def main():
         flags.voronoi = False
         #flags.centroid = False
 
-        '''save_snapshots(
+        save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
-            [10.0],
+            [11.0, 16.0],
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
-            y_lim=[-10, 10],
+            y_lim=[-8, 8],
             flags=flags,
-        )'''
+        )
 
         display_animation(
             s_hist_merged,
@@ -438,7 +439,7 @@ def main():
             st.visual_method,
             video_name=f'{out_dir}/video.mp4',
             x_lim=[-10, 10],
-            y_lim=[-10, 10],
+            y_lim=[-8, 8],
             flags=flags,
         )
 

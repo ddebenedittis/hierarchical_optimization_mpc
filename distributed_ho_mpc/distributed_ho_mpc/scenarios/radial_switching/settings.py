@@ -45,4 +45,4 @@ step_size = 1e-6
 #                                 Null Method                                  #
 # ---------------------------------------------------------------------------- #
 null_computation = {'local': 'local', 'shared': 'one-hop'}
-null_method = null_computation['shared']  # change the key to decide the null space computation method
+null_method = null_computation['local']  # change the key to decide the null space computation method

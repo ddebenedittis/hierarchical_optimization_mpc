@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 from datetime import datetime
 from itertools import combinations
 
@@ -27,7 +28,63 @@ def main():
         'unicycle': get_unicycle_model(st.dt),
         'omnidirectional': get_omnidirectional_model(st.dt),
     }
+    
+    def neigh_connection(states, nodes, graph_matrix, communication_range):
+        """
+        For each node, connect to up to 6 nearest neighbors within communication range.
+        Disconnect from neighbors outside range or beyond top 6 closest.
+        """
+        num_nodes = len(nodes)
 
+        for i in range(num_nodes):
+            distances = []
+
+            for j in range(num_nodes):
+                if i == j:
+                    continue
+                dist = np.linalg.norm(states[i][:2] - states[j][:2])
+                if dist < communication_range:
+                    distances.append((j, dist))
+
+            # Sort and select up to 6 nearest within range
+            distances.sort(key=lambda x: x[1])
+            closest_neighbors = set(idx for idx, _ in distances[:7])
+
+            current_connections = set(np.nonzero(graph_matrix[i])[0])
+
+            to_connect = closest_neighbors - current_connections
+            to_disconnect = current_connections - closest_neighbors
+
+            # --- CONNECT (bidirectional)
+            for idx in to_connect:
+                graph_matrix[i][idx] = 1.0
+                graph_matrix[idx][i] = 1.0  # mirror connection
+
+                # i connects to idx
+                tasks_i = {
+                    f'agent_{i}': {f'agent_{idx}': copy.deepcopy(system_tasks[f'agent_{idx}'])}
+                }
+                nodes[i].create_connection(graph_matrix[i], tasks_i[f'agent_{i}'], states[idx])
+
+                # idx connects to i
+                tasks_j = {
+                    f'agent_{idx}': {f'agent_{i}': copy.deepcopy(system_tasks[f'agent_{i}'])}
+                }
+                nodes[idx].create_connection(graph_matrix[idx], tasks_j[f'agent_{idx}'], states[i])
+
+            # --- DISCONNECT (bidirectional)
+            for idx in to_disconnect:
+                graph_matrix[i][idx] = 0.0
+                graph_matrix[idx][i] = 0.0  # mirror disconnection
+
+                # i disconnects from idx
+                nodes[i].remove_connection(graph_matrix[i], f'agent_{idx}', idx)
+
+                # idx disconnects from i
+                nodes[idx].remove_connection(graph_matrix[idx], f'agent_{i}', i)
+            
+    
+    
     def agents_distance(state, pairwise_distances):
         """
         Plot the distance between the agents at each time step
@@ -38,12 +95,53 @@ def main():
             pairwise_distances[i].append(d)
         return pairwise_distances
 
+    def null_update(I_connection, A):
+        """
+            Build selection matrices S_i for each node i.
+            
+            Args:
+                I_connection (np.ndarray): Identity block of shape (n_xi*n_nodes, n_xi*n_nodes).
+                A (np.ndarray): Adjacency matrix of shape (n_nodes, n_nodes).
+                st: state object with attributes n_nodes and n_xi.
+            
+            Returns:
+                list of np.ndarray: Each entry is S_i of shape (n_xi * g_i, n_xi * n_nodes).
+        """
+        n_nodes = st.n_nodes
+        n_xi = st.n_xi
+        
+        S_all = []
+        
+        for i in range(n_nodes):
+            # neighbors + self
+            neighbors = np.nonzero(A[i])[0].tolist()
+            
+            # Build blocks for this node
+            blocks = []
+            for j in neighbors:
+                block = I_connection[j * n_xi:(j + 1) * n_xi, :]
+                blocks.append(block)
+            
+            # Stack blocks vertically
+            S_i = np.vstack(blocks)  # shape (n_xi * g_i, block_size)
+            S_all.append(S_i)
+        
+        return S_all
+
+    
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
-
+    snap = [0] # time for snapshot
+    for tt in snap:
+        if tt > st.n_steps*st.dt:
+            raise ValueError('Time instant for snapshot out of simulation lenght')
+    
+    time_start = time.time()
+    
+    
     goals = [
-        np.array([0, 0]),
+        np.array([15, 15]),
         np.array([3.53, 3.53]),
         np.array([-2.53, 3.53]),
         # np.array([-3.5, -2])
@@ -52,6 +150,7 @@ def main():
         # np.array([5, 5])
     ]
 
+    
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
@@ -66,9 +165,9 @@ def main():
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
             {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
             {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
-            {'prio': 3, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
             # {'prio':4, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
         ],
         'agent_2': [
@@ -221,6 +320,17 @@ def main():
             id += 1
 
     # ----------------------------------------------------------------------------- #
+    #                        One - Hop Neighbour Selector                           #
+    # ----------------------------------------------------------------------------- #
+    I_full = np.eye(st.n_nodes * st.n_xi, dtype=int)
+
+    S_blocks = null_update(I_full, graph_matrix + np.eye(st.n_nodes))
+
+    # check dimensions
+    for i, S in enumerate(S_blocks, start=1):
+        print(f"S_{i} shape: {S.shape}")
+    
+    # ----------------------------------------------------------------------------- #
     #         Create agents and initialize them based on settings and tasks        #
     # ---------------------------------------------------------------------------- #
 
@@ -238,13 +348,14 @@ def main():
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model['unicycle'],  # robot model
+            model['omnidirectional'],  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
             out_dir=out_dir,
+            S = S_blocks,  # one-hop selector
         )
         nodes.append(node)
 
@@ -265,68 +376,57 @@ def main():
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
+    start_time_coop = time.time()
+
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
-        # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
-        #     last_step = i
-        #     break
-        if i == st.n_steps - 1:
-            last_step = i + 1
         # if i > 0:
-        #    neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update('1')  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
+        #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for ii in range(1):
+            # if st.null_method == 'one-hop':
+            #     S_blocks = null_update(I_full, graph_matrix + np.eye(st.n_nodes)) # have to include also self-loop in graph matrix
+            #     for jj in range(st.n_nodes):
+            #         nodes[jj].sender.S_global = S_blocks
+            #         nodes[jj].receiver.S_global = S_blocks
+            for j in range(st.n_nodes):
+                nodes[j].reorder_s_init(state)
+                nodes[j].update('1')  # Update primal solution and state evolution
+            for j in range(st.n_nodes):
+                state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
+            for j in range(st.n_nodes):
+                nodes[j].dual_update()  # linear update of dual problem
+            for j in range(st.n_nodes):
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-    """for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-    for j in range(st.n_nodes):
-        nodes[j].reorder_s_init(state)
-        nodes[j].update()  # Update primal solution and state evolution
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-            nodes[ij].receive_data(msg)  # neighbour receives the message
-    for j in range(st.n_nodes):
-        nodes[j].dual_update()  # linear update of dual problem
-
-    for i in range(st.n_steps):
-        if i == 30:
-            None
-        # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update()  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)"""
-
+    
+    time_elapsed = time.time() - time_start
+    time_coop = time.time() - start_time_coop
+    print(f'The time elapsed is {time_elapsed} seconds')
+    print(f'Time used to coordinate the network is {time_coop}')
+    print('The time was used in the following phases:')
+    tot_creation = 0
+    tot_solve = 0
+    for n, agent in enumerate(nodes):
+        max_key_len = max(map(len, agent.hompc.solve_times.keys()))
+        for key, value in agent.hompc.solve_times.items():
+            key_len = len(key)
+            if key == 'Create Problem':
+                tot_creation += value
+            if key == 'Solve Problem':
+                tot_solve += value
+            # print(f"agent{n} {key}: {' '*(max_key_len-key_len)}{value}")
+    print(f'Total creation time is {tot_creation}s')
+    print(f'Total solving time is {tot_solve}s')
+    
     if st.simulation:
         robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, st.n_steps + 1) * st.dt
@@ -340,7 +440,7 @@ def main():
         # plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f'distances.pdf', bbox_inches='tight', format='pdf')
+        plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
         plt.close()
 
         # ---------------------------------------------------------------------------- #
@@ -356,18 +456,20 @@ def main():
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
+        #flags.centroid = False
+        
 
-        save_snapshots(
+        '''save_snapshots(
             s_hist_merged,
             None,
             [[7, 7, 1.8]],
             st.dt,
-            [4, 12],
+            snap,
             f'{out_dir}/snapshot',
             x_lim=[-6, 20],
             y_lim=[-6, 20],
             flags=flags,
-        )
+        )'''
 
         display_animation(
             s_hist_merged,

@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
 
-import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
+import distributed_ho_mpc.scenarios.radial_switching.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -19,6 +19,7 @@ from distributed_ho_mpc.ho_mpc.message import (
 from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
+    get_unicycle_model,
 )
 
 
@@ -44,6 +45,7 @@ class Node:
         goals: np.array,
         n_steps: int,
         out_dir: str = 'out',
+        S: np.array = None,
     ):
         super(Node, self).__init__()
 
@@ -51,6 +53,7 @@ class Node:
         self.adjacency_vector = copy.deepcopy(adjacency_vector)  # neighbours
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()  # index of neighbours
         self.degree = len(self.neigh)  # numbers of neighbours
+        #self.S = S # Global selector matrix for one-hop null space computation
 
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
@@ -82,12 +85,10 @@ class Node:
         # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
 
         self.sender = MessageSender(
-            self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority
+            self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority, S
         )
 
-        self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
-
-        self.out_dir = out_dir
+        self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi, S)
 
         self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
@@ -194,7 +195,7 @@ class Node:
         )
 
         self.task_vel_ref_coeff = RobCont(
-            omni = [np.array([3.0, 3.0])],
+            omni = [np.array([20.0, 20.0])],
         )
                 
         # ===========================Go-to-Goal====================================== #
@@ -206,10 +207,48 @@ class Node:
                 omni=[[g] for _ in range(self.n_robots.omni)],
             )
 
+        # ========================Formation============================================ #
+        if 0:
+            self.aux = ca.SX.sym('aux', 2, 2)
+            self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+            self.task_formation = ca.vertcat(
+                (self.aux[0, 0] - self.aux[1, 0]) ** 2 + (self.aux[0, 1] - self.aux[1, 1]) ** 2 - 0,
+            )
+            if self.node_id == 0:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 0, 0, 3**2),
+                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 1:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 0, 0, 1, 0, 3**2),
+                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 2:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 0, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 3:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
+                ]
+            elif self.node_id == 4:
+                self.task_formation_coeff = [
+                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
+                    TaskBiCoeff(0, 4, 0, 3, 0, 3**2),
+                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
+                ]
+
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 1
+        self.threshold = 2
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -370,7 +409,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([-2, 2]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([1, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -413,13 +452,13 @@ class Node:
 
         return self.sender.send_message(receiver_id, update)
 
-    def update(self, round):
+    def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
+        
+        self.rho_j, NA_neigh = self.receiver.process_messages('D')
 
-        if self.step == 50:
+        if self.step == 30:
             # self.goals = [
             #     np.array([5, 5]),
             #     np.array([8.53, 8.53]),
@@ -443,14 +482,15 @@ class Node:
 
         if self.step < self.n_steps:
             print(self.step)
-            rho_delta = self.rho_i - self.rho_j  #! to be controlled
+            rho_delta = self.rho_i - self.rho_j  
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
+            self.u_star, self.y, A = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, null_method= st.null_method, A_neigh=NA_neigh)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-
+            if st.null_method == 'one-hop':
+                self.sender.A = copy.deepcopy(A)
+            
             self.y_i = copy.deepcopy(self.y)
 
-            # put in message u and s
             if round == '2':
                 if self.step % self.a == 0:
                     self.s = self.evolve(
@@ -470,7 +510,7 @@ class Node:
                         self.dist_hist[i - 1].append(
                             np.linalg.norm(self.s_.omni[0] - self.s.omni[i])
                         )
-
+                        
                 if self.step == st.n_steps - 1:
                     plt.figure(figsize=(10, 6))
                     plt.suptitle(f'Node_{self.node_id}  and Delta')
@@ -517,14 +557,21 @@ class Node:
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
+        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
+        #                 u_star.omni[j][1],
+        #             ]
+        #         )
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
-                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-                    [
-                        u_star.omni[j][0],
-                        u_star.omni[j][1],
-                    ]
-                )
+                s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
+                    u_star.omni[j][0],
+                    u_star.omni[j][1],
+                ])
 
         return s
 
@@ -533,9 +580,26 @@ class Node:
 
     def save_data(self):
         # TODO: partizionare vettori e mettere none
+        """if not st.save_data or self.step <= 20:
+            return
+        with open(self.filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            # Write the data
+            row = [self.step]
+            row.extend(self.rho_i[0, 0, :])
+            row.extend(self.rho_i[0, 1, :])
+            row.extend(self.rho_j[0, 0, :])
+            row.extend(self.rho_j[0, 1, :])
+            for s in self.s.tolist():
+                for ss in s:
+                    row.extend(ss)
+            for u in self.u_star[0]:
+                row.extend(list(u))
+
+
+            writer.writerow(row)"""
         if not st.save_data:
             return
-        self.filename = f'{self.out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             row = [self.step]
@@ -701,8 +765,8 @@ class Node:
 
             self.hompc.add_robots([added_robot], state_meas)
 
-            self.s.omni.append(state_meas)  # expand the state of the robot to be added
-            self.s_init.omni.append(state_meas)  # expand the state of the robot to be added
+            self.s.omni.append(state_meas)
+            self.s_init.omni.append(state_meas)
 
             self.neigh_tasks.update(neigh_task)  # expand dictionary with neighbour tasks
 

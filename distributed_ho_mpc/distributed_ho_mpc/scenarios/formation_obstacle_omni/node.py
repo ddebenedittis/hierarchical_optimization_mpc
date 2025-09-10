@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
 
-import distributed_ho_mpc.scenarios.radial_switching.settings as st
+import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -58,7 +58,7 @@ class Node:
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
-        self.n_xi = st.n_control * 4  # dimension of primal variables
+        self.n_xi = st.n_xi  # dimension of primal variables
 
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
@@ -409,7 +409,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([-2, 2]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -473,7 +473,7 @@ class Node:
                 if tt.name == 'position':
                     for j in tt.eq_coeff[0]:
                         if j[0] is not None:
-                            j[0] += 15
+                            j[0] += 20
                     # self.hompc.update_task(
                     #     name = "position",
                     #     eq_task_coeff = self.task_pos_coeff[0].tolist(),
@@ -484,10 +484,10 @@ class Node:
             print(self.step)
             rho_delta = self.rho_i - self.rho_j  
 
-            self.u_star, self.y, A = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta, null_method= st.null_method, A_neigh=NA_neigh)
+            self.u_star, self.y, Aa = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, null_method= st.null_method, A_neigh=NA_neigh)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
             if st.null_method == 'one-hop':
-                self.sender.A = copy.deepcopy(A)
+                self.sender.A = copy.deepcopy(Aa)
             
             self.y_i = copy.deepcopy(self.y)
 

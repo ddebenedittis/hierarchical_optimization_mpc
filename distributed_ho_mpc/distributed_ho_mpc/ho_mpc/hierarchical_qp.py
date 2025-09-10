@@ -956,10 +956,10 @@ class HierarchicalQP:
 
                 # Compute the new null space projector (skipped at the last iteration).
                 if (Ap.shape[0] != 0) and (priority != n_tasks - 1):
-                    if priority == n_tasks-2:
-                        for TA in null_OH:
-                            if len(TA) > 0:
-                                Z = Z @ null_space_projector(TA)
+                    for TA in null_OH:
+                        if priority < len(TA) and priority > 0:
+                            if len(TA[priority]) > 0:
+                                Z = Z @ null_space_projector(TA[priority].T)
                     Z = Z @ null_space_projector(Ap @ Z)
                     #self.Z_old = Z_list
 

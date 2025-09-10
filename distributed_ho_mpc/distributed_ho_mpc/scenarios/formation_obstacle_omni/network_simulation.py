@@ -141,7 +141,7 @@ def main():
     
     
     goals = [
-        np.array([15, 15]),
+        np.array([0, 0]),
         np.array([3.53, 3.53]),
         np.array([-2.53, 3.53]),
         # np.array([-3.5, -2])
@@ -434,7 +434,7 @@ def main():
         for i, dist_list in enumerate(pairwise_distances):
             plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
 
-        plt.title('Time Evolution of Pairwise Robot Distances')
+        #plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')
         # plt.legend()

@@ -132,6 +132,7 @@ class Node:
 
         self.n_steps = n_steps
         self.step = 0
+        self.step_plot = 0
         self.tasks = self_tasks
         self.neigh_tasks = neigh_tasks
 
@@ -368,8 +369,22 @@ class Node:
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-
-        if self.node_id == 0:
+        if self.node_id == 0:    
+            self.s =RobCont(omni=[np.array([-5, -5, 0.75]), np.array([5, 5, -2.1])])
+        elif self.node_id == 1:            
+            self.s =RobCont(omni=[np.array([5, 5, -2.1]), np.array([-5, -5, 0.75]),])
+        
+        # if self.node_id == 0:
+        #     self.s = RobCont(
+        #         omni=[np.array([-5, 5, 0.1]) for _ in range(self.n_robots.omni)],
+        #     )
+        # elif self.node_id == 1:
+        #     self.s = RobCont(omni=[np.array([5, 5, -2.1]) for _ in range(self.n_robots.omni)])
+        # elif self.node_id == 2:
+        #     self.s = RobCont(omni=[np.array([5, -5, 2.1]) for _ in range(self.n_robots.omni)])
+        # elif self.node_id == 3:
+        #     self.s = RobCont(omni=[np.array([-5, -5, 0.75]) for _ in range(self.n_robots.omni)])
+        '''if self.node_id == 0:
             self.s = RobCont(
                 omni=[np.array([-2.57, 4.29, 0.05]) for _ in range(self.n_robots.omni)],
             )
@@ -388,7 +403,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([4.42, -1.8, 3]) for _ in range(self.n_robots.omni)])
         else:
-            raise ValueError('Missing agent init on s')
+            raise ValueError('Missing agent init on s')'''
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -439,7 +454,7 @@ class Node:
             
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
             self.w = self.w[1:-1]
             self.y_i = copy.deepcopy(self.y)
@@ -556,7 +571,7 @@ class Node:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [self.step]
+            row = [self.step_plot]
             for i in range(st.n_nodes):
                 if i == self.node_id:
                     continue
@@ -569,14 +584,18 @@ class Node:
                 else:
                     row.extend([None] * (self.n_xi * 4))
             for i in range(st.n_nodes):
-                if i in self.robot_idx_global:
-                    ii = self.index_global_to_local(i)
-                    row.extend(self.s.omni[ii])
-                    row.extend(self.u_star[0][ii])
-                else:
+                if (self.step_plot % 100) == 0:
+                    if i in self.robot_idx_global:
+                        ii = self.index_global_to_local(i)
+                        row.extend(self.s.omni[ii])
+                        row.extend(self.u_star[0][ii])
+                    else:
+                        row.extend([None] * 5)
+                else: 
                     row.extend([None] * 5)
 
             writer.writerow(row)
+        self.step_plot += 1
 
     def create_neigh_tasks(self, neigh):
         """

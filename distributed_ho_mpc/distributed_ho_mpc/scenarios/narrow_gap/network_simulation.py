@@ -98,7 +98,7 @@ def main():
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
 
-    snap = [14, 15] # time for snapshot
+    snap = [0] # time for snapshot
     if st.snap:
         for tt in snap:
             if tt > st.n_steps*st.dt:
@@ -111,14 +111,20 @@ def main():
         np.array([-3, 2]),
         np.array([3, -2]),
         np.array([-3, -2]),
-        np.array([4, -1]),
-        np.array([-4, -1]),
-        np.array([4, 1]),
-        np.array([-4, 1]),
+        np.array([4, -1.5]),
+        np.array([-4, -1.5]),
+        np.array([4, 1.5]),
+        np.array([-4, 1.5]),
         np.array([5, 0]),
         np.array([-5, 0]),
         np.array([-4, 0]),
         np.array([4, 0]),
+        np.array([6, 1]),
+        np.array([-6, 1]),
+        np.array([6, -1]),
+        np.array([-6, -1]),
+        np.array([7, -2]),
+        np.array([-7, -2]),
     ]
 
     system_tasks = {
@@ -205,6 +211,48 @@ def main():
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[11], 'goal_index': 11},
+        ],
+        'agent_12': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[12], 'goal_index': 12},
+        ],
+        'agent_13': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[13], 'goal_index': 13},
+        ],
+        'agent_14': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[14], 'goal_index': 14},
+        ],
+        'agent_15': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[15], 'goal_index': 15},
+        ],
+        'agent_16': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[16], 'goal_index': 16},
+        ],
+        'agent_17': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[17], 'goal_index': 17},
         ],
     }
 
@@ -421,7 +469,7 @@ def main():
         flags.voronoi = False
         #flags.centroid = False
 
-        if st.snap:
+        '''if st.snap:
             for n, tt in enumerate(snap):
                 if tt > last_step*st.dt:
                     snap[n] = (last_step-5)*st.dt 
@@ -435,7 +483,7 @@ def main():
                 x_lim=[-7, 7],
                 y_lim=[-5, 5],
                 flags=flags,
-            )
+            )'''
 
         flags.trajectory = False
 
@@ -445,12 +493,14 @@ def main():
             [[0, 6, 4.5], [0, -6, 4.5]],
             st.dt,
             st.visual_method,
-            x_lim=[-7, 7],
+            x_lim=[-7.5, 7.5],
             y_lim=[-5, 5],
             video_name=f'{out_dir}/video.mp4',
             flags=flags,
         )
-
+    print(f'The time elapsed is {time_elapsed} seconds')
+    print(f'Total creation time is {tot_creation}s')
+    print(f'Total solving time is {tot_solve}s')
 
 if __name__ == '__main__':
     main()

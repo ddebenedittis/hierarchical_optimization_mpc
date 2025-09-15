@@ -541,6 +541,7 @@ class HierarchicalQP:
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
+            
 
             Z_list.append(Z)
             """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority

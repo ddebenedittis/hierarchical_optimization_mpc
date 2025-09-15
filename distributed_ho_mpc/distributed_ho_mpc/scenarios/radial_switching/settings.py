@@ -4,14 +4,14 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1  # probability of arc of communication
-n_nodes = 8  # numbers of nodes
+n_nodes = 2  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.025
-n_steps = 800
+dt = 0.05
+n_steps = 300
 
-communication_range = 6
+communication_range = 20
 
 v_max = 1.5
 v_min = 0
@@ -21,11 +21,11 @@ omega_min = -1.4
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
-output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['save']  # change the key to decide the output visualization
+output = {'display': 'plot', 'save': 'save', 'nothing':'none'}
+visual_method = output['nothing']  # change the key to decide the output visualization
 save_data = True
 simulation = True
-inner_plot = True  # plot the inner state of the robots
+inner_plot = False  # plot the inner state of the robots
 estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
@@ -41,4 +41,4 @@ n_xi = n_control * 2
 
 
 n_priority = 2
-step_size = 1e-6
+step_size = 1e-3

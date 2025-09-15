@@ -51,9 +51,9 @@ def main():
 
     # ============================== Parameters ============================= #
 
-    dt = 0.025
+    dt = 0.04
 
-    n_robots = RobCont(omni=12)
+    n_robots = RobCont(omni=18)
 
     v_max = 1.5
     v_min = -1
@@ -144,7 +144,28 @@ def main():
     task_pos_ref_12 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_12_coeff = RobCont(omni=[[np.array([4, 0])] for _ in range(n_robots.omni)])
     # ======================================================================= #
+    task_pos_ref_13 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_13_coeff = RobCont(omni=[[np.array([6, 1])] for _ in range(n_robots.omni)])
 
+    # ======================================================================= #
+
+    task_pos_ref_14 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_14_coeff = RobCont(omni=[[np.array([-6, 1])] for _ in range(n_robots.omni)])
+    # ======================================================================= #
+    task_pos_ref_15 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_15_coeff = RobCont(omni=[[np.array([6, -1])] for _ in range(n_robots.omni)])
+    # ======================================================================= #
+    task_pos_ref_16 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_16_coeff = RobCont(omni=[[np.array([-6, -1])] for _ in range(n_robots.omni)])
+    # ======================================================================= #
+    task_pos_ref_17 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_17_coeff = RobCont(omni=[[np.array([7, -2])] for _ in range(n_robots.omni)])
+    # ======================================================================= #
+    task_pos_ref_18 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    task_pos_ref_18_coeff = RobCont(omni=[[np.array([-7, -2])] for _ in range(n_robots.omni)])
+    
+    
+    
     
     threshold = 0.5
     aux_avoid_collision = ca.SX.sym('aux', 2, 2)
@@ -154,72 +175,7 @@ def main():
         - (aux_avoid_collision[0, 1] - aux_avoid_collision[1, 1]) ** 2,
     )
     task_avoid_collision_coeff = [
-        TaskBiCoeff(0, 0, 0, 1, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 2, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 2, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 9, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 9, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 10, 0, 11, 0, -(threshold**2)),
+        TaskBiCoeff(0, i, 0, j, 0, -(threshold**2)) for i in range(n_robots.omni) for j in range(i+1, n_robots.omni)
     ]
 
     # ============================ Create The MPC =========================== #
@@ -336,6 +292,54 @@ def main():
         eq_task_coeff=task_pos_ref_12_coeff.tolist(),
         robot_index=[[11]],
     )
+    hompc.create_task(
+        name='pos_ref_13',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_13.tolist(),
+        eq_task_coeff=task_pos_ref_13_coeff.tolist(),
+        robot_index=[[12]],
+    )
+    hompc.create_task(
+        name='pos_ref_14',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_14.tolist(),
+        eq_task_coeff=task_pos_ref_14_coeff.tolist(),
+        robot_index=[[13]],
+    )
+    hompc.create_task(
+        name='pos_ref_15',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_15.tolist(),
+        eq_task_coeff=task_pos_ref_15_coeff.tolist(),
+        robot_index=[[14]],
+    )
+    hompc.create_task(
+        name='pos_ref_16',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_16.tolist(),
+        eq_task_coeff=task_pos_ref_16_coeff.tolist(),
+        robot_index=[[15]],
+    )
+    hompc.create_task(
+        name='pos_ref_17',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_17.tolist(),
+        eq_task_coeff=task_pos_ref_17_coeff.tolist(),
+        robot_index=[[16]],
+    )
+    hompc.create_task(
+        name='pos_ref_18',
+        prio=4,
+        type=TaskType.Same,
+        eq_task_ls=task_pos_ref_18.tolist(),
+        eq_task_coeff=task_pos_ref_18_coeff.tolist(),
+        robot_index=[[17]],
+    )
 
     hompc.create_task_bi(
         name='collision_avoidance',
@@ -369,8 +373,15 @@ def main():
             np.array([6.5, 1, 3.14]),
             np.array([-5, 0, 0]),
             np.array([5, 0, 3.14]),
-            np.array([7, 0, 3.11]),
-            np.array([-7, 0, 0.04]),
+            np.array([7, 0, 3.14]),
+            np.array([-7, 0, 0.0]),
+            np.array([-7.5, 1, -0.04]),
+            np.array([7.5, 1, -3.11]),
+            np.array([-7.5, -1, 0.04]),
+            np.array([7.5, -1, 3.11]),
+            np.array([-8, 0, 0.04]),
+            np.array([8, 0, -3.11]),
+            
         ]
     )
 
@@ -390,7 +401,7 @@ def main():
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
-    n_steps = 1000
+    n_steps = 3500
 
     s_history = [None for _ in range(n_steps)]
 
@@ -408,7 +419,12 @@ def main():
             [-5, 0],
             [-4, 0],
             [4, 0],
-
+            [6, 1],
+            [-6, 1],
+            [6, -1],
+            [-6, -1],
+            [7, -2],
+            [-7, -2],
         ]
     )
     last_step = n_steps
@@ -459,7 +475,7 @@ def main():
     plt.savefig(f'{out_dir}/distances_cntr.pdf', bbox_inches='tight', format='pdf')
     plt.close()
 
-    visual_method = 'save'
+    visual_method = 'plot'
 
     s_history = [s.tolist() + [[]] for s in s_history[:last_step]]
 
@@ -489,7 +505,7 @@ def main():
             [[0, 6, 4.5], [0, -6, 4.5]],
             dt,
             visual_method,
-            x_lim=[-7, 7],
+            x_lim=[-7.5, 7.5],
             y_lim=[-5, 5],
             video_name=f'{out_dir}/video_central.mp4',
             flags=flags,
@@ -507,7 +523,16 @@ def main():
             y_lim=[-5, 5],
             flags=flags,
         )'''
+    print(f'The time elapsed is {time_elapsed} seconds')
+    print(f'The time elapsed for coordination is {time_coord} seconds')
 
+    print('The time was used in the following phases:')
+    max_key_len = max(map(len, hompc.solve_times.keys()))
+    for key, value in hompc.solve_times.items():
+        key_len = len(key)
+        print(f'{key}: {" " * (max_key_len - key_len)}{value}')
+    
+    
     return time_elapsed
 
 

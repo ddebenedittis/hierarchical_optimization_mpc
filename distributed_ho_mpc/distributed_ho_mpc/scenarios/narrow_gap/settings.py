@@ -4,12 +4,12 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1   # probability of arc of communication
-n_nodes = 12 # numbers of nodes
+n_nodes = 18 # numbers of nodes
 random_graph = False    # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.025
-n_steps = 750
+n_steps = 2500
 
 communication_range = 5
 
@@ -24,7 +24,7 @@ output = {
     'save': 'save', 
     'nothing' :'none'
 }
-visual_method = output['save'] # change the key to decide the output visualization
+visual_method = output['nothing'] # change the key to decide the output visualization
 snap = True 
 save_data = True
 simulation = True

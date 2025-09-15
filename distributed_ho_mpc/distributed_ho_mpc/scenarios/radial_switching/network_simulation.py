@@ -24,6 +24,8 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 
 def main():
+    np.random.seed(1)
+    
     model = {
         'unicycle': get_unicycle_model(st.dt),
         'omnidirectional': get_omnidirectional_model(st.dt),
@@ -112,10 +114,10 @@ def main():
     time_start = time.time()
 
     goals = [
-        np.array([5, -6]),
-        np.array([-5, -6]),
-        np.array([-5, 6]),
-        np.array([5, 6]),
+        np.array([5, 5]),
+        np.array([-5, -5]),
+        np.array([-5, 5]),
+        np.array([5, 5]),
         np.array([8, 3]),
         np.array([-8, -3]),
         np.array([8, -3]),
@@ -193,10 +195,10 @@ def main():
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
@@ -211,7 +213,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    #graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -305,11 +307,11 @@ def main():
     for i in range(st.n_steps):
         if i == st.n_steps - 1:
             last_step = i + 1
-        if i == 150:
+        if i == 30:
             None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(1):
+        for rr in range(10):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution
@@ -424,7 +426,7 @@ def main():
             goals,
             None,
             st.dt,
-            [11.0, 16.0],
+            [(last_step-1) * st.dt],
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
             y_lim=[-8, 8],

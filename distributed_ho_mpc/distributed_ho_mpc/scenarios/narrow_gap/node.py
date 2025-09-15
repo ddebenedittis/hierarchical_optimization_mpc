@@ -395,22 +395,22 @@ class Node():
             )
         elif self.node_id == 4:
             self.s = RobCont(omni=
-                [np.array([-6.5, -1 , 0.1])
+                [np.array([-6.5, -1.5, 0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 5:
             self.s = RobCont(omni=
-                [np.array([6.5, -1, -3])
+                [np.array([6.5, -1.5, -3])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 6:
             self.s = RobCont(omni=
-                [np.array([-6.5, 1 , -0.1])
+                [np.array([-6.5, 1.5, -0.1])
                 for _ in range(self.n_robots.omni)]
             )
         elif self.node_id == 7:
             self.s = RobCont(omni=
-                [np.array([6.5, 1, -3])
+                [np.array([6.5, 1.5, -3])
                 for _ in range(self.n_robots.omni)]
             )    
         elif self.node_id == 8:
@@ -432,7 +432,37 @@ class Node():
             self.s = RobCont(omni=
                 [np.array([-7, 0, 0.04])
                 for _ in range(self.n_robots.omni)]
+            )  
+        elif self.node_id == 12:
+            self.s = RobCont(omni=
+                [np.array([-7.5, 1, -0.04])
+                for _ in range(self.n_robots.omni)]
+            )  
+        elif self.node_id == 13:
+            self.s = RobCont(omni=
+                [np.array([ 7.5, 1, -3.11])
+                for _ in range(self.n_robots.omni)]
             )    
+        elif self.node_id == 14:
+            self.s = RobCont(omni=
+                [np.array([-7.5, -1, 0.04])
+                for _ in range(self.n_robots.omni)]
+            )  
+        elif self.node_id == 15:
+            self.s = RobCont(omni=
+                [np.array([ 7.5, -1, 3.11])
+                for _ in range(self.n_robots.omni)]
+            )
+        elif self.node_id == 16:
+            self.s = RobCont(omni=
+                [np.array([ -8, -0, -0.05])
+                for _ in range(self.n_robots.omni)]
+            ) 
+        elif self.node_id == 17:
+            self.s = RobCont(omni=
+                [np.array([ 8, -0, 3.11])
+                for _ in range(self.n_robots.omni)]
+            )       
         else:
             raise ValueError('Missing agent init on s')
 

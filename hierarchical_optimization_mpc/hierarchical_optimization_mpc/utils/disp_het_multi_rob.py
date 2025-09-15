@@ -659,7 +659,12 @@ def save_snapshots(
 # ============================== Plot_distances ============================== #
 
 
-def plot_distances(s_history, dt: float):
+def plot_distances(
+    s_history,
+    dt: float,
+    d_min: float = None,
+    filename: str = 'distances.pdf',
+):
     [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
 
     n_k = len(s_history)
@@ -682,8 +687,12 @@ def plot_distances(s_history, dt: float):
             np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1),
         )
 
-    ax.set(xlim=[0.0, 20.0], ylim=[0.0, 4.5])
+    if d_min is not None:
+        ax.axhspan(0, d_min, color='red', alpha=0.25)
+
+    ax.set(xlim=[0.0, dt * n_k])
+    ax.set_ylim(ymin=0)
     ax.set_xlabel('Time [$s$]')
     ax.set_ylabel('Inter-robot dist. [$m$]')
 
-    plt.savefig('distances.pdf', bbox_inches='tight', format='pdf')
+    plt.savefig(filename, bbox_inches='tight', format='pdf')

@@ -14,14 +14,14 @@ n_steps = 300
 communication_range = 20
 
 v_max = 1.5
-v_min = 0
+v_min = -1.5
 omega_max = 1.4
 omega_min = -1.4
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
-output = {'display': 'plot', 'save': 'save', 'nothing':'none'}
+output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
 visual_method = output['nothing']  # change the key to decide the output visualization
 save_data = True
 simulation = True
@@ -41,4 +41,4 @@ n_xi = n_control * 2
 
 
 n_priority = 2
-step_size = 1e-3
+step_size = 1e-6

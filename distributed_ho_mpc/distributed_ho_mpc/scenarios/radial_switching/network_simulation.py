@@ -25,7 +25,7 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 def main():
     np.random.seed(1)
-    
+
     model = {
         'unicycle': get_unicycle_model(st.dt),
         'omnidirectional': get_omnidirectional_model(st.dt),
@@ -105,12 +105,11 @@ def main():
     #         np.array([-6, -8]),
     #         np.array([0,0])
     #     ]
-    snap = [0] # time for snapshot
+    snap = [0]  # time for snapshot
     for tt in snap:
-        if tt > st.n_steps*st.dt:
+        if tt > st.n_steps * st.dt:
             raise ValueError('Time instant for snapshot out of simulation lenght')
-    
-    
+
     time_start = time.time()
 
     goals = [
@@ -127,13 +126,13 @@ def main():
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
             {'prio': 3, 'name': 'collision_avoidance'},
         ],
@@ -213,7 +212,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    #graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -260,7 +259,7 @@ def main():
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model['unicycle'],  # robot model
+            model['omnidirectional'],  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -309,9 +308,9 @@ def main():
             last_step = i + 1
         if i == 30:
             None
-        if i > 0:
-            neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(10):
+        # if i > 0:
+        #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for rr in range(1):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
                 nodes[j].update('1')  # Update primal solution and state evolution
@@ -331,7 +330,7 @@ def main():
             nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
         if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i +1
+            last_step = i + 1
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
             break
@@ -401,7 +400,7 @@ def main():
         plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')
-        #plt.legend()
+        # plt.legend()
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
@@ -415,18 +414,18 @@ def main():
             for i in range(len(nodes[0].s_history))
         ]
 
-        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
-        #flags.centroid = False
+        # flags.centroid = False
 
         save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
-            [(last_step-1) * st.dt],
+            [(last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
             y_lim=[-8, 8],

@@ -56,7 +56,7 @@ class Node:
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
-        self.n_xi = st.n_control * 5  # dimension of primal variables
+        self.n_xi = st.n_control * 4  # dimension of primal variables
 
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
@@ -107,9 +107,9 @@ class Node:
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
-                header.append(f'stateRHO_{i}')
-                header.append(f'inputV_{i}')
-                header.append(f'inputOM_{i}')
+                # header.append(f'stateRHO_{i}')
+                header.append(f'inputX{i}')
+                header.append(f'inputY{i}')
 
             writer.writerow(header)
 
@@ -125,8 +125,8 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt*10)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 10)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 10)
+        # self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 10)
 
         self.goals = copy.deepcopy(goals)
 
@@ -148,9 +148,8 @@ class Node:
         self.omega_max = copy.deepcopy(st.omega_max)
         self.omega_min = copy.deepcopy(st.omega_min)
 
-
-        self.dist_hist = [[], [], [], [], [], [], [],[]]
-        self.delta_hist = [[], [], [], [], [], [], [],[]]
+        self.dist_hist = [[], [], [], [], [], [], [], []]
+        self.delta_hist = [[], [], [], [], [], [], [], []]
         self.counter = []
 
     def index_local_to_global(self, r) -> int:
@@ -245,14 +244,12 @@ class Node:
             -((self.aux_avoid_collision[0, 0] - self.aux_avoid_collision[1, 0]) ** 2)
             - (self.aux_avoid_collision[0, 1] - self.aux_avoid_collision[1, 1]) ** 2,
         )
+
         self.task_avoid_collision_coeff = [
-            TaskBiCoeff(0, 0, 0, j, 0, -(self.threshold**2)) for j in self.robot_idx[1:]
+            TaskBiCoeff(0, i, 0, j, 0, -(self.threshold**2))
+            for i in range(self.n_robots.omni)
+            for j in range(i + 1, self.n_robots.omni)
         ]
-        for p, j in enumerate(self.robot_idx[1:]):
-            for pp in self.robot_idx[p + 1 :]:
-                self.task_avoid_collision_coeff.append(
-                    TaskBiCoeff(0, j, 0, pp, 0, -(self.threshold**2))
-                )
 
         # =====================Obstacle Avoidance===================================== #
         self.obstacle_pos = np.array([2, 2])
@@ -369,11 +366,16 @@ class Node:
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-        if self.node_id == 0:    
-            self.s =RobCont(omni=[np.array([-5, -5, 0.75]), np.array([5, 5, -2.1])])
-        elif self.node_id == 1:            
-            self.s =RobCont(omni=[np.array([5, 5, -2.1]), np.array([-5, -5, 0.75]),])
-        
+        if self.node_id == 0:
+            self.s = RobCont(omni=[np.array([-5, -5]), np.array([5, 5])])
+        elif self.node_id == 1:
+            self.s = RobCont(
+                omni=[
+                    np.array([5, 5]),
+                    np.array([-5, -5]),
+                ]
+            )
+
         # if self.node_id == 0:
         #     self.s = RobCont(
         #         omni=[np.array([-5, 5, 0.1]) for _ in range(self.n_robots.omni)],
@@ -384,7 +386,7 @@ class Node:
         #     self.s = RobCont(omni=[np.array([5, -5, 2.1]) for _ in range(self.n_robots.omni)])
         # elif self.node_id == 3:
         #     self.s = RobCont(omni=[np.array([-5, -5, 0.75]) for _ in range(self.n_robots.omni)])
-        '''if self.node_id == 0:
+        """if self.node_id == 0:
             self.s = RobCont(
                 omni=[np.array([-2.57, 4.29, 0.05]) for _ in range(self.n_robots.omni)],
             )
@@ -403,7 +405,7 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([4.42, -1.8, 3]) for _ in range(self.n_robots.omni)])
         else:
-            raise ValueError('Missing agent init on s')'''
+            raise ValueError('Missing agent init on s')"""
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -447,11 +449,9 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        
         self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
-            
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
             self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
@@ -461,24 +461,27 @@ class Node:
 
             if round == '2':
                 if self.step % self.a == 0:
-                    self.s_ = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
-                    
+                    self.s_ = self.evolve(
+                        copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                    )
+
                     self.s = self.evolve(
                         copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                     )
                     # self.a = self.a * 2
-                    #self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+                    # self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
                     self.counter.append(self.step)
 
             if st.inner_plot and round == '2':
-
                 for i in range(len(self.s_.omni)):
                     self.delta_hist[i].append(np.linalg.norm(self.s_.omni[i] - self.s.omni[i]))
                     if i != 0:
                         self.dist_hist[i - 1].append(
-                            np.linalg.norm(copy.deepcopy(self.s.omni[0]) - copy.deepcopy(self.s.omni[i]))
+                            np.linalg.norm(
+                                copy.deepcopy(self.s.omni[0]) - copy.deepcopy(self.s.omni[i])
+                            )
                         )
-                        
+
                 if self.step == st.n_steps - 1:
                     plt.figure(figsize=(10, 6))
                     plt.suptitle(f'Node_{self.node_id}  and Delta')
@@ -499,7 +502,7 @@ class Node:
             if round == '2':
                 print(self.step)
                 print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
-                
+
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
                 self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
                 self.step += 1
@@ -526,21 +529,23 @@ class Node:
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
+        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
+        #                 u_star.omni[j][1],
+        #             ]
+        #         )
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                     [
-                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
-                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                        u_star.omni[j][0],
                         u_star.omni[j][1],
                     ]
                 )
-        # for j, _ in enumerate(s.omni):
-        #     for _ in range(n_intervals):
-        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array([
-        #             u_star.omni[j][0],
-        #             u_star.omni[j][1],
-        #         ])
 
         return s
 
@@ -590,9 +595,9 @@ class Node:
                         row.extend(self.s.omni[ii])
                         row.extend(self.u_star[0][ii])
                     else:
-                        row.extend([None] * 5)
-                else: 
-                    row.extend([None] * 5)
+                        row.extend([None] * 4)
+                else:
+                    row.extend([None] * 4)
 
             writer.writerow(row)
         self.step_plot += 1

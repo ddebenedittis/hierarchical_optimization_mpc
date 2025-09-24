@@ -469,10 +469,9 @@ class HierarchicalQP:
                 )
 
                 p = np.zeros(nx + nw)
-            # TODO hard coded brutto
-            if degree != 0:
-                # prio = [0, 1, 2, 3, 3, 4, 4]
-                if priority > 2:
+                # TODO hard coded brutto
+                # if degree != 0:
+                """if priority > 2:
                     if stack:
                         rhop = rho[
                             :, prio_list[priority] - 3, :
@@ -480,6 +479,19 @@ class HierarchicalQP:
                     else:
                         rhop = rho[
                             :, prio_list[priority] - 3, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
+                    rho_vector = np.block([rho_vector, np.zeros(nw)])
+                    #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+                    p += rho_vector"""
+                if priority > 0:
+                    if stack:
+                        rhop = rho[
+                            :, prio_list[priority] - 1, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    else:
+                        rhop = rho[
+                            :, prio_list[priority] - 1, :
                         ]  # extract both i and j for priority p for each neighbour
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
@@ -541,7 +553,6 @@ class HierarchicalQP:
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-            
 
             Z_list.append(Z)
             """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
@@ -553,7 +564,7 @@ class HierarchicalQP:
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
-            if priority > 2:
+            if priority > 0:
                 if not stack:
                     if prio_list[priority] == prio_list[priority - 1]:
                         x_star_bar_p[-1] = (
@@ -565,7 +576,7 @@ class HierarchicalQP:
                         )  # collect the solution for each priority level
                 else:
                     x_star_bar_p.append(x_star_bar)  # collect the solution for each priority level
-
+            # print(f'delta_x at prio {priority}:{x_star_bar - x_star}')
             # Store the history of w_star
             if priority == 0:
                 w_star_bar = [sol[nx:]]

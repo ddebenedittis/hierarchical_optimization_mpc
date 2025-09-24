@@ -10,8 +10,8 @@ import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
-import distributed_ho_mpc.scenarios.radial_switching.settings as st
-from distributed_ho_mpc.scenarios.radial_switching.node import Node
+import distributed_ho_mpc.scenarios.radial_switching_unicycle.settings as st
+from distributed_ho_mpc.scenarios.radial_switching_unicycle.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
@@ -126,28 +126,26 @@ def main():
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
             {'prio': 3, 'name': 'collision_avoidance'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
         ],
         'agent_4': [
@@ -259,7 +257,7 @@ def main():
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model['omnidirectional'],  # robot model
+            model['unicycle'],  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -302,7 +300,7 @@ def main():
         for rr in range(st.inner_loop):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
-                nodes[j].update('2')  # Update primal solution and state evolution
+                nodes[j].update('1')  # Update primal solution and state evolution
             for j in range(st.n_nodes):
                 state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
                 for ij in nodes[j].neigh:  # select my neighbours
@@ -314,11 +312,11 @@ def main():
                 for ij in nodes[j].neigh:  # select my neighbours
                     msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
                     nodes[ij].receive_data(msg)  # neighbour receives the message
-        # for j in range(st.n_nodes):
-        #     nodes[j].reorder_s_init(state)
-        #     nodes[j].update('2')  # Update primal solution and state evolution
+        for j in range(st.n_nodes):
+            nodes[j].reorder_s_init(state)
+            nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-        if np.all(np.abs(np.array(state)[:, :4] - gg) < 10e-3):
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
             last_step = i + 1
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
@@ -402,21 +400,38 @@ def main():
             sum(([node.s_history[i][0][0]] for node in nodes), [])
             for i in range(len(nodes[0].s_history))
         ]
+        centr_sol = [
+            np.array(
+                [
+                    4.9898842,
+                    5.00256918,
+                ]
+            ),  # -6.53116671
+            np.array(
+                [
+                    -4.99971935,
+                    -4.99998281,
+                ]
+            ),  # -3.08082181
+            np.array(
+                [
+                    -5.00003737,
+                    4.99967845,
+                ]
+            ),  # 1.45475049
+            np.array(
+                [
+                    4.99974921,
+                    -4.99747047,
+                ]
+            ),
+        ]  # 4.8113406
+        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
-
-        centr_sol = np.array([5, 5])
-
-        ############# PLOT DISTANCE TO OPTIMAL SOL #############
-        s_hist_merged_2 = [
-            sum(([node.s_history[i][0][1]] for node in nodes[1:]), [])
-            for i in range(len(nodes[0].s_history))
-        ]
-
-        distances = [[] for n in range(1, st.n_nodes)]
-        for out_loop, iter in enumerate(s_hist_merged_2[: (len(nodes[0].s_history) - 2)]):
-            for nn, ag in enumerate(iter):
-                dist_opt = np.linalg.norm(ag[:2] - nodes[0].s_history[out_loop][0][0])
+        distances = [[] for n in range(st.n_nodes)]
+        for iter in s_hist_merged:
+            for nn, ag in enumerate(iter[0]):
+                dist_opt = np.linalg.norm(ag[:2] - centr_sol[nn])
                 distances[nn].append(dist_opt)
 
         # distances = np.array(distances)  # shape: (n_valid_iterations, 4)

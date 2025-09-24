@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from matplotlib import pyplot as plt
 
-import distributed_ho_mpc.scenarios.radial_switching.settings as st
+import distributed_ho_mpc.scenarios.radial_switching_unicycle.settings as st
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -49,14 +49,14 @@ class Node:
         super(Node, self).__init__()
 
         self.node_id = copy.deepcopy(node_id)  # ID of the node
-        self.adjacency_vector = copy.deepcopy(adjacency_vector)  # neighbours
+        self.adjacency_vector = copy.deepcopy(adjacency_vector)  # neighbourse
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()  # index of neighbours
         self.degree = len(self.neigh)  # numbers of neighbours
 
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
-        self.n_xi = st.n_control * 4  # dimension of primal variables
+        self.n_xi = st.n_xi  # dimension of primal variables
 
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
@@ -107,9 +107,9 @@ class Node:
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
-                # header.append(f'stateRHO_{i}')
-                header.append(f'inputX{i}')
-                header.append(f'inputY{i}')
+                header.append(f'stateRHO_{i}')
+                header.append(f'inputV{i}')
+                header.append(f'inputOM{i}')
 
             writer.writerow(header)
 
@@ -125,8 +125,8 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 10)
+        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -370,37 +370,37 @@ class Node:
         if self.node_id == 0:
             self.s = RobCont(
                 omni=[
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([1.5, -1.5]),
-                    np.array([-1.5, 1.5]),
+                    np.array([-2, -2, 0.3]),
+                    np.array([2, 2, -2.8]),
+                    np.array([2, -2, 2.8]),
+                    np.array([-2, 2, -0.3]),
                 ]
             )
         elif self.node_id == 1:
             self.s = RobCont(
                 omni=[
-                    np.array([1.5, 1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, -1.5]),
-                    np.array([-1.5, 1.5]),
+                    np.array([2, 2, -2.7]),
+                    np.array([-2, -2, 0.3]),
+                    np.array([2, -2, 2.8]),
+                    np.array([-2, 2, -0.3]),
                 ]
             )
         elif self.node_id == 2:
             self.s = RobCont(
                 omni=[
-                    np.array([1.5, -1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([-1.5, 1.5]),
+                    np.array([2, -2, 2.8]),
+                    np.array([-2, -2, 0.3]),
+                    np.array([2, 2, -2.8]),
+                    np.array([-2, 2, -0.3]),
                 ]
             )
         elif self.node_id == 3:
             self.s = RobCont(
                 omni=[
-                    np.array([-1.5, 1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([1, -1]),
+                    np.array([-2, 2, -0.3]),
+                    np.array([-2, -2, 0.3]),
+                    np.array([2, 2, -2.8]),
+                    np.array([2, -2, 2.8]),
                 ]
             )
 
@@ -487,11 +487,13 @@ class Node:
             self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
-                """self.s_ = self.evolve(
+                self.s_ = self.evolve(
                     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )"""
+                )
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(
+                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                )
                 self.counter.append(self.step)
 
             if st.inner_plot and round == '2':
@@ -550,20 +552,12 @@ class Node:
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        # for j, _ in enumerate(s.omni):
-        #     for _ in range(n_intervals):
-        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-        #             [
-        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
-        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
-        #                 u_star.omni[j][1],
-        #             ]
-        #         )
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                     [
-                        u_star.omni[j][0],
+                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
                         u_star.omni[j][1],
                     ]
                 )
@@ -610,12 +604,15 @@ class Node:
                 else:
                     row.extend([None] * (self.n_xi * 4))
             for i in range(st.n_nodes):
-                if i in self.robot_idx_global:
-                    ii = self.index_global_to_local(i)
-                    row.extend(self.s.omni[ii])
-                    row.extend(self.u_star[0][ii])
+                if (self.step_plot % st.inner_loop) == 0:
+                    if i in self.robot_idx_global:
+                        ii = self.index_global_to_local(i)
+                        row.extend(self.s.omni[ii])
+                        row.extend(self.u_star[0][ii])
+                    else:
+                        row.extend([None] * 5)
                 else:
-                    row.extend([None] * 4)
+                    row.extend([None] * 5)
 
             writer.writerow(row)
         self.step_plot += 1
@@ -679,13 +676,13 @@ class Node:
             #         ineq_task_coeff= self.task_avoid_collision_coeff,
             #         robot_index= [self.robot_idx[1:]]
             #     )
-            elif task['name'] == 'obstacle_avoidance':
+            """elif task['name'] == 'obstacle_avoidance':
                 self.hompc.create_task(
                     name='obstacle_avoidance',
                     prio=task['prio'],
                     type=TaskType.Same,
                     ineq_task_ls=self.task_obs_avoidance,
-                )
+                )"""
 
     def create_connection(
         self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]

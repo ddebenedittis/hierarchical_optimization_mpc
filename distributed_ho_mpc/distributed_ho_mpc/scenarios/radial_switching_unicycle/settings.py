@@ -9,13 +9,13 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 200
+n_steps = 350
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 20
 
 v_max = 1.5
-v_min = -1.5
+v_min = 0
 omega_max = 1.4
 omega_min = -1.4
 
@@ -34,12 +34,12 @@ estimation_plotting = False
 n_control = 1  # mpc control step
 n_pred = 0  # mpc prediction step
 
-n_xi = n_control * 2
+n_xi = n_control * 5
 
 # ---------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #
 
 
-n_priority = 3
-step_size = 1e-6
+n_priority = 4
+step_size = 1e-7

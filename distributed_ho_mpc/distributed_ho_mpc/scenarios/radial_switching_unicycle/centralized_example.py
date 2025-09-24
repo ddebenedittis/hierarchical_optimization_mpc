@@ -30,28 +30,27 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
     n_intervals = 10
-
-    # for j, _ in enumerate(s.omni):
-    #     for _ in range(n_intervals):
-    #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-    #             [
-    #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
-    #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
-    #                 u_star.omni[j][1],
-    #             ]
-    #         )
-
-    # return s
     for j, _ in enumerate(s.omni):
         for _ in range(n_intervals):
             s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                 [
-                    u_star.omni[j][0],
+                    u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                    u_star.omni[j][0] * np.sin(s.omni[j][2]),
                     u_star.omni[j][1],
                 ]
             )
 
     return s
+    # for j, _ in enumerate(s.omni):
+    # for _ in range(n_intervals):
+    # s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+    # [
+    # u_star.omni[j][0],
+    # u_star.omni[j][1],
+    # ]
+    # )
+
+    # return s
 
 
 def main():
@@ -81,8 +80,9 @@ def main():
         for i in range(n_robots.omni):
             header.append(f'stateX_{i}')
             header.append(f'stateY_{i}')
-            header.append(f'inputX_{i}')
-            header.append(f'inputY_{i}')
+            header.append(f'stateRHO_{i}')
+            header.append(f'inputV_{i}')
+            header.append(f'inputOH_{i}')
 
         writer.writerow(header)
 
@@ -92,17 +92,17 @@ def main():
     u = RobCont(omni=None)
     s_kp1 = RobCont(omni=None)
 
-    # s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 10)
-    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt)
+    s.omni, u.omni, s_kp1.omni = get_unicycle_model(5 * dt)
+    # s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt)
 
     # =========================== Define The Tasks ========================== #
 
     task_input_limits = RobCont(
         omni=ca.vertcat(
             u.omni[0] - v_max,
-            -u.omni[0] - 1.5,  # v_min,
-            u.omni[1] - 1.5,  # 1v_max,
-            -u.omni[1] - 1.5,  # v_min
+            -u.omni[0] - 0,  # v_min,
+            u.omni[1] - 1.4,  # 1v_max,
+            -u.omni[1] - 1.4,  # v_min
         )
     )
 
@@ -184,7 +184,7 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 2
+    hompc.n_control = 1
     hompc.n_pred = 0
 
     hompc.create_task(
@@ -304,10 +304,10 @@ def main():
 
     s = RobCont(
         omni=[
-            np.array([-1.5, -1.5]),
-            np.array([1.5, 1.5]),
-            np.array([1.5, -1.5]),
-            np.array([-1.5, 1.5]),
+            np.array([-2, -2, 0.3]),
+            np.array([2, 2, -2.8]),
+            np.array([2, -2, 2.8]),
+            np.array([-2, 2, -0.3]),
         ]
     )
 
@@ -315,7 +315,7 @@ def main():
         """
         Plot the distance between the agents at each time step
         """
-        positions_over_time = np.array(state)
+        positions_over_time = np.array(state)[:, :2]
         distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
         for i, d in enumerate(distances):
             pairwise_distances[i].append(d)
@@ -334,7 +334,7 @@ def main():
     goals = np.array([[5, 5], [-5, -5], [-5, 5], [5, -5]])
 
     for k in range(n_steps):
-        if np.all(np.abs(np.array(s.omni)[:, :4] - goals) < 10e-3):
+        if np.all(np.abs(np.array(s.omni)[:, :2] - goals) < 10e-3):
             last_step = k
             break
 
@@ -393,7 +393,7 @@ def main():
 
     visual_method = 'save'
 
-    s_history = [[[]] + s.tolist() for s in s_history[:last_step]]
+    s_history = [s.tolist() + [[]] for s in s_history[:last_step]]
 
     flags = MultiRobotArtistFlags()
     flags.voronoi = False

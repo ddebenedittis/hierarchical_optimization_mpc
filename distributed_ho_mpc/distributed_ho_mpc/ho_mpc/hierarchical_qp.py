@@ -402,8 +402,7 @@ class HierarchicalQP:
                 ]
             )
         ]
-        
-        
+
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
@@ -485,7 +484,7 @@ class HierarchicalQP:
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
                     #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                    p += rho_vector
+                    # p += rho_vector
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
@@ -516,13 +515,12 @@ class HierarchicalQP:
             )
             d_tilde = d_tilde.flatten()
 
-            
             # =========================== Solve The QP =========================== #
 
             # Quadprog library QP problem formulation
             #   min  1/2 x^T H x - p^T x
             #   s.t. CI^T x >= ci0
-            sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
+            sol, c = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
                 for i in range(n_tasks - priority):
                     if stack:
@@ -543,7 +541,7 @@ class HierarchicalQP:
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-            #Z_list.append(Z)
+            # Z_list.append(Z)
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
@@ -569,7 +567,7 @@ class HierarchicalQP:
             # Compute the new null space projector (skipped at the last iteration).
             if (Ap.shape[0] != 0) and (priority != n_tasks - 1):
                 Z = Z @ null_space_projector(Ap @ Z)
-                #self.Z_old = Z_list
+                # self.Z_old = Z_list
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
@@ -726,30 +724,29 @@ class HierarchicalQP:
                 return self._solve_hierarchical_OH(
                     A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list, null_OH
                 )
-            else:              
+            else:
                 return self._solve_hierarchical(
                     A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list
                 )
 
         return self._solve_weighted(A, b, C, d, we, wi, priorities)
 
-
     def _solve_hierarchical_OH(
-            self,
-            A,
-            b,
-            C,
-            d,
-            rho,
-            degree=None,
-            n_c=1,
-            we=None,
-            wi=None,
-            priorities=None,
-            prio_list=None,
-            null_OH=None,
-        ) -> np.ndarray:
-            """
+        self,
+        A,
+        b,
+        C,
+        d,
+        rho,
+        degree=None,
+        n_c=1,
+        we=None,
+        wi=None,
+        priorities=None,
+        prio_list=None,
+        null_OH=None,
+    ) -> np.ndarray:
+        """
             Given a set of tasks in the form \\
             Ap x  = b \\
             Cp x <= d, \\
@@ -770,201 +767,201 @@ class HierarchicalQP:
                 np.ndarray: optimal solution vector
             """
 
-            stack = True  # flag for multi priority matrix handling
+        stack = True  # flag for multi priority matrix handling
 
-            # ========================== Initialization ========================== #
+        # ========================== Initialization ========================== #
 
-            # Number of tasks.
-            n_tasks = len(A)
+        # Number of tasks.
+        n_tasks = len(A)
 
-            # Dimension of the optimization vector.
-            nx = A[0].shape[1]
+        # Dimension of the optimization vector.
+        nx = A[0].shape[1]
 
-            # Optimization vector.
-            x_star_bar = np.zeros(nx)
-            x_star_bar_p = []
+        # Optimization vector.
+        x_star_bar = np.zeros(nx)
+        x_star_bar_p = []
 
-            # History of the slack variables, stored as a list of np.arrays.
-            w_star_bar = [
-                np.empty(
-                    shape=[
-                        0,
-                    ]
-                )
-            ]
+        # History of the slack variables, stored as a list of np.arrays.
+        w_star_bar = [
+            np.empty(
+                shape=[
+                    0,
+                ]
+            )
+        ]
 
-            # Initialize the null space projector.
-            # if agents had already communicated at least once, init the Z from previous value merged with neighbours
-            Z = np.eye(nx)
+        # Initialize the null space projector.
+        # if agents had already communicated at least once, init the Z from previous value merged with neighbours
+        Z = np.eye(nx)
 
-            # ==================================================================== #
+        # ==================================================================== #
 
-            if self.x is None or len(self.x) != n_tasks:
-                self.x = [None for _ in range(n_tasks)]
-                self.z = [None for _ in range(n_tasks)]
-                self.lam = [None for _ in range(n_tasks)]
-                self.rho = [None for _ in range(n_tasks)]
+        if self.x is None or len(self.x) != n_tasks:
+            self.x = [None for _ in range(n_tasks)]
+            self.z = [None for _ in range(n_tasks)]
+            self.lam = [None for _ in range(n_tasks)]
+            self.rho = [None for _ in range(n_tasks)]
 
-            Z_list = []
+        Z_list = []
 
-            for i in range(n_tasks):
-                # Priority of task i.
-                if priorities is None:
-                    priority = i
-                else:
-                    priority = priorities.index(i)
+        for i in range(n_tasks):
+            # Priority of task i.
+            if priorities is None:
+                priority = i
+            else:
+                priority = priorities.index(i)
 
-                Ap = A[priority]
-                bp = b[priority]
+            Ap = A[priority]
+            bp = b[priority]
 
-                if we is not None:
-                    if we[priority] is not None:
-                        if isinstance(we[priority], (int, float)):
-                            Ap = Ap * we[priority]
-                        else:
-                            Ap = Ap * we[priority][:, np.newaxis]
-                        bp = bp * we[priority]
-
-                if wi is not None:
-                    if wi[priority] is not None:
-                        if isinstance(wi[priority], (int, float)):
-                            C[priority] = C[priority] * wi[priority]
-                        else:
-                            C[priority] = C[priority] * wi[priority][:, np.newaxis]
-                        d[priority] = d[priority] * wi[priority]
-
-                # Slack variable dimension at task p.
-                nw = C[priority].shape[0]
-
-                # See Kinematic Control of Redundant Manipulators: Generalizing the
-                # Task-Priority Framework to Inequality Task for the math behind it.
-
-                # ======================== Compute H And P ======================= #
-
-                if Ap.size != 0:
-                    H = np.block(
-                        [
-                            [Z.T @ Ap.T @ Ap @ Z, np.zeros([nx, nw])],
-                            [np.zeros([nw, nx]), np.eye(nw)],
-                        ]
-                    )
-
-                    p = np.block([Z.T @ Ap.T @ (Ap @ x_star_bar - bp), np.zeros(nw)])
-                else:
-                    H = np.block(
-                        [
-                            [np.zeros([nx, nx]), np.zeros([nx, nw])],
-                            [np.zeros([nw, nx]), np.eye(nw)],
-                        ]
-                    )
-
-                    p = np.zeros(nx + nw)
-                # TODO hard coded brutto
-                if degree != 0:
-                    # prio = [0, 1, 2, 3, 3, 4, 4]
-                    if priority > 2:
-                        if stack:
-                            rhop = rho[
-                                :, prio_list[priority] - 3, :
-                            ]  # extract both i and j for priority p for each neighbour
-                        else:
-                            rhop = rho[
-                                :, prio_list[priority] - 3, :
-                            ]  # extract both i and j for priority p for each neighbour
-                        rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
-                        rho_vector = np.block([rho_vector, np.zeros(nw)])
-                        #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                        p += rho_vector
-
-                # Make H positive definite
-                H = H + self._regularization * np.eye(H.shape[0])
-                # sigma = min(np.linalg.eig(H))   # convexity parameter
-                # ================== Compute C_tilde And D_tilde ================= #
-
-                nC2 = np.concatenate(C[0 : priority + 1]).shape[0]
-
-                C_tilde = np.block(
-                    [
-                        [np.zeros([nw, nx]), -np.eye(nw)],
-                        [np.concatenate(C[0 : priority + 1]) @ Z, np.zeros([nC2, nw])],
-                    ]
-                )
-                if nw > 0:
-                    C_tilde[-nw:, -nw:] = -np.eye(nw)
-
-                # w_star_arr = [w_star[priority], w_star[priority-1], ..., w_star[0]]
-                w_star_arr = np.concatenate(w_star_bar[:])
-
-                d_tilde = np.block(
-                    [
-                        np.zeros(nw),
-                        np.concatenate(d[0 : priority + 1])
-                        - np.concatenate(C[0 : priority + 1]) @ x_star_bar
-                        + np.concatenate((w_star_arr, np.zeros(nw))),
-                    ]
-                )
-                d_tilde = d_tilde.flatten()
-
-                # =========================== Solve The QP =========================== #
-
-                # Quadprog library QP problem formulation
-                #   min  1/2 x^T H x - p^T x
-                #   s.t. CI^T x >= ci0
-                sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
-                if sol is None:
-                    for i in range(n_tasks - priority):
-                        if stack:
-                            if x_star_bar_p:
-                                x_star_bar_p.append(x_star_bar_p[-1])
-                            else:
-                                x_star_bar_p.append(x_star_bar)
-                        else:
-                            if not x_star_bar_p:
-                                x_star_bar_p.append(x_star_bar)
-                            elif prio_list[priority + i] == prio_list[priority + i - 1]:
-                                continue
-                            else:
-                                x_star_bar_p.append(x_star_bar_p[-1])
-                    return x_star_bar, x_star_bar_p, w_star_bar
-
-                # ======================== Post-processing ======================= #
-
-                # Extract x_star from the solution.
-                x_star = sol[0:nx]
-                #Z_list.append(Z)
-
-                # Update the solution of all the tasks up to now.
-                x_star_bar = x_star_bar + Z @ x_star
-                if priority > 2:
-                    if not stack:
-                        if prio_list[priority] == prio_list[priority - 1]:
-                            x_star_bar_p[-1] = (
-                                x_star_bar  # collect the solution for each priority level
-                            )
-                        else:
-                            x_star_bar_p.append(
-                                x_star_bar
-                            )  # collect the solution for each priority level
+            if we is not None:
+                if we[priority] is not None:
+                    if isinstance(we[priority], (int, float)):
+                        Ap = Ap * we[priority]
                     else:
-                        x_star_bar_p.append(x_star_bar)  # collect the solution for each priority level
+                        Ap = Ap * we[priority][:, np.newaxis]
+                    bp = bp * we[priority]
 
-                # Store the history of w_star
-                if priority == 0:
-                    w_star_bar = [sol[nx:]]
+            if wi is not None:
+                if wi[priority] is not None:
+                    if isinstance(wi[priority], (int, float)):
+                        C[priority] = C[priority] * wi[priority]
+                    else:
+                        C[priority] = C[priority] * wi[priority][:, np.newaxis]
+                    d[priority] = d[priority] * wi[priority]
+
+            # Slack variable dimension at task p.
+            nw = C[priority].shape[0]
+
+            # See Kinematic Control of Redundant Manipulators: Generalizing the
+            # Task-Priority Framework to Inequality Task for the math behind it.
+
+            # ======================== Compute H And P ======================= #
+
+            if Ap.size != 0:
+                H = np.block(
+                    [
+                        [Z.T @ Ap.T @ Ap @ Z, np.zeros([nx, nw])],
+                        [np.zeros([nw, nx]), np.eye(nw)],
+                    ]
+                )
+
+                p = np.block([Z.T @ Ap.T @ (Ap @ x_star_bar - bp), np.zeros(nw)])
+            else:
+                H = np.block(
+                    [
+                        [np.zeros([nx, nx]), np.zeros([nx, nw])],
+                        [np.zeros([nw, nx]), np.eye(nw)],
+                    ]
+                )
+
+                p = np.zeros(nx + nw)
+            # TODO hard coded brutto
+            if degree != 0:
+                # prio = [0, 1, 2, 3, 3, 4, 4]
+                if priority > 2:
+                    if stack:
+                        rhop = rho[
+                            :, prio_list[priority] - 3, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    else:
+                        rhop = rho[
+                            :, prio_list[priority] - 3, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
+                    rho_vector = np.block([rho_vector, np.zeros(nw)])
+                    #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+                    # p += rho_vector
+
+            # Make H positive definite
+            H = H + self._regularization * np.eye(H.shape[0])
+            # sigma = min(np.linalg.eig(H))   # convexity parameter
+            # ================== Compute C_tilde And D_tilde ================= #
+
+            nC2 = np.concatenate(C[0 : priority + 1]).shape[0]
+
+            C_tilde = np.block(
+                [
+                    [np.zeros([nw, nx]), -np.eye(nw)],
+                    [np.concatenate(C[0 : priority + 1]) @ Z, np.zeros([nC2, nw])],
+                ]
+            )
+            if nw > 0:
+                C_tilde[-nw:, -nw:] = -np.eye(nw)
+
+            # w_star_arr = [w_star[priority], w_star[priority-1], ..., w_star[0]]
+            w_star_arr = np.concatenate(w_star_bar[:])
+
+            d_tilde = np.block(
+                [
+                    np.zeros(nw),
+                    np.concatenate(d[0 : priority + 1])
+                    - np.concatenate(C[0 : priority + 1]) @ x_star_bar
+                    + np.concatenate((w_star_arr, np.zeros(nw))),
+                ]
+            )
+            d_tilde = d_tilde.flatten()
+
+            # =========================== Solve The QP =========================== #
+
+            # Quadprog library QP problem formulation
+            #   min  1/2 x^T H x - p^T x
+            #   s.t. CI^T x >= ci0
+            sol, c = self._solve_qp(H, p, C_tilde, d_tilde, priority)
+            if sol is None:
+                for i in range(n_tasks - priority):
+                    if stack:
+                        if x_star_bar_p:
+                            x_star_bar_p.append(x_star_bar_p[-1])
+                        else:
+                            x_star_bar_p.append(x_star_bar)
+                    else:
+                        if not x_star_bar_p:
+                            x_star_bar_p.append(x_star_bar)
+                        elif prio_list[priority + i] == prio_list[priority + i - 1]:
+                            continue
+                        else:
+                            x_star_bar_p.append(x_star_bar_p[-1])
+                return x_star_bar, x_star_bar_p, w_star_bar
+
+            # ======================== Post-processing ======================= #
+
+            # Extract x_star from the solution.
+            x_star = sol[0:nx]
+            # Z_list.append(Z)
+
+            # Update the solution of all the tasks up to now.
+            x_star_bar = x_star_bar + Z @ x_star
+            if priority > 2:
+                if not stack:
+                    if prio_list[priority] == prio_list[priority - 1]:
+                        x_star_bar_p[-1] = (
+                            x_star_bar  # collect the solution for each priority level
+                        )
+                    else:
+                        x_star_bar_p.append(
+                            x_star_bar
+                        )  # collect the solution for each priority level
                 else:
-                    w_star_bar.append(sol[nx:])
+                    x_star_bar_p.append(x_star_bar)  # collect the solution for each priority level
 
-                # Compute the new null space projector (skipped at the last iteration).
-                if (Ap.shape[0] != 0) and (priority != n_tasks - 1):
-                    for TA in null_OH:
-                        if priority < len(TA) and priority > 0:
-                            if len(TA[priority]) > 0:
-                                Z = Z @ null_space_projector(TA[priority].T)
-                    Z = Z @ null_space_projector(Ap @ Z)
-                    #self.Z_old = Z_list
+            # Store the history of w_star
+            if priority == 0:
+                w_star_bar = [sol[nx:]]
+            else:
+                w_star_bar.append(sol[nx:])
 
-                # End the loop if Z is the null matrix.
-                if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                    return x_star_bar, x_star_bar_p, w_star_bar
+            # Compute the new null space projector (skipped at the last iteration).
+            if (Ap.shape[0] != 0) and (priority != n_tasks - 1):
+                for TA in null_OH:
+                    if priority <= len(TA) and priority > 0:
+                        if len(TA[priority]) > 0:
+                            Z = Z @ null_space_projector(TA[priority].T)
+                Z = Z @ null_space_projector(Ap @ Z)
+                # self.Z_old = Z_list
 
-            return x_star_bar, x_star_bar_p, w_star_bar
+            # End the loop if Z is the null matrix.
+            if not np.any((Z > self.regularization) | (Z < -self.regularization)):
+                return x_star_bar, x_star_bar_p, w_star_bar
+
+        return x_star_bar, x_star_bar_p, w_star_bar

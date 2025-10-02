@@ -358,6 +358,7 @@ class HierarchicalQP:
         wi=None,
         priorities=None,
         prio_list=None,
+        dual_comp=None,
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -402,11 +403,11 @@ class HierarchicalQP:
                 ]
             )
         ]
-        cost = np.zeros(n_tasks)
+        cost = np.ones(n_tasks) * (-100)
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
-
+        sol_old = []
         # ==================================================================== #
 
         if self.x is None or len(self.x) != n_tasks:
@@ -470,7 +471,7 @@ class HierarchicalQP:
 
                 p = np.zeros(nx + nw)
                 # TODO hard coded brutto
-                # if degree != 0:
+            if degree != 0:
                 """if priority > 2:
                     if stack:
                         rhop = rho[
@@ -484,6 +485,7 @@ class HierarchicalQP:
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
                     #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
                     p += rho_vector"""
+
                 if priority > 0:
                     if stack:
                         rhop = rho[
@@ -496,11 +498,34 @@ class HierarchicalQP:
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
                     #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                    p += rho_vector
+                    # p += rho_vector
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
             # sigma = min(np.linalg.eig(H))   # convexity parameter
+
+            if dual_comp is not None:
+                if priority == 4:
+                    # cost[priority] = (dual_comp[priority].T @ H @ dual_comp[priority]) * 0.5 + p.T @ dual_comp[priority]
+                    # cost[priority-1] = rho_vector[:nx].T @ H @ rho_vector[:nx] * 0.5 + dual_comp[priority].T @ p
+                    cost[priority] = (
+                        0.5
+                        * (
+                            (
+                                dual_comp[priority].T @ Ap.T @ Ap @ dual_comp[priority]
+                                + bp.T @ bp
+                                - 2 * dual_comp[priority].T @ Ap.T @ bp
+                            )
+                            + dual_comp[priority][nx:].T @ dual_comp[priority][nx:]
+                        )
+                        + dual_comp[priority].T @ rho_vector
+                    )
+                    # cost[priority-1] = 0.5 * ((rho_vector[:nx].T @ Ap.T @ Ap @ rho_vector[:nx] + bp.T@bp - 2 * rho_vector[:nx].T @ Ap.T @ bp) + rho_vector[nx:].T@rho_vector[nx:] ) + dual_comp[priority].T @ rho_vector
+                    None
+                if priority == n_tasks - 1:
+                    return cost
+                continue
+
             # ================== Compute C_tilde And D_tilde ================= #
 
             nC2 = np.concatenate(C[0 : priority + 1]).shape[0]
@@ -528,9 +553,8 @@ class HierarchicalQP:
             d_tilde = d_tilde.flatten()
 
             # =========================== Solve The QP =========================== #
-
             # Quadprog library QP problem formulation
-            #   min  1/2 x^T H x - p^T x
+            #   min  1/2 x^T H x + p^T x
             #   s.t. CI^T x >= ci0
             sol, obj = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
@@ -538,8 +562,10 @@ class HierarchicalQP:
                     if stack:
                         if x_star_bar_p:
                             x_star_bar_p.append(x_star_bar_p[-1])
+                            sol_old.append(np.zeros(nx + nw))
                         else:
                             x_star_bar_p.append(x_star_bar)
+                            sol_old.append(np.zeros(nx + nw))
                     else:
                         if not x_star_bar_p:
                             x_star_bar_p.append(x_star_bar)
@@ -547,13 +573,19 @@ class HierarchicalQP:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])
-                return x_star_bar, x_star_bar_p, cost
+                return x_star_bar, x_star_bar_p, cost, sol_old
 
             # ======================== Post-processing ======================= #
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
             cost[priority] = obj
+            if priority == 4:
+                cost[priority] = 0.5 * (
+                    (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)
+                    + sol[nx:].T @ sol[nx:]
+                )  # + rho_vector.T @ x_star
+            sol_old.append(sol)
             Z_list.append(Z)
             """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
                 for key in Z_n.keys():
@@ -590,9 +622,9 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p, cost
+                return x_star_bar, x_star_bar_p, cost, sol_old
                 # w_star_bar
-        return x_star_bar, x_star_bar_p, cost
+        return x_star_bar, x_star_bar_p, cost, sol_old
 
     def rho_vector(self, rho, degree, n_c):
         x_i = rho[1].shape[0] // degree
@@ -712,6 +744,7 @@ class HierarchicalQP:
         prio_list=None,
         we=None,
         wi=None,
+        dual_comp=None,
     ) -> np.ndarray:
         """
         Given a set of tasks in the form \\
@@ -739,7 +772,7 @@ class HierarchicalQP:
 
         if self.hierarchical:
             return self._solve_hierarchical(
-                A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list
+                A, b, C, d, rho, degree, n_c, we, wi, priorities, prio_list, dual_comp
             )
 
         return self._solve_weighted(A, b, C, d, we, wi, priorities)

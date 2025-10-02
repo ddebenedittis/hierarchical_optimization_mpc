@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.radial_switching.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -64,6 +64,8 @@ class Node:
         )  # step size for primal and dual variables
         self.w = None
         self.a = 1
+        self.cost_p = np.empty((st.n_priority + 1, 1))
+        self.cost_d = np.empty((st.n_priority + 1, 1))
 
         self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi * (self.degree)))
@@ -110,6 +112,10 @@ class Node:
                 # header.append(f'stateRHO_{i}')
                 header.append(f'inputX{i}')
                 header.append(f'inputY{i}')
+            for i in range(st.n_priority + 1):
+                header.append(f'cost_p{i}')
+            for i in range(st.n_priority + 1):
+                header.append(f'cost_d{i}')
 
             writer.writerow(header)
 
@@ -370,37 +376,37 @@ class Node:
         if self.node_id == 0:
             self.s = RobCont(
                 omni=[
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([1.5, -1.5]),
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    # np.array([2, -2]),
                     np.array([-1.5, 1.5]),
                 ]
             )
         elif self.node_id == 1:
             self.s = RobCont(
                 omni=[
-                    np.array([1.5, 1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, -1.5]),
+                    np.array([1.5, 3]),
+                    # np.array([-1, -1.5]),
+                    np.array([2, -2]),
                     np.array([-1.5, 1.5]),
                 ]
             )
         elif self.node_id == 2:
             self.s = RobCont(
                 omni=[
-                    np.array([1.5, -1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([-1.5, 1.5]),
+                    np.array([2, -2]),
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    # np.array([-1.5, 1.5]),
                 ]
             )
         elif self.node_id == 3:
             self.s = RobCont(
                 omni=[
                     np.array([-1.5, 1.5]),
-                    np.array([-1.5, -1.5]),
-                    np.array([1.5, 1.5]),
-                    np.array([1, -1]),
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    # np.array([2, -2]),
                 ]
             )
 
@@ -447,7 +453,8 @@ class Node:
             if j in self.robot_idx_global:
                 self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
                     s_j
-                )  # TODO manage eterogeneous robots
+                ) + np.random.uniform(-0.05, 0.05, s_j.shape)
+                # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
         # self.obstacle_pos = state_meas[2]
@@ -480,10 +487,18 @@ class Node:
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
+            # compute the value of the dual function, with the old x but the updated rho values
+            self.cost_d = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, dual_comp=True)
 
-            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            if self.step_plot == 0:
+                self.cost_d = np.array([-20, -20, -20, -20, -20])
+
+            self.u_star, self.y, self.cost_p = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
+
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-            self.w = self.w[1:-1]
+            # self.w = self.w[1:-1]
             self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
@@ -616,6 +631,8 @@ class Node:
                     row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 4)
+            row.extend(self.cost_p.tolist())
+            row.extend(self.cost_d.tolist())
 
             writer.writerow(row)
         self.step_plot += 1

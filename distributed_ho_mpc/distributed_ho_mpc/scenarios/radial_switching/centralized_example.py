@@ -83,6 +83,8 @@ def main():
             header.append(f'stateY_{i}')
             header.append(f'inputX_{i}')
             header.append(f'inputY_{i}')
+        for i in range(4):
+            header.append(f'cost_p{i}')
 
         writer.writerow(header)
 
@@ -184,7 +186,7 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 2
+    hompc.n_control = 1
     hompc.n_pred = 0
 
     hompc.create_task(
@@ -304,9 +306,9 @@ def main():
 
     s = RobCont(
         omni=[
-            np.array([-1.5, -1.5]),
-            np.array([1.5, 1.5]),
-            np.array([1.5, -1.5]),
+            np.array([-1, -1.5]),
+            np.array([1.5, 3]),
+            np.array([2, -2]),
             np.array([-1.5, 1.5]),
         ]
     )
@@ -340,8 +342,11 @@ def main():
 
         time_coord_start = time.time()
         print(k)
+        s_copy = copy.deepcopy(s)
+        for n, jj in enumerate(s_copy.omni):
+            s_copy.omni[n] = jj + np.random.uniform(-0.05, 0.05, jj.shape)
 
-        u_star = hompc(copy.deepcopy(s.tolist()))
+        u_star, cost = hompc(copy.deepcopy(s_copy.tolist()))
 
         print(f's: {s}')
         print(f'u_star: {u_star}')
@@ -356,6 +361,7 @@ def main():
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
+            row.extend(cost.tolist())
 
             writer.writerow(row)
 

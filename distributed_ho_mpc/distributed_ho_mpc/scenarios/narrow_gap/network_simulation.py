@@ -98,12 +98,12 @@ def main():
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
 
-    snap = [0] # time for snapshot
+    snap = [(st.n_steps - 1) * st.dt]  # time for snapshot
     if st.snap:
         for tt in snap:
-            if tt > st.n_steps*st.dt:
+            if tt > st.n_steps * st.dt:
                 raise ValueError('Time instant for snapshot out of simulation lenght')
-    
+
     time_start = time.time()
 
     goals = [
@@ -130,28 +130,28 @@ def main():
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
@@ -268,11 +268,10 @@ def main():
         graph_matrix = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
     if st.n_nodes == 4:
-        graph_matrix = np.array([[0., 1., 0., 0.],
-                                [1., 0., 1., 0.],
-                                [0., 1., 0., 1.],
-                                [0., 0., 1., 0.]])
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist = [0,1,2,3])
+        graph_matrix = np.array(
+            [[0.0, 1.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 1.0, 1.0, 0.0]]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
     if st.n_nodes == 5:
         graph_matrix = np.array(
             [
@@ -355,7 +354,7 @@ def main():
 
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
-    
+
     gg = np.array(goals[: st.n_nodes])
 
     start_time_coop = time.time()
@@ -365,33 +364,33 @@ def main():
     for i in range(st.n_steps):
         if i == st.n_steps - 1:
             last_step = i + 1
+        if i == 105:
+            None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        #for rr in range(1):
-        
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update('2')  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-                
+        for rr in range(st.inner_loop):
+            for j in range(st.n_nodes):
+                nodes[j].reorder_s_init(state)
+                nodes[j].update('2')  # Update primal solution and state evolution
+            for j in range(st.n_nodes):
+                state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
+            for j in range(st.n_nodes):
+                if nodes[j].degree > 0:
+                    nodes[j].dual_update()  # linear update of dual problem
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+            for j in range(st.n_nodes):
+                for ij in nodes[j].neigh:  # select my neighbours
+                    msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
+                    nodes[ij].receive_data(msg)  # neighbour receives the message
         # for j in range(st.n_nodes):
-        #     #nodes[j].reorder_s_init(state)
+        #     nodes[j].reorder_s_init(state)
         #     nodes[j].update('2')  # Update primal solution and state evolution
-        #     state[j] = nodes[j].s.omni[0]
-        pairwise_distances = agents_distance(state, pairwise_distances)                
+        pairwise_distances = agents_distance(state, pairwise_distances)
         if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i+1
+            last_step = i + 1
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
             break
@@ -421,7 +420,7 @@ def main():
         plt.figure(figsize=(10, 6))
         for i, dist_list in enumerate(pairwise_distances):
             plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
-        plt.axhline(y = 0.5, color='green', lw=4, linestyle='--')
+        plt.axhline(y=0.5, color='green', lw=4, linestyle='--')
         plt.title('Time Evolution of Pairwise Robot Distances')
         plt.xlabel('Time Step')
         plt.ylabel('Distance')
@@ -436,7 +435,7 @@ def main():
         # ---------------------------------------------------------------------------- #
 
         # handle different lenght of the states due to add/remove of nodes
-        '''for i in nodes:
+        """for i in nodes:
             for n in range(len(i.s_history)):
                 max_len = max(len(inner_list) for outer in i.s_history for inner_list in outer)
                 if len(i.s_history[n][0]) < max_len:
@@ -453,7 +452,7 @@ def main():
                             i.s_history[n][0].append(
                                 i.s_history[n - 1][0][d + 1]
                             )  # take previous value
-        '''
+        """
         # s_hist_merged = [ [[s_hist_merged[0][0],s_hist_merged[0][1]], np.array([0,0,0])] for i in s_hist_merged]
         # if st.n_nodes == 4:
         #  s_hist_merged = [nodes[0].s_history[i] + nodes[1].s_history[i] + nodes[2].s_history[i] + nodes[3].s_history[i] for i in range(len(nodes[0].s_history))]
@@ -467,23 +466,23 @@ def main():
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
-        #flags.centroid = False
+        # flags.centroid = False
 
-        '''if st.snap:
+        if st.snap:
             for n, tt in enumerate(snap):
-                if tt > last_step*st.dt:
-                    snap[n] = (last_step-5)*st.dt 
+                if tt > last_step * st.dt:
+                    snap[n] = (last_step - 5) * st.dt
             save_snapshots(
                 s_hist_merged,
                 None,
                 [[0, 6, 4.5], [0, -6, 4.5]],
                 st.dt,
-                snap,
+                [(last_step - 1) * st.dt],
                 f'{out_dir}/snapshot',
                 x_lim=[-7, 7],
                 y_lim=[-5, 5],
                 flags=flags,
-            )'''
+            )
 
         flags.trajectory = False
 
@@ -501,6 +500,7 @@ def main():
     print(f'The time elapsed is {time_elapsed} seconds')
     print(f'Total creation time is {tot_creation}s')
     print(f'Total solving time is {tot_solve}s')
+
 
 if __name__ == '__main__':
     main()

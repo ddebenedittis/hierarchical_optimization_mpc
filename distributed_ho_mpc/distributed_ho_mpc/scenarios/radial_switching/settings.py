@@ -16,8 +16,8 @@ communication_range = 20
 
 v_max = 1.5
 v_min = -1.5
-omega_max = 1.4
-omega_min = -1.4
+omega_max = 1.5
+omega_min = -1.5
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -41,5 +41,5 @@ n_xi = n_control * 2
 # ---------------------------------------------------------------------------- #
 
 
-n_priority = 3
-step_size = 1e-6
+n_priority = 4
+step_size = 1e-5

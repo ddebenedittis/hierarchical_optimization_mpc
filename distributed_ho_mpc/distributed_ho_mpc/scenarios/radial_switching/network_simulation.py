@@ -126,26 +126,26 @@ def main():
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
             {'prio': 3, 'name': 'collision_avoidance'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             # {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
@@ -194,10 +194,10 @@ def main():
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 1.0, 1.0, 1.0],
-                [1.0, 0.0, 1.0, 1.0],
-                [1.0, 1.0, 0.0, 1.0],
-                [1.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0],
+                [0.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])

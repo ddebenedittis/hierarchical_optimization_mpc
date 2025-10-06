@@ -403,7 +403,10 @@ class HierarchicalQP:
                 ]
             )
         ]
-        cost = np.ones(n_tasks) * (-100)
+        if degree == 0:
+            cost = np.ones(n_tasks + 1) * (-100)
+        else:
+            cost = np.ones(n_tasks) * (-100)
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
@@ -505,7 +508,7 @@ class HierarchicalQP:
             # sigma = min(np.linalg.eig(H))   # convexity parameter
 
             if dual_comp is not None:
-                if priority == 4:
+                if priority == 6:
                     # cost[priority] = (dual_comp[priority].T @ H @ dual_comp[priority]) * 0.5 + p.T @ dual_comp[priority]
                     # cost[priority-1] = rho_vector[:nx].T @ H @ rho_vector[:nx] * 0.5 + dual_comp[priority].T @ p
                     cost[priority] = (
@@ -580,6 +583,11 @@ class HierarchicalQP:
             # Extract x_star from the solution.
             x_star = sol[0:nx]
             cost[priority] = obj
+            if degree == 0 and priority == 3:
+                cost[priority + 1] = 0.5 * (
+                    (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)
+                    + sol[nx:].T @ sol[nx:]
+                )  # + rho_vector.T @ x_star
             if priority == 4:
                 cost[priority] = 0.5 * (
                     (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)

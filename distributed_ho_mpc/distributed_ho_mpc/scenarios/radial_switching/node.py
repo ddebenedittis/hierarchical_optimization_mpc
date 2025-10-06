@@ -373,51 +373,51 @@ class Node:
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-        if self.node_id == 0:
-            self.s = RobCont(
-                omni=[
-                    np.array([-1, -1.5]),
-                    np.array([1.5, 3]),
-                    # np.array([2, -2]),
-                    np.array([-1.5, 1.5]),
-                ]
-            )
-        elif self.node_id == 1:
-            self.s = RobCont(
-                omni=[
-                    np.array([1.5, 3]),
-                    # np.array([-1, -1.5]),
-                    np.array([2, -2]),
-                    np.array([-1.5, 1.5]),
-                ]
-            )
-        elif self.node_id == 2:
-            self.s = RobCont(
-                omni=[
-                    np.array([2, -2]),
-                    np.array([-1, -1.5]),
-                    np.array([1.5, 3]),
-                    # np.array([-1.5, 1.5]),
-                ]
-            )
-        elif self.node_id == 3:
-            self.s = RobCont(
-                omni=[
-                    np.array([-1.5, 1.5]),
-                    np.array([-1, -1.5]),
-                    np.array([1.5, 3]),
-                    # np.array([2, -2]),
-                ]
-            )
-
         """if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-5, -5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(
+                omni=[
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    np.array([2, -2]),
+                    np.array([-1.5, 1.5]),
+                ]
+            )
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([5, 5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(
+                omni=[
+                    np.array([1.5, 3]),
+                    np.array([-1, -1.5]),
+                    np.array([2, -2]),
+                    np.array([-1.5, 1.5]),
+                ]
+            )
         elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([5, -5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(
+                omni=[
+                    np.array([2, -2]),
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    np.array([-1.5, 1.5]),
+                ]
+            )
         elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-5, 5]) for _ in range(self.n_robots.omni)])"""
+            self.s = RobCont(
+                omni=[
+                    np.array([-1.5, 1.5]),
+                    np.array([-1, -1.5]),
+                    np.array([1.5, 3]),
+                    np.array([2, -2]),
+                ]
+            )"""
+
+        if self.node_id == 0:
+            self.s = RobCont(omni=[np.array([-1, -1.5]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 1:
+            self.s = RobCont(omni=[np.array([1.5, 3]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 2:
+            self.s = RobCont(omni=[np.array([2, -2]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 3:
+            self.s = RobCont(omni=[np.array([-1.5, 1.5]) for _ in range(self.n_robots.omni)])
         """if self.node_id == 0:
             self.s = RobCont(
                 omni=[np.array([-2.57, 4.29, 0.05]) for _ in range(self.n_robots.omni)],
@@ -453,7 +453,7 @@ class Node:
             if j in self.robot_idx_global:
                 self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
                     s_j
-                ) + np.random.uniform(-0.05, 0.05, s_j.shape)
+                )  # + np.random.uniform(-0.05, 0.05, s_j.shape)
                 # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
@@ -482,7 +482,7 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        self.rho_j = self.receiver.process_messages('D')
+        # self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
@@ -550,6 +550,7 @@ class Node:
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
         self.save_data()
+        return
 
         self.y_j = self.receiver.process_messages('P')
 

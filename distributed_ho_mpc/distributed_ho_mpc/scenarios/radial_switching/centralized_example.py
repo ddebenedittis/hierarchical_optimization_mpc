@@ -342,11 +342,11 @@ def main():
 
         time_coord_start = time.time()
         print(k)
-        s_copy = copy.deepcopy(s)
-        for n, jj in enumerate(s_copy.omni):
-            s_copy.omni[n] = jj + np.random.uniform(-0.05, 0.05, jj.shape)
+        # s_copy = copy.deepcopy(s)
+        # for n, jj in enumerate(s_copy.omni):
+        #     s_copy.omni[n] = jj + np.random.uniform(-0.05, 0.05, jj.shape)
 
-        u_star, cost = hompc(copy.deepcopy(s_copy.tolist()))
+        u_star, cost = hompc(copy.deepcopy(s.tolist()))
 
         print(f's: {s}')
         print(f'u_star: {u_star}')

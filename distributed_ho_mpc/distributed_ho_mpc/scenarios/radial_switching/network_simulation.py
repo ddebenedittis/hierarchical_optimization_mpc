@@ -194,10 +194,10 @@ def main():
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 0.0, 1.0, 1.0],
-                [0.0, 0.0, 1.0, 1.0],
-                [1.0, 1.0, 0.0, 0.0],
-                [1.0, 1.0, 0.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
@@ -212,7 +212,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -297,8 +297,8 @@ def main():
             last_step = i + 1
         if i == 30:
             None
-        # if i > 0:
-        # neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        if i > 0:
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for rr in range(st.inner_loop):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
@@ -408,29 +408,30 @@ def main():
         centr_sol = np.array([5, 5])
 
         ############# PLOT DISTANCE TO OPTIMAL SOL #############
-        s_hist_merged_2 = [
-            sum(([node.s_history[i][0][1]] for node in nodes[1:]), [])
-            for i in range(len(nodes[0].s_history))
-        ]
+        if 0:
+            s_hist_merged_2 = [
+                sum(([node.s_history[i][0][1]] for node in nodes[1:]), [])
+                for i in range(len(nodes[0].s_history))
+            ]
 
-        distances = [[] for n in range(1, st.n_nodes)]
-        for out_loop, iter in enumerate(s_hist_merged_2[: (len(nodes[0].s_history) - 2)]):
-            for nn, ag in enumerate(iter):
-                dist_opt = np.linalg.norm(ag[:2] - nodes[0].s_history[out_loop][0][0])
-                distances[nn].append(dist_opt)
+            distances = [[] for n in range(1, st.n_nodes)]
+            for out_loop, iter in enumerate(s_hist_merged_2[: (len(nodes[0].s_history) - 2)]):
+                for nn, ag in enumerate(iter):
+                    dist_opt = np.linalg.norm(ag[:2] - nodes[0].s_history[out_loop][0][0])
+                    distances[nn].append(dist_opt)
 
-        # distances = np.array(distances)  # shape: (n_valid_iterations, 4)
+            # distances = np.array(distances)  # shape: (n_valid_iterations, 4)
 
-        plt.figure(figsize=(8, 5))
-        for nn, fig in enumerate(distances):
-            plt.semilogy(fig, label=f'agent{nn}')
-        plt.xlabel('Iteration')
-        plt.ylabel('Distance (log scale)')
-        plt.title('Distances per vector')
-        # plt.legend()
-        plt.grid(True, which='both', ls='--')
-        plt.savefig(f'{out_dir}/dist_to_opt.pdf', bbox_inches='tight', format='pdf')
-        plt.close()
+            plt.figure(figsize=(8, 5))
+            for nn, fig in enumerate(distances):
+                plt.semilogy(fig, label=f'agent{nn}')
+            plt.xlabel('Iteration')
+            plt.ylabel('Distance (log scale)')
+            plt.title('Distances per vector')
+            # plt.legend()
+            plt.grid(True, which='both', ls='--')
+            plt.savefig(f'{out_dir}/dist_to_opt.pdf', bbox_inches='tight', format='pdf')
+            plt.close()
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False

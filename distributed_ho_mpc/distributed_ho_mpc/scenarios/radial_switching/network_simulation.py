@@ -184,6 +184,10 @@ def main():
         ],
     }
 
+    system_models = []
+    for n in range(st.n_nodes):
+        system_models.append(system_tasks[f'agent_{n}'][0]['model'])
+
     # ---------------------------------------------------------------------------- #
     #               Create the network and connection between agents               #
     # ---------------------------------------------------------------------------- #
@@ -294,21 +298,27 @@ def main():
 
     start_time_coop = time.time()
 
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+    for j, mod in enumerate(system_models):
+        if mod == 'omnidirectional':
+            state[j] = nodes[j].s.omni[0]
+        else:
+            state[j] = nodes[j].s.uni[0]
     for i in range(st.n_steps):
         if i == st.n_steps - 1:
             last_step = i + 1
         if i == 30:
             None
-        if i > 0:
-            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        # if i > 0:
+        #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
 
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+        for j, mod in enumerate(system_models):
+            if mod == 'omnidirectional':
+                state[j] = nodes[j].s.omni[0]
+            else:
+                state[j] = nodes[j].s.uni[0]
             nodes[j].save_data()  # linear update of dual problem
 
         pairwise_distances = agents_distance(state, pairwise_distances)

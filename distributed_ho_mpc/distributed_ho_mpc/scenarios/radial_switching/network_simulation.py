@@ -125,18 +125,21 @@ def main():
 
     system_tasks = {
         'agent_0': [
+            {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
+            {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
             {'prio': 3, 'name': 'collision_avoidance'},
         ],
         'agent_2': [
+            {'model': 'unicycle'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
@@ -144,6 +147,7 @@ def main():
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
+            {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
@@ -212,7 +216,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -299,66 +303,20 @@ def main():
             None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for rr in range(st.inner_loop):
-            for j in range(st.n_nodes):
-                nodes[j].reorder_s_init(state)
-                nodes[j].update('2')  # Update primal solution and state evolution
-            for j in range(st.n_nodes):
-                state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-                for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                    nodes[ij].receive_data(msg)  # neighbour receives the message
-            for j in range(st.n_nodes):
-                nodes[j].dual_update()  # linear update of dual problem
-            for j in range(st.n_nodes):
-                for ij in nodes[j].neigh:  # select my neighbours
-                    msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                    nodes[ij].receive_data(msg)  # neighbour receives the message
-        # for j in range(st.n_nodes):
-        #     nodes[j].reorder_s_init(state)
-        #     nodes[j].update('2')  # Update primal solution and state evolution
+
+        for j in range(st.n_nodes):
+            nodes[j].reorder_s_init(state)
+            nodes[j].update('2')  # Update primal solution and state evolution
+        for j in range(st.n_nodes):
+            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+            nodes[j].save_data()  # linear update of dual problem
+
         pairwise_distances = agents_distance(state, pairwise_distances)
         if np.all(np.abs(np.array(state)[:, :4] - gg) < 10e-3):
             last_step = i + 1
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
             break
-    """for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-    for j in range(st.n_nodes):
-        nodes[j].reorder_s_init(state)
-        nodes[j].update('2')  # Update primal solution and state evolution
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-            nodes[ij].receive_data(msg)  # neighbour receives the message
-    for j in range(st.n_nodes):
-        nodes[j].dual_update()  # linear update of dual problem
-
-    for i in range(st.n_steps):
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i+1
-            break
-        if i == st.n_steps - 1:
-            last_step = i + 1
-        # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update('2')  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)"""
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop

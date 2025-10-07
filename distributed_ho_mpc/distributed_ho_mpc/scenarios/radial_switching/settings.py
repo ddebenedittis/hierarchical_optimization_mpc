@@ -9,7 +9,7 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 200
+n_steps = 250
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
@@ -25,7 +25,7 @@ omega_min = -1.5
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
 visual_method = output['nothing']  # change the key to decide the output visualization
 save_data = True
-simulation = True
+simulation = False
 inner_plot = False  # plot the inner state of the robots
 estimation_plotting = False
 # ---------------------------------------------------------------------------- #

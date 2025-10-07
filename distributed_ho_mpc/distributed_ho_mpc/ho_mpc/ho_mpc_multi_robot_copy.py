@@ -1477,7 +1477,7 @@ class HOMPCMultiRobot(HOMPC):
         #             for k in range(n_c)]
         #     x_neigh.append((j, [s_j, u_j]))
 
-        y = self._y_extraction(x_star_p, n_c)
+        # y = self._y_extraction(x_star_p, n_c)
 
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
@@ -1486,7 +1486,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, y, cost
+        return u_0, cost
 
     # ======================================================================== #
 

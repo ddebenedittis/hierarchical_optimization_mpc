@@ -100,7 +100,7 @@ class Node:
         self.s_kp1 = RobCont(omni=None, uni=None)
 
         self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
-        self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt * 5)
+        self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -112,14 +112,14 @@ class Node:
         self.models = [None for _ in range(st.n_nodes)]
         self.robot_idx_global = [[], []]
         self.robot_idx = [[], []]
-
+        self.models[self.node_id] = copy.deepcopy(self.own_model)
+        if self.own_model == 'omnidirectional':
+            self.robot_idx_global[0].append(self.node_id)
+        else:
+            self.robot_idx_global[1].append(self.node_id)
         for nn in range(st.n_nodes):
             if nn == self.node_id:
-                self.models[nn] = self.own_model
-                if self.models[nn] == 'omnidirectional':
-                    self.robot_idx_global[0].append(nn)
-                else:
-                    self.robot_idx_global[1].append(nn)
+                continue
             else:
                 for ag in neigh_tasks:
                     if f'agent_{nn}' == ag:
@@ -227,7 +227,7 @@ class Node:
             ),
             uni=ca.vertcat(
                 self.u.uni[0] - self.v_max,  # vmax
-                -self.u.uni[0] + self.v_min,  # vmin
+                -self.u.uni[0] + 0,  # vmin
                 self.u.uni[1] - self.omega_max,  # vmax
                 -self.u.uni[1] + self.omega_min,  # vmin
             ),
@@ -597,20 +597,12 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, self.y, self.cost_p = self.hompc(
-                copy.deepcopy(self.s_init.tolist()), rho_delta
-            )
-
-            self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-            # self.w = self.w[1:-1]
-            self.y_i = copy.deepcopy(self.y)
+            self.u_star, self.cost_p = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
 
             if round == '2':
-                """self.s_ = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )"""
-
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(
+                    copy.deepcopy(self.s), RobCont(omni=self.u_star[0], uni=self.u_star[1]), self.dt
+                )
                 self.counter.append(self.step)
 
             if st.inner_plot and round == '2':
@@ -761,10 +753,10 @@ class Node:
         for i in self.neigh:
             if neigh == f'agent_{i}':
                 if self.models[i] == 'omnidirectional':
-                    robot_idx = self.robot_idx_global[0].index(i)
+                    robot_idx = self.index_global_to_local(i, 0)
                     robot_idx = [[robot_idx], []]
                 else:
-                    robot_idx = self.robot_idx_global[1].index(i)
+                    robot_idx = self.index_global_to_local(i, 1)
                     robot_idx = [[], [robot_idx]]
                 break
             # if f'agent_{i}' in neigh:

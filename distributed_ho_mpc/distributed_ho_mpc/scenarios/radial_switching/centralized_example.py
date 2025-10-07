@@ -308,9 +308,10 @@ def main():
         omni=[
             np.array([-1, -1.5]),
             np.array([1.5, 3]),
-            np.array([2, -2]),
+            np.array([2, -2, 0]),
             np.array([-1.5, 1.5]),
-        ]
+        ],
+        uni=[],
     )
 
     def agents_distance(state, pairwise_distances):

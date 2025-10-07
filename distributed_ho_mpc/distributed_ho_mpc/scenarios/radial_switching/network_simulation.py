@@ -89,7 +89,7 @@ def main():
         """
         Plot the distance between the agents at each time step
         """
-        positions_over_time = np.array(state)
+        positions_over_time = np.array([i if i.size == 2 else i[:2] for i in state])
         positions_over_time = positions_over_time[:, :2]
         distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
         for i, d in enumerate(distances):
@@ -117,10 +117,10 @@ def main():
         np.array([-5, -5]),
         np.array([-5, 5]),
         np.array([5, -5]),
-        np.array([8, 3]),
-        np.array([-8, -3]),
-        np.array([8, -3]),
-        np.array([-8, 3]),
+        # np.array([8, 3]),
+        # np.array([-8, -3]),
+        # np.array([8, -3]),
+        # np.array([-8, 3]),
     ]
 
     system_tasks = {
@@ -128,7 +128,7 @@ def main():
             {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
@@ -136,13 +136,13 @@ def main():
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
         ],
         'agent_2': [
-            {'model': 'unicycle'},
+            {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
             # {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
@@ -150,38 +150,38 @@ def main():
             {'model': 'omnidirectional'},
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
             # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
         ],
-        'agent_4': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
-        ],
-        'agent_5': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
-        ],
-        'agent_6': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
-        ],
-        'agent_7': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
-        ],
+        # 'agent_4': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
+        # ],
+        # 'agent_5': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     #{'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
+        # ],
+        # 'agent_6': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
+        # ],
+        # 'agent_7': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
+        # ],
     }
 
     system_models = []
@@ -322,7 +322,7 @@ def main():
             nodes[j].save_data()  # linear update of dual problem
 
         pairwise_distances = agents_distance(state, pairwise_distances)
-        if np.all(np.abs(np.array(state)[:, :4] - gg) < 10e-3):
+        if np.all(np.abs(np.array([i if i.size == 2 else i[:2] for i in state]) - gg) < 10e-3):
             last_step = i + 1
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
@@ -371,7 +371,7 @@ def main():
             for i in range(len(nodes[0].s_history))
         ]
 
-        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+        s_hist_merged = [s_k for s_k in s_hist_merged]
 
         centr_sol = np.array([5, 5])
 

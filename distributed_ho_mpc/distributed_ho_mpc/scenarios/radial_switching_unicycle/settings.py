@@ -34,7 +34,7 @@ estimation_plotting = False
 n_control = 1  # mpc control step
 n_pred = 0  # mpc prediction step
 
-n_xi = n_control * 5
+n_xi = n_control * 4
 
 # ---------------------------------------------------------------------------- #
 #                                 PDD settings                               #

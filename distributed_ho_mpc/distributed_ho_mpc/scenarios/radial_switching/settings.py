@@ -12,7 +12,7 @@ dt = 0.05
 n_steps = 250
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
-communication_range = 8
+communication_range = 20
 
 v_max = 1.5
 v_min = -1.5

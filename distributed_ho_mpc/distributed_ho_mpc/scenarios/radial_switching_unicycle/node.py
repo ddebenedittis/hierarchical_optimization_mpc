@@ -125,8 +125,8 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
+        # self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -370,37 +370,117 @@ class Node:
         if self.node_id == 0:
             self.s = RobCont(
                 omni=[
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([2, -2, 2.8]),
-                    np.array([-2, 2, -0.3]),
+                    np.array(
+                        [
+                            -2,
+                            -2,
+                        ]
+                    ),  # 0.3]),
+                    np.array(
+                        [
+                            2,
+                            2,
+                        ]
+                    ),  # -2.8]),
+                    np.array(
+                        [
+                            2,
+                            -2,
+                        ]
+                    ),  # 2.8]),
+                    np.array(
+                        [
+                            -2,
+                            2,
+                        ]
+                    ),  # -0.3]),
                 ]
             )
         elif self.node_id == 1:
             self.s = RobCont(
                 omni=[
-                    np.array([2, 2, -2.7]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, -2, 2.8]),
-                    np.array([-2, 2, -0.3]),
+                    np.array(
+                        [
+                            2,
+                            2,
+                        ]
+                    ),  # -2.7]),
+                    np.array(
+                        [
+                            -2,
+                            -2,
+                        ]
+                    ),  # 0.3]),
+                    np.array(
+                        [
+                            2,
+                            -2,
+                        ]
+                    ),  # 2.8]),
+                    np.array(
+                        [
+                            -2,
+                            2,
+                        ]
+                    ),  # -0.3]),
                 ]
             )
         elif self.node_id == 2:
             self.s = RobCont(
                 omni=[
-                    np.array([2, -2, 2.8]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([-2, 2, -0.3]),
+                    np.array(
+                        [
+                            2,
+                            -2,
+                        ]
+                    ),  # 2.8]),
+                    np.array(
+                        [
+                            -2,
+                            -2,
+                        ]
+                    ),  # 0.3]),
+                    np.array(
+                        [
+                            2,
+                            2,
+                        ]
+                    ),  # -2.8]),
+                    np.array(
+                        [
+                            -2,
+                            2,
+                        ]
+                    ),  # -0.3]),
                 ]
             )
         elif self.node_id == 3:
             self.s = RobCont(
                 omni=[
-                    np.array([-2, 2, -0.3]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([2, -2, 2.8]),
+                    np.array(
+                        [
+                            -2,
+                            2,
+                        ]
+                    ),  # -0.3]),
+                    np.array(
+                        [
+                            -2,
+                            -2,
+                        ]
+                    ),  # 0.3]),
+                    np.array(
+                        [
+                            2,
+                            2,
+                        ]
+                    ),  # -2.8]),
+                    np.array(
+                        [
+                            2,
+                            -2,
+                        ]
+                    ),  # 2.8]),
                 ]
             )
 

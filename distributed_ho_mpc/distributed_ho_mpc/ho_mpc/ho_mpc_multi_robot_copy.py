@@ -1162,13 +1162,13 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
 
-        if t.eq_coeff is None:
-            eq_coeff = 0
-        elif t.eq_coeff[c][j][k] is None:
-            eq_coeff = 0
-        else:
-            eq_coeff = t.eq_coeff[c][j][k]  #! eq_coeff changed
-        # eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
+        # if t.eq_coeff is None:
+        #     eq_coeff = 0
+        # elif t.eq_coeff[c][j][k] is None:
+        #     eq_coeff = 0
+        # else:
+        #     eq_coeff = t.eq_coeff[c][j][k]  #! eq_coeff changed
+        eq_coeff = 0 if t.eq_coeff is None else t.eq_coeff[c][j][k]
         ineq_coeff = 0 if t.ineq_coeff is None else t.ineq_coeff[c][j][k]
 
         return [

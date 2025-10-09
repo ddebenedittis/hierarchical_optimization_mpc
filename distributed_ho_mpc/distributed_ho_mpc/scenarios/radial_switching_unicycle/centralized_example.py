@@ -92,7 +92,7 @@ def main():
     u = RobCont(omni=None)
     s_kp1 = RobCont(omni=None)
 
-    s.omni, u.omni, s_kp1.omni = get_unicycle_model(5 * dt)
+    s.omni, u.omni, s_kp1.omni = get_unicycle_model(10 * dt)
     # s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt)
 
     # =========================== Define The Tasks ========================== #
@@ -101,8 +101,8 @@ def main():
         omni=ca.vertcat(
             u.omni[0] - v_max,
             -u.omni[0] - 0,  # v_min,
-            u.omni[1] - 1.4,  # 1v_max,
-            -u.omni[1] - 1.4,  # v_min
+            u.omni[1] - 2,  # 1v_max,
+            -u.omni[1] - 2,  # v_min
         )
     )
 
@@ -341,7 +341,7 @@ def main():
         time_coord_start = time.time()
         print(k)
 
-        u_star = hompc(copy.deepcopy(s.tolist()))
+        u_star, _ = hompc(copy.deepcopy(s.tolist()))
 
         print(f's: {s}')
         print(f'u_star: {u_star}')

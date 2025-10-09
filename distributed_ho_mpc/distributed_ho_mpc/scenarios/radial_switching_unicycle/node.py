@@ -63,7 +63,7 @@ class Node:
             self.n_xi * (self.degree)
         )  # step size for primal and dual variables
         self.w = None
-        self.a = 1
+        self.a = 3
 
         self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi * (self.degree)))
@@ -110,6 +110,8 @@ class Node:
                 header.append(f'stateRHO_{i}')
                 header.append(f'inputV{i}')
                 header.append(f'inputOM{i}')
+            # for i in range(self.n_priority+1):
+            #     header.append(f'cost_p{i}')
 
             writer.writerow(header)
 
@@ -125,8 +127,8 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
+        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10*dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(10 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -147,7 +149,7 @@ class Node:
         self.v_min = copy.deepcopy(st.v_min)
         self.omega_max = copy.deepcopy(st.omega_max)
         self.omega_min = copy.deepcopy(st.omega_min)
-
+        self.cost = []
         self.dist_hist = [[], [], [], [], [], [], [], []]
         self.delta_hist = [[], [], [], [], [], [], [], []]
         self.counter = []
@@ -445,9 +447,13 @@ class Node:
     def reorder_s_init(self, state_meas: list[float]):
         for j, s_j in enumerate(state_meas):
             if j in self.robot_idx_global:
-                self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
-                    s_j
-                )  # TODO manage eterogeneous robots
+                if j == self.node_id:
+                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j)
+                else:
+                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
+                        s_j
+                    ) + np.random.uniform(-0.5, 0.5, s_j.shape)
+                # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
         # self.obstacle_pos = state_meas[2]
@@ -475,26 +481,31 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        self.rho_j = self.receiver.process_messages('D')
+        # self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
-            self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-            self.w = self.w[1:-1]
-            self.y_i = copy.deepcopy(self.y)
+            if self.step % self.a == 0:
+                self.u_star, self.y, self.cost = self.hompc(
+                    copy.deepcopy(self.s_init.tolist()), rho_delta
+                )
+            else:
+                self.u_star, self.y, self.cost = self.hompc(
+                    copy.deepcopy(self.s.tolist()), rho_delta
+                )
+                self.counter.append(self.step)
+            # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
+            # self.w = self.w[1:-1]
+            # self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
                 self.s_ = self.evolve(
                     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 )
 
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
-                self.counter.append(self.step)
+                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot and round == '2':
                 for i in range(len(self.s_.omni)):
@@ -537,6 +548,7 @@ class Node:
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
         self.save_data()
+        return
 
         self.y_j = self.receiver.process_messages('P')
 
@@ -613,6 +625,7 @@ class Node:
                         row.extend([None] * 5)
                 else:
                     row.extend([None] * 5)
+            # row.extend(self.cost.tolist())
 
             writer.writerow(row)
         self.step_plot += 1

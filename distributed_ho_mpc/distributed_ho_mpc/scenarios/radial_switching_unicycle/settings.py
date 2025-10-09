@@ -12,12 +12,12 @@ dt = 0.05
 n_steps = 350
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
-communication_range = 20
+communication_range = 8
 
 v_max = 1.5
 v_min = 0
-omega_max = 1.4
-omega_min = -1.4
+omega_max = 2
+omega_min = -2
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #

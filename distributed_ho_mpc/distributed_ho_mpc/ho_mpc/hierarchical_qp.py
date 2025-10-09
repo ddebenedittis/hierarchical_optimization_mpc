@@ -470,21 +470,20 @@ class HierarchicalQP:
 
                 p = np.zeros(nx + nw)
                 # TODO hard coded brutto
-                # if degree != 0:
-
-            if priority > 0:
-                if stack:
-                    rhop = rho[
-                        :, prio_list[priority] - 1, :
-                    ]  # extract both i and j for priority p for each neighbour
-                else:
-                    rhop = rho[
-                        :, prio_list[priority] - 1, :
-                    ]  # extract both i and j for priority p for each neighbour
-                rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
-                rho_vector = np.block([rho_vector, np.zeros(nw)])
-                #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                p += rho_vector
+            if degree != 0:
+                if priority > 0:
+                    if stack:
+                        rhop = rho[
+                            :, prio_list[priority] - 1, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    else:
+                        rhop = rho[
+                            :, prio_list[priority] - 1, :
+                        ]  # extract both i and j for priority p for each neighbour
+                    rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
+                    rho_vector = np.block([rho_vector, np.zeros(nw)])
+                    #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
+                    p += rho_vector
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
@@ -541,7 +540,12 @@ class HierarchicalQP:
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-            cost[priority] = obj
+            if degree == 0:
+                cost[3] = -20
+            cost[priority] = 0.5 * (
+                (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)
+                + sol[nx:].T @ sol[nx:]
+            )
             Z_list.append(Z)
             """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
                 for key in Z_n.keys():

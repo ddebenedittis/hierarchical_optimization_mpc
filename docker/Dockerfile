@@ -56,7 +56,8 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
     git \
     python3-pip \
     ros-${ROS_DISTRO}-pinocchio \
-    sudo 
+    sudo \
+    xterm
 
 # Install the python packages.
 RUN pip3 install \
@@ -71,7 +72,7 @@ RUN pip3 install \
     pre-commit \
     progressbar2 \
     proxsuite \
-    qpsolvers \
+    git+https://github.com/fedeiada/qpsolvers.git#egg=qpsolvers \
     quadprog \
     ruff \
     scipy \

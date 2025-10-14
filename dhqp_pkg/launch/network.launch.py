@@ -77,6 +77,25 @@ def generate_launch_description():
 
     launch_description = []  # append here your nodes
 
+    launch_description.append(
+        Node(
+            package='dhqp_pkg',
+            namespace='watcher',
+            executable='node_graph',
+            parameters=[
+                {
+                    'max_iters': MAXITERS,
+                    'communication_time': COMM_TIME,
+                    'dt': st.dt,
+                    'out_dir': out_dir,
+                    'N_AGENTS': st.n_nodes,
+                }
+            ],
+            output='screen',
+            prefix='xterm -title "PLOTTING AGENT" -hold -e',
+        )
+    )
+
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         nn = graph_matrix[i].flatten().tolist()
@@ -103,24 +122,5 @@ def generate_launch_description():
                 prefix=f'xterm -title "agent_{i}" -hold -e',
             )
         )
-
-    launch_description.append(
-        Node(
-            package='dhqp_pkg',
-            namespace='watcher',
-            executable='node_graph',
-            parameters=[
-                {
-                    'max_iters': MAXITERS,
-                    'communication_time': COMM_TIME,
-                    'dt': st.dt,
-                    'out_dir': out_dir,
-                    'N_AGENTS': st.n_nodes,
-                }
-            ],
-            output='screen',
-            prefix='xterm -title "PLOTTING AGENT" -hold -e',
-        )
-    )
 
     return LaunchDescription(launch_description)

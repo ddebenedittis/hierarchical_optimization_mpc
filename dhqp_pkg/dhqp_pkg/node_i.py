@@ -79,12 +79,6 @@ class Agent(Node):
 
         # create logging file
         self.out_dir = self.get_parameter('out_dir').value
-        self.filename = f'{self.out_dir}/node_{self.node_id}_data.csv'
-        # self.filename = "_csv_file/agent_{}.csv".format(self.node_id)
-        file = open(
-            self.filename, 'w+'
-        )  # 'w+' needs to create file and open in writing mode if doesn't exist
-        file.close()
 
         # initialize subscription dict
         self.subscriptions_list = {}
@@ -137,12 +131,6 @@ class Agent(Node):
             # 1) visualize on the terminal
             self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
 
-            # 2) save on file
-            # data_for_csv = copy.deepcopy(self.s.tolist())
-            # data_for_csv = [str(round(element, 4)) for element in data_for_csv]
-            # data_for_csv = ','.join(data_for_csv)
-            # writer(self.filename, data_for_csv + '\n')
-
         else:  # Have all messages at time t-1 arrived?
             # Check if lists are nonempty
             all_received = all(
@@ -170,11 +158,6 @@ class Agent(Node):
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 self.publisher_.publish(msg)
 
-                # save data on csv file
-                # copy.deepcopy(self.s.tolist())
-                # data_for_csv = [str(round(element, 4)) for element in data_for_csv[1:]]
-                # data_for_csv = ','.join(data_for_csv)
-                # writer(self.filename, data_for_csv + '\n')
                 self.get_logger().info(
                     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
                 )

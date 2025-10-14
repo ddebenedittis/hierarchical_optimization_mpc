@@ -452,7 +452,7 @@ class Node:
                 else:
                     self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
                         s_j
-                    ) + np.random.uniform(-0.5, 0.5, s_j.shape)
+                    )  # + np.random.uniform(-0.5, 0.5, s_j.shape)
                 # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
@@ -505,7 +505,9 @@ class Node:
                     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 )
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(
+                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                )
 
             if st.inner_plot and round == '2':
                 for i in range(len(self.s_.omni)):

@@ -310,7 +310,7 @@ def main():
             #     msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
             #     nodes[ij].receive_data(msg)  # neighbour receives the message
             # for j in range(st.n_nodes):
-        nodes[j].dual_update()  # linear update of dual problem
+            nodes[j].dual_update()  # linear update of dual problem
         # for j in range(st.n_nodes):
         #     for ij in nodes[j].neigh:  # select my neighbours
         #         msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable

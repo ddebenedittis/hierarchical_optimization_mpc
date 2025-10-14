@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.narrow_gap.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -115,8 +115,7 @@ class Node:
                 header.append(f'inputOM_{i}')
             for i in range(st.n_priority + 1):
                 header.append(f'cost_p{i}')
-            for i in range(st.n_priority + 1):
-                header.append(f'cost_d{i}')
+
             # header.append('cost')
 
             writer.writerow(header)
@@ -186,8 +185,8 @@ class Node:
             omni=ca.vertcat(
                 self.u.omni[0] - self.v_max,  # vmax
                 -self.u.omni[0] + self.v_min,  # vmin
-                self.u.omni[1] - 1.4,  # vmax
-                -self.u.omni[1] - 1.4,  # vmin
+                self.u.omni[1] - 2,  # vmax
+                -self.u.omni[1] - 2,  # vmin
             )
         )
 
@@ -464,9 +463,12 @@ class Node:
     def reorder_s_init(self, state_meas: list[float]):
         for j, s_j in enumerate(state_meas):
             if j in self.robot_idx_global:
-                self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
-                    s_j
-                )  # TODO manage eterogeneous robots
+                if j == self.node_id:
+                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j)
+                else:
+                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
+                        s_j
+                    ) + np.random.uniform(-0.4, 0.4, s_j.shape)
 
         # update position of other robots (not neigh) seen as obstacles
         # self.obstacle_pos = state_meas[2]
@@ -500,17 +502,9 @@ class Node:
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.cost_d = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, dual_comp=True)
-
-            if self.step_p == 0:
-                self.cost_d = np.array([-20, -20, -20, -20, -20])
-
             self.u_star, self.y, self.cost_p = self.hompc(
                 copy.deepcopy(self.s_init.tolist()), rho_delta
             )
-            self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
-
-            self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
                 self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -557,8 +551,8 @@ class Node:
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
-        if self.step > 0:
-            self.save_data()
+        self.save_data()
+        return
 
         self.y_j = self.receiver.process_messages('P')
 
@@ -640,7 +634,6 @@ class Node:
                 else:
                     row.extend([None] * 5)
             row.extend(self.cost_p.tolist())
-            row.extend(self.cost_d.tolist())
             # row.append(self.cost_history[-1])
 
             writer.writerow(row)

@@ -4,12 +4,12 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1  # probability of arc of communication
-n_nodes = 4  # numbers of nodes
+n_nodes = 6  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.08
-n_steps = 200
+dt = 0.05
+n_steps = 300
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 

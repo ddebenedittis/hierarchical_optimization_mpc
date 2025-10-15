@@ -452,7 +452,7 @@ class Node:
                 else:
                     self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
                         s_j
-                    )  # + np.random.uniform(-0.5, 0.5, s_j.shape)
+                    ) + np.random.uniform(-0.25, 0.25, s_j.shape)
                 # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
@@ -487,15 +487,12 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            if self.step % self.a == 0:
-                self.u_star, self.y, self.cost = self.hompc(
-                    copy.deepcopy(self.s_init.tolist()), rho_delta
-                )
-            else:
-                self.u_star, self.y, self.cost = self.hompc(
-                    copy.deepcopy(self.s.tolist()), rho_delta
-                )
-                self.counter.append(self.step)
+            
+            self.u_star, self.y, self.cost = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
+            
+            self.counter.append(self.step)
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
             # self.w = self.w[1:-1]
             # self.y_i = copy.deepcopy(self.y)
@@ -506,7 +503,7 @@ class Node:
                 )
 
                 self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                    copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt
                 )
 
             if st.inner_plot and round == '2':

@@ -1,0 +1,84 @@
+import os
+
+import xacro
+from ament_index_python.packages import get_package_share_path
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    # generate coordinates of an square with center in the origin
+    a = 5
+
+    P = [
+        [-0, 0, 0],
+        [a, a, 0],
+        # [a, -a, 0],
+        # [-a, -a, 0]
+    ]
+
+    # Constants for paths to different files and folders
+    robotXacroName = 'limo_four_diff'
+    name_package = 'limo_simulation'
+    modelFileRelativePath = 'model/limo_four_diff.xacro'
+    worldFileRelativePath = 'model/empty_world.world'
+
+    pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
+    pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
+    robotDescription = xacro.process_file(pathModelFile).toxml()
+
+    gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
+        os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
+    )
+    gazeboLaunch = IncludeLaunchDescription(
+        gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
+    )
+
+    spawnRobots = []
+    robotsStatePub = []
+    for i in range(2):
+        spawnModelNode = Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            name=f'spawn_entity_{i+1}',
+            arguments=[
+                '-topic',
+                'robot_description',
+                '-entity',
+                robotXacroName,
+                '-x',
+                str(P[i][0]),
+                '-y',
+                str(P[i][1]),
+                '-z',
+                str(P[i][2]),
+                '-Y',
+                '0.00',
+            ],
+            output='screen',
+        )
+        spawnRobots.append(spawnModelNode)
+
+    # spwnModelNode = Node(package='gazebo_ros',
+    #                      executable='spawn_entity.py',
+    #                      arguments=['-topic', 'robot_description', '-entity', robotXacroName],
+    #                      output='screen'
+    # )
+    robotStatePubNode = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+    )
+
+    LaunchDescriptionObject = LaunchDescription()
+    LaunchDescriptionObject.add_action(gazeboLaunch)
+    for i in range(2):
+        LaunchDescriptionObject.add_action(spawnRobots[i])
+    # LaunchDescriptionObject.add_action(spwnModelNode)
+    LaunchDescriptionObject.add_action(robotStatePubNode)
+
+    return LaunchDescriptionObject

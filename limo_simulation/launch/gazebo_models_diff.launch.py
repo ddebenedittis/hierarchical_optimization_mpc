@@ -27,7 +27,7 @@ def generate_launch_description():
 
     pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
-    robotDescription = xacro.process_file(pathModelFile).toxml()
+    # robotDescription = xacro.process_file(pathModelFile).toxml()
 
     gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
         os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
@@ -38,16 +38,20 @@ def generate_launch_description():
 
     spawnRobots = []
     robotsStatePub = []
-    for i in range(2):
+    for i in range(1):
+        robot_name = f'robot_{i+1}'
+        robotDescription = xacro.process_file(
+            pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
+        ).toxml()
         spawnModelNode = Node(
             package='gazebo_ros',
             executable='spawn_entity.py',
-            name=f'spawn_entity_{i+1}',
+            name=f'spawn_entity_{robot_name}',
             arguments=[
                 '-topic',
                 'robot_description',
                 '-entity',
-                robotXacroName,
+                robot_name,
                 '-x',
                 str(P[i][0]),
                 '-y',
@@ -57,28 +61,39 @@ def generate_launch_description():
                 '-Y',
                 '0.00',
             ],
+            namespace=robot_name,
             output='screen',
         )
         spawnRobots.append(spawnModelNode)
 
+        robotStatePubNode = Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name=f'robot_state_publisher',
+            namespace=robot_name,
+            output='screen',
+            parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+        )
+        robotsStatePub.append(robotStatePubNode)
     # spwnModelNode = Node(package='gazebo_ros',
     #                      executable='spawn_entity.py',
     #                      arguments=['-topic', 'robot_description', '-entity', robotXacroName],
     #                      output='screen'
     # )
-    robotStatePubNode = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher',
-        output='screen',
-        parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
-    )
+    # robotStatePubNode = Node(
+    #     package='robot_state_publisher',
+    #     executable='robot_state_publisher',
+    #     name='robot_state_publisher',
+    #     output='screen',
+    #     parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+    # )
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(2):
+    for i in range(1):
         LaunchDescriptionObject.add_action(spawnRobots[i])
+        LaunchDescriptionObject.add_action(robotsStatePub[i])
     # LaunchDescriptionObject.add_action(spwnModelNode)
-    LaunchDescriptionObject.add_action(robotStatePubNode)
+    # LaunchDescriptionObject.add_action(robotStatePubNode)
 
     return LaunchDescriptionObject

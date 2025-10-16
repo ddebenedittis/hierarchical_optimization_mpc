@@ -12,7 +12,7 @@ def generate_launch_description():
     # generate coordinates of an square with center in the origin
     a = 5
 
-    P = [[0, 0, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
+    P = [[-a, a, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'

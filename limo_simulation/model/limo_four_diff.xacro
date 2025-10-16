@@ -2,6 +2,8 @@
 
 <robot name="limo_four_diff" xmlns:xacro="http://ros.org/wiki/xacro">
 
+    <xacro:arg name="robot_name" default="limo_four_diff"/>
+
     <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro" />
     <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo" /> 
 
@@ -156,7 +158,7 @@
           </z>
         </linear_acceleration>
       </imu>
-      <plugin name="two_wheeled_robot_imu" filename="libgazebo_ros_imu_sensor.so">
+      <plugin name="$(arg robot_name)_two_wheeled_robot_imu" filename="libgazebo_ros_imu_sensor.so">
         <initial_orientation_as_reference>false</initial_orientation_as_reference>
         <frame_name>imu_link</frame_name>
         <ros>
@@ -191,7 +193,7 @@
           <stddev>0.01</stddev>
         </noise>
       </ray>
-      <plugin name="scan" filename="libgazebo_ros_ray_sensor.so">
+      <plugin name="$(arg robot_name)_scan" filename="libgazebo_ros_ray_sensor.so">
         <ros>
           <remapping>~/out:=scan</remapping>
         </ros>
@@ -238,7 +240,7 @@
         <maxContacts value="64"/>
     </gazebo>
     <gazebo>
-        <plugin name="four_diff_controller" filename="libgazebo_ros_diff_drive.so">
+        <plugin name="$(arg robot_name)_four_diff_controller" filename="libgazebo_ros_diff_drive.so">
 
         <update_rate>50</update_rate>
         <num_wheel_pairs>2</num_wheel_pairs>

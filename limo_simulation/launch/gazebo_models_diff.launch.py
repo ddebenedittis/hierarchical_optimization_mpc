@@ -3,7 +3,7 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
@@ -12,12 +12,7 @@ def generate_launch_description():
     # generate coordinates of an square with center in the origin
     a = 5
 
-    P = [
-        [-0, 0, 0],
-        [a, a, 0],
-        # [a, -a, 0],
-        # [-a, -a, 0]
-    ]
+    P = [[0, 0, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
@@ -38,11 +33,20 @@ def generate_launch_description():
 
     spawnRobots = []
     robotsStatePub = []
-    for i in range(1):
+    for i in range(4):
         robot_name = f'robot_{i+1}'
         robotDescription = xacro.process_file(
             pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
         ).toxml()
+
+        # load_joint_state_broadcaster = ExecuteProcess(
+        #     cmd=['ros2', 'control', 'load_controller', '--set-state', 'active','joint_state_broadcaster'],
+        #     output='screen')
+        # load_diff_drive_base_controller = ExecuteProcess(
+        #     cmd=['ros2', 'control', 'load_controller', '--set-state', 'active','diff_drive_base_controller'],
+        #     output='screen')
+
+        # Node to spawn the robot in gazebo
         spawnModelNode = Node(
             package='gazebo_ros',
             executable='spawn_entity.py',
@@ -66,6 +70,7 @@ def generate_launch_description():
         )
         spawnRobots.append(spawnModelNode)
 
+        # Node to publish the state of the robot to tf
         robotStatePubNode = Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
@@ -90,9 +95,11 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(1):
+    for i in range(4):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])
+    # LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
+    # LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
     # LaunchDescriptionObject.add_action(spwnModelNode)
     # LaunchDescriptionObject.add_action(robotStatePubNode)
 

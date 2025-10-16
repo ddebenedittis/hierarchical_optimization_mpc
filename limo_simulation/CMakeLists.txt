@@ -13,15 +13,15 @@ find_package(geometry_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 install(
-  DIRECTORY launch model meshes 
+  DIRECTORY launch model meshes config
   DESTINATION share/${PROJECT_NAME}
 )
 
-# add_executable(diff_drive_publisher src/diff_drive_publisher.cpp)
-# ament_target_dependencies(diff_drive_publisher rclcpp geometry_msgs)
-# install(TARGETS 
-#         diff_drive_publisher 
-#         DESTINATION lib/${PROJECT_NAME})
+add_executable(diff_drive_publisher src/diff_drive_publisher.cpp)
+ament_target_dependencies(diff_drive_publisher rclcpp geometry_msgs)
+install(TARGETS 
+        diff_drive_publisher 
+        DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

@@ -33,18 +33,34 @@ def generate_launch_description():
 
     spawnRobots = []
     robotsStatePub = []
-    for i in range(4):
+    for i in range(1):
         robot_name = f'robot_{i+1}'
         robotDescription = xacro.process_file(
             pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
         ).toxml()
 
-        # load_joint_state_broadcaster = ExecuteProcess(
-        #     cmd=['ros2', 'control', 'load_controller', '--set-state', 'active','joint_state_broadcaster'],
-        #     output='screen')
-        # load_diff_drive_base_controller = ExecuteProcess(
-        #     cmd=['ros2', 'control', 'load_controller', '--set-state', 'active','diff_drive_base_controller'],
-        #     output='screen')
+        load_joint_state_broadcaster = ExecuteProcess(
+            cmd=[
+                'ros2',
+                'control',
+                'load_controller',
+                '--set-state',
+                'active',
+                'joint_state_broadcaster',
+            ],
+            output='screen',
+        )
+        load_diff_drive_base_controller = ExecuteProcess(
+            cmd=[
+                'ros2',
+                'control',
+                'load_controller',
+                '--set-state',
+                'active',
+                'diff_drive_base_controller',
+            ],
+            output='screen',
+        )
 
         # Node to spawn the robot in gazebo
         spawnModelNode = Node(
@@ -95,11 +111,11 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(4):
+    for i in range(1):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])
-    # LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
-    # LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
+    LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
+    LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
     # LaunchDescriptionObject.add_action(spwnModelNode)
     # LaunchDescriptionObject.add_action(robotStatePubNode)
 

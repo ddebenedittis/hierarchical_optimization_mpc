@@ -3,9 +3,10 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -15,7 +16,6 @@ def generate_launch_description():
     P = [[-a, a, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
 
     # Constants for paths to different files and folders
-    robotXacroName = 'limo_four_diff'
     name_package = 'limo_simulation'
     modelFileRelativePath = 'model/limo_four_diff.xacro'
     worldFileRelativePath = 'model/empty_world.world'
@@ -30,6 +30,26 @@ def generate_launch_description():
     gazeboLaunch = IncludeLaunchDescription(
         gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
     )
+    """# Path to gazebo_ros package
+    gazebo_ros_pkg = FindPackageShare('gazebo_ros').find('gazebo_ros')
+    world_path = os.path.join(gazebo_ros_pkg, 'worlds', 'empty.world')
+
+    # Include Gazebo launch file
+    gazebo_ros_launch = PythonLaunchDescriptionSource(
+        os.path.join(gazebo_ros_pkg, 'launch', 'gazebo.launch.py')
+    )
+
+    gazeboLaunch = IncludeLaunchDescription(
+        gazebo_ros_launch,
+        launch_arguments={'world': world_path}.items()
+    )
+
+    # Set environment variables for GPU rendering
+    gpu_env = [
+        SetEnvironmentVariable('__NV_PRIME_RENDER_OFFLOAD','1'),
+        SetEnvironmentVariable('_GLX_VENDOR_LIBRARY_NAME', 'nvidia'),
+    ]
+    gazeboLaunch = gpu_env + [gazeboLaunch]"""
 
     spawnRobots = []
     robotsStatePub = []

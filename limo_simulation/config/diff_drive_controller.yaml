@@ -13,10 +13,14 @@ controller_manager:
 diff_drive_base_controller:
   ros__parameters:
     # Wheel setup
-    left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
-    right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
+    num_wheels_pair: 2
+    left_joint: ["front_left_wheel"]
+    left_joint: ["rear_left_wheel"]
+    right_joint: ["front_right_wheel"]
+    right_joint: ["rear_right_wheel"]
     wheel_separation: 0.172
-    wheel_radius: 0.045  # From 0.09 diameter
+    wheel_diameter: 0.09 #0.045  # From 0.09 diameter
+    
 
     # Odometry and frames
     odom_frame_id: "odom"
@@ -45,49 +49,14 @@ diff_drive_base_controller:
 
     # Command and odometry filters
     linear.x.has_velocity_limits: true
-    linear.x.max_velocity: 1.0
-    linear.x.min_velocity: -1.0
+    linear.x.max_velocity: 6.0
+    linear.x.min_velocity: -6.0
     angular.z.has_velocity_limits: true
-    angular.z.max_velocity: 1.0
-    angular.z.min_velocity: -1.0      
+    angular.z.max_velocity: 6.0
+    angular.z.min_velocity: -6.0      
             
             
-#     <update_rate>50</update_rate>
-# <num_wheel_pairs>2</num_wheel_pairs>
-# <left_joint>front_left_wheel</left_joint>
-# <right_joint>front_right_wheel</right_joint>
-# <left_joint>rear_left_wheel</left_joint>
-# <right_joint>rear_right_wheel</right_joint>
-# <wheel_separation>0.172</wheel_separation>
-# <wheel_diameter>0.09</wheel_diameter>
-# <max_wheel_torque>20</max_wheel_torque>
-# <max_wheel_acceleration>1.0</max_wheel_acceleration>
-# <command_topic>cmd_vel</command_topic>
-# <publish_odom>true</publish_odom>
-# <publish_odom_tf>true</publish_odom_tf>
-# <publish_wheel_tf>true</publish_wheel_tf>
-# <odometry_topic>odom</odometry_topic>
-# <odometry_frame>odom</odometry_frame>
-# <robot_base_frame>base_footprint</robot_base_frame>
-# <odometry_source>1</odometry_source>
-# <ros>
-#     <remapping>odom:=/odometry</remapping>
-# </ros>
 
-# <updateRate>100.0</updateRate>
-# <robotNamespace>$(arg robot_namespace)</robotNamespace>
-# <leftFrontJoint>front_left_wheel</leftFrontJoint>
-# <rightFrontJoint>front_right_wheel</rightFrontJoint>
-# <leftRearJoint>rear_left_wheel</leftRearJoint>
-# <rightRearJoint>rear_right_wheel</rightRearJoint>
-# <wheelSeparation>0.172</wheelSeparation>
-# <wheelDiameter>0.09</wheelDiameter>
-# <robotBaseFrame>base_footprint</robotBaseFrame>
-# <commandTopic>cmd_vel</commandTopic>
-# <torque>50</torque>
-# <broadcastTF>true</broadcastTF>
-# <odometryTopic>odom</odometryTopic>
-# <odometryFrame>odom</odometryFrame>
-# <covariance_x>0.000100</covariance_x>
-# <covariance_y>0.000100</covariance_y>
-# <covariance_yaw>0.010000</covariance_yaw>
+
+
+

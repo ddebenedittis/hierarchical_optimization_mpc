@@ -52,7 +52,7 @@
     </gazebo>
 
     <gazebo>
-        <plugin name="$(arg robot_name)/diff_controller" filename="libgazebo_ros_control.so">
+        <plugin name="diff_drive_controller" filename="libgazebo_ros_control.so">
             <updateRate>100.0</updateRate>
             <leftFrontJoint>front_left_wheel</leftFrontJoint>
             <rightFrontJoint>front_right_wheel</rightFrontJoint>
@@ -70,6 +70,11 @@
             <covariance_y>0.000100</covariance_y>
             <covariance_yaw>0.010000</covariance_yaw>
         </plugin>
+        <!--<plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+            <parameters>
+                $(find limo_simulation)/config/diff_drive_controller.yaml
+            </parameters>
+        </plugin>-->
 
         <!---<plugin name="four_diff_controller" filename="libgazebo_ros_skid_steer_drive.so">
         <robotNamespace>$(arg robot_namespace)</robotNamespace>    

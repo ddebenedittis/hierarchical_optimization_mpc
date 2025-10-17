@@ -30,26 +30,6 @@ def generate_launch_description():
     gazeboLaunch = IncludeLaunchDescription(
         gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
     )
-    """# Path to gazebo_ros package
-    gazebo_ros_pkg = FindPackageShare('gazebo_ros').find('gazebo_ros')
-    world_path = os.path.join(gazebo_ros_pkg, 'worlds', 'empty.world')
-
-    # Include Gazebo launch file
-    gazebo_ros_launch = PythonLaunchDescriptionSource(
-        os.path.join(gazebo_ros_pkg, 'launch', 'gazebo.launch.py')
-    )
-
-    gazeboLaunch = IncludeLaunchDescription(
-        gazebo_ros_launch,
-        launch_arguments={'world': world_path}.items()
-    )
-
-    # Set environment variables for GPU rendering
-    gpu_env = [
-        SetEnvironmentVariable('__NV_PRIME_RENDER_OFFLOAD','1'),
-        SetEnvironmentVariable('_GLX_VENDOR_LIBRARY_NAME', 'nvidia'),
-    ]
-    gazeboLaunch = gpu_env + [gazeboLaunch]"""
 
     spawnRobots = []
     robotsStatePub = []
@@ -116,6 +96,21 @@ def generate_launch_description():
             parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
         )
         robotsStatePub.append(robotStatePubNode)
+    # load_joint_state_broadcaster = Node(
+    #         package="controller_manager",
+    #         executable="spawner",
+    #         arguments=['joint_state_broadcaster', '--controller-manager', f'/{robot_name}/controller_manager',],
+    #         parameters=[{'use_sim_time':True}],
+    #         output="screen",
+    #     )
+    # load_diff_drive_base_controller = Node(
+    #     package="controller_manager",
+    #     executable="spawner",
+    #     arguments=['diff_drive_base_controller', '--controller-manager', f'/{robot_name}/controller_manager',],
+    #     parameters=[{'use_sim_time':True}],
+    #     output="screen",
+    # )
+
     # spwnModelNode = Node(package='gazebo_ros',
     #                      executable='spawn_entity.py',
     #                      arguments=['-topic', 'robot_description', '-entity', robotXacroName],
@@ -136,6 +131,7 @@ def generate_launch_description():
         LaunchDescriptionObject.add_action(robotsStatePub[i])
     LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
     LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
+
     # LaunchDescriptionObject.add_action(spwnModelNode)
     # LaunchDescriptionObject.add_action(robotStatePubNode)
 

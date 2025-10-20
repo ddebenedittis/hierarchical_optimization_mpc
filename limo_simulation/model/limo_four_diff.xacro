@@ -89,6 +89,7 @@
     <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="rear_right" reflect="-1">
         <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="${M_PI} 0 0" />
     </xacro:limo_wheel>
+  
 
     <gazebo reference="imu_link">
     <gravity>true</gravity>
@@ -239,7 +240,7 @@
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>
   </gazebo>
-  <gazebo>
+  <!--<gazebo>
     <plugin name="diff_drive_controller" filename="libgazebo_ros_control.so">
         <update_rate>50</update_rate>
         <num_wheel_pairs>2</num_wheel_pairs>
@@ -263,12 +264,12 @@
             <remapping>odom:=/odometry</remapping>
         </ros>
       </plugin> 
-  <!--<plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+  <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
     <parameters>
       $(find limo_simulation)/config/diff_drive_controller.yaml
     </parameters>
-  </plugin>-->
-  </gazebo>
+  </plugin>
+  </gazebo>-->
       <!-- <gazebo reference="depth_camera_link">
         <sensor name="sensor_camera" type="depth">
           <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>

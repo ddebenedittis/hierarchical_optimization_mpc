@@ -16,13 +16,14 @@ def generate_launch_description():
     P = [[-a, a, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
 
     # Constants for paths to different files and folders
+    robotXacroName = 'limo_four_diff'
     name_package = 'limo_simulation'
     modelFileRelativePath = 'model/limo_four_diff.xacro'
     worldFileRelativePath = 'model/empty_world.world'
 
     pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
-    # robotDescription = xacro.process_file(pathModelFile).toxml()
+    robotDescription = xacro.process_file(pathModelFile).toxml()
 
     gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
         os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
@@ -31,71 +32,71 @@ def generate_launch_description():
         gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
     )
 
-    spawnRobots = []
-    robotsStatePub = []
-    for i in range(1):
-        robot_name = f'robot_{i+1}'
-        robotDescription = xacro.process_file(
-            pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
-        ).toxml()
+    # spawnRobots = []
+    # robotsStatePub = []
+    # for i in range(1):
+    #     robot_name = f'robot_{i+1}'
+    #     robotDescription = xacro.process_file(
+    #         pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
+    #     ).toxml()
 
-        load_joint_state_broadcaster = ExecuteProcess(
-            cmd=[
-                'ros2',
-                'control',
-                'load_controller',
-                '--set-state',
-                'active',
-                'joint_state_broadcaster',
-            ],
-            output='screen',
-        )
-        load_diff_drive_base_controller = ExecuteProcess(
-            cmd=[
-                'ros2',
-                'control',
-                'load_controller',
-                '--set-state',
-                'active',
-                'diff_drive_base_controller',
-            ],
-            output='screen',
-        )
+    load_joint_state_broadcaster = ExecuteProcess(
+        cmd=[
+            'ros2',
+            'control',
+            'load_controller',
+            '--set-state',
+            'active',
+            'joint_state_broadcaster',
+        ],
+        output='screen',
+    )
+    load_diff_drive_base_controller = ExecuteProcess(
+        cmd=[
+            'ros2',
+            'control',
+            'load_controller',
+            '--set-state',
+            'active',
+            'diff_drive_base_controller',
+        ],
+        output='screen',
+    )
 
-        # Node to spawn the robot in gazebo
-        spawnModelNode = Node(
-            package='gazebo_ros',
-            executable='spawn_entity.py',
-            name=f'spawn_entity_{robot_name}',
-            arguments=[
-                '-topic',
-                'robot_description',
-                '-entity',
-                robot_name,
-                '-x',
-                str(P[i][0]),
-                '-y',
-                str(P[i][1]),
-                '-z',
-                str(P[i][2]),
-                '-Y',
-                '0.00',
-            ],
-            namespace=robot_name,
-            output='screen',
-        )
-        spawnRobots.append(spawnModelNode)
+    #     # Node to spawn the robot in gazebo
+    #     spawnModelNode = Node(
+    #         package='gazebo_ros',
+    #         executable='spawn_entity.py',
+    #         name=f'spawn_entity_{robot_name}',
+    #         arguments=[
+    #             '-topic',
+    #             'robot_description',
+    #             '-entity',
+    #             robot_name,
+    #             '-x',
+    #             str(P[i][0]),
+    #             '-y',
+    #             str(P[i][1]),
+    #             '-z',
+    #             str(P[i][2]),
+    #             '-Y',
+    #             '0.00',
+    #         ],
+    #         namespace=robot_name,
+    #         output='screen',
+    #     )
+    #     spawnRobots.append(spawnModelNode)
 
-        # Node to publish the state of the robot to tf
-        robotStatePubNode = Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            name=f'robot_state_publisher',
-            namespace=robot_name,
-            output='screen',
-            parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
-        )
-        robotsStatePub.append(robotStatePubNode)
+    #     # Node to publish the state of the robot to tf
+    #     robotStatePubNode = Node(
+    #         package='robot_state_publisher',
+    #         executable='robot_state_publisher',
+    #         name=f'robot_state_publisher',
+    #         namespace=robot_name,
+    #         output='screen',
+    #         parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+    #     )
+    #     robotsStatePub.append(robotStatePubNode)
     # load_joint_state_broadcaster = Node(
     #         package="controller_manager",
     #         executable="spawner",
@@ -111,28 +112,28 @@ def generate_launch_description():
     #     output="screen",
     # )
 
-    # spwnModelNode = Node(package='gazebo_ros',
-    #                      executable='spawn_entity.py',
-    #                      arguments=['-topic', 'robot_description', '-entity', robotXacroName],
-    #                      output='screen'
-    # )
-    # robotStatePubNode = Node(
-    #     package='robot_state_publisher',
-    #     executable='robot_state_publisher',
-    #     name='robot_state_publisher',
-    #     output='screen',
-    #     parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
-    # )
+    spwnModelNode = Node(
+        package='gazebo_ros',
+        executable='spawn_entity.py',
+        arguments=['-topic', 'robot_description', '-entity', robotXacroName],
+        output='screen',
+    )
+    robotStatePubNode = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+    )
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(1):
-        LaunchDescriptionObject.add_action(spawnRobots[i])
-        LaunchDescriptionObject.add_action(robotsStatePub[i])
+    # for i in range(1):
+    #     LaunchDescriptionObject.add_action(spawnRobots[i])
+    #     LaunchDescriptionObject.add_action(robotsStatePub[i])
     LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
     LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
-
-    # LaunchDescriptionObject.add_action(spwnModelNode)
-    # LaunchDescriptionObject.add_action(robotStatePubNode)
+    LaunchDescriptionObject.add_action(spwnModelNode)
+    LaunchDescriptionObject.add_action(robotStatePubNode)
 
     return LaunchDescriptionObject

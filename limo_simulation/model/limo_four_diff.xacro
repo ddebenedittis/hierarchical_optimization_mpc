@@ -5,7 +5,7 @@
     <xacro:arg name="robot_name" default="limo_four_diff"/>
 
     <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro" />
-    <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo" /> 
+    <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo"/> 
 
     <!-- Variables -->
     <xacro:property name="M_PI" value="3.14159"/>
@@ -159,7 +159,7 @@
           </z>
         </linear_acceleration>
       </imu>
-      <plugin name="$(arg robot_name)_two_wheeled_robot_imu" filename="libgazebo_ros_imu_sensor.so">
+      <plugin name="$(arg robot_name)_two_wheeled_robot_imu" filename="libgazebo_ros2_imu_sensor.so">
         <initial_orientation_as_reference>false</initial_orientation_as_reference>
         <frame_name>imu_link</frame_name>
         <ros>
@@ -194,7 +194,7 @@
           <stddev>0.01</stddev>
         </noise>
       </ray>
-      <plugin name="$(arg robot_name)_scan" filename="libgazebo_ros_ray_sensor.so">
+      <plugin name="$(arg robot_name)_scan" filename="libgazebo_ros2_ray_sensor.so">
         <ros>
           <remapping>~/out:=scan</remapping>
         </ros>

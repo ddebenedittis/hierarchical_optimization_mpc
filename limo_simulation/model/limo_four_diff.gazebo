@@ -17,6 +17,38 @@
         <hardware>
             <plugin>gazebo_ros2_control/GazeboSystem</plugin>
         </hardware>
+        <joint name="rear_left_wheel">
+            <command_interface name="velocity">
+                <param name="min">-1</param>
+                <param name="mix">1</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="rear_right_wheel">
+            <command_interface name="velocity">
+                <param name="min">-1</param>
+                <param name="mix">1</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="front_left_wheel">
+            <command_interface name="velocity">
+                <param name="min">-1</param>
+                <param name="mix">1</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="front_right_wheel">
+            <command_interface name="velocity">
+                <param name="min">-1</param>
+                <param name="mix">1</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
     </ros2_control>
     <gazebo reference="front_left_wheel">
         <mu1>10</mu1>
@@ -56,7 +88,7 @@
     </gazebo>
 
     <gazebo>
-        <plugin name="diff_drive_controller" filename="libgazebo_ros_control.so">
+        <plugin name="diff_drive_controller" filename="libgazebo_ros2_control.so">
             <!--<updateRate>100.0</updateRate>
             <leftFrontJoint>front_left_wheel</leftFrontJoint>
             <rightFrontJoint>front_right_wheel</rightFrontJoint>
@@ -80,7 +112,7 @@
             <left_joint>rear_left_wheel</left_joint>
             <right_joint>rear_right_wheel</right_joint>
             <wheel_separation>0.172</wheel_separation>
-            <wheel_diameter>0.09</wheel_diameter>
+            <wheel_radius>0.045</wheel_radius>
             <max_wheel_torque>20</max_wheel_torque>
             <max_wheel_acceleration>5.0</max_wheel_acceleration>
             <command_topic>cmd_vel</command_topic>
@@ -94,6 +126,9 @@
             <ros>
                 <remapping>odom:=/odometry</remapping>
             </ros>
+            <parameters>
+                $(find limo_simulation)/config/diff_drive_controller.yaml
+            </parameters>
         </plugin>
         <!--<plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
             <parameters>

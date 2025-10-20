@@ -40,29 +40,6 @@ def generate_launch_description():
     #         pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
     #     ).toxml()
 
-    load_joint_state_broadcaster = ExecuteProcess(
-        cmd=[
-            'ros2',
-            'control',
-            'load_controller',
-            '--set-state',
-            'active',
-            'joint_state_broadcaster',
-        ],
-        output='screen',
-    )
-    load_diff_drive_base_controller = ExecuteProcess(
-        cmd=[
-            'ros2',
-            'control',
-            'load_controller',
-            '--set-state',
-            'active',
-            'diff_drive_base_controller',
-        ],
-        output='screen',
-    )
-
     #     # Node to spawn the robot in gazebo
     #     spawnModelNode = Node(
     #         package='gazebo_ros',
@@ -126,14 +103,37 @@ def generate_launch_description():
         parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
     )
 
+    load_joint_state_broadcaster = ExecuteProcess(
+        cmd=[
+            'ros2',
+            'control',
+            'load_controller',
+            '--set-state',
+            'active',
+            'joint_state_broadcaster',
+        ],
+        output='screen',
+    )
+    load_diff_drive_base_controller = ExecuteProcess(
+        cmd=[
+            'ros2',
+            'control',
+            'load_controller',
+            '--set-state',
+            'active',
+            'diff_drive_base_controller',
+        ],
+        output='screen',
+    )
+
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
     # for i in range(1):
     #     LaunchDescriptionObject.add_action(spawnRobots[i])
     #     LaunchDescriptionObject.add_action(robotsStatePub[i])
-    LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
-    LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
     LaunchDescriptionObject.add_action(spwnModelNode)
     LaunchDescriptionObject.add_action(robotStatePubNode)
+    LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
+    LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
 
     return LaunchDescriptionObject

@@ -15,6 +15,9 @@
     <xacro:gazebo_imu frame_prefix="imu" /> -->
     <ros2_control name="GazeboSystem" type="system">
         <hardware>
+            <ros>
+                <namespace>$(arg robot_name)</namespace>
+            </ros>
             <plugin>gazebo_ros2_control/GazeboSystem</plugin>
         </hardware>
         <joint name="rear_left_wheel">

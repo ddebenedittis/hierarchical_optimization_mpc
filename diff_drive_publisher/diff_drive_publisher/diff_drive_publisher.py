@@ -18,7 +18,7 @@ class DiffDrivePublisher(Node):
         msg = TwistStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.twist.linear.x = -1.0
-        msg.twist.angular.z = 2.0
+        msg.twist.angular.z = 1.0
         self.publisher_.publish(msg)
 
 

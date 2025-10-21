@@ -22,7 +22,7 @@ private:
     geometry_msgs::msg::TwistStamped command;
     command.header.stamp = this->now();
     command.twist.linear.x = 1;  // Forward speed in m/s
-    command.twist.angular.z = 2; // Angular speed in rad/s
+    command.twist.angular.z = 0.2; // Angular speed in rad/s
     publisher_->publish(command);
   }
 

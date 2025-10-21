@@ -1,0 +1,38 @@
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+def generate_launch_description():
+    # Declare command-line argument: n (number of robots)
+    n_arg = DeclareLaunchArgument(
+        'n',
+        default_value='2',
+        description='Number of robot namespaces to launch'
+    )
+
+    n = LaunchConfiguration('n')
+
+    # Function to generate nodes dynamically
+    def launch_multiple_nodes(context):
+        num_robots = int(n.perform(context))
+        nodes = []
+        for i in range(1, num_robots + 1):
+            ns = f"robot_{i}"
+            nodes.append(
+                Node(
+                    package='diff_drive_publisher',
+                    executable='diff_drive_publisher',
+                    name=f'diff_drive_publisher_{i}',
+                    namespace=ns,
+                    output='screen'
+                )
+            )
+        return nodes
+
+    return LaunchDescription([
+        n_arg,
+        # Use an OpaqueFunction so we can access the argument value
+        # and generate nodes dynamically
+        OpaqueFunction(function=launch_multiple_nodes)
+    ])

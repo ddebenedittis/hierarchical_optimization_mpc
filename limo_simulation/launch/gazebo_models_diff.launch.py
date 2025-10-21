@@ -34,9 +34,11 @@ def generate_launch_description():
 
     spawnRobots = []
     robotsStatePub = []
-    for i in range(1):
+    robotsStateBrod = []
+    robotsControllers = []
+    publishers = []
+    for i in range(2):
         robot_name = f'robot_{i+1}'
-        robotStatePubName = f'/{robot_name}/robot_state_publisher'
         robotDescription = xacro.process_file(
             pathModelFile, mappings={'robot_name': robot_name, 'tf_prefix': robot_name}
         ).toxml()
@@ -77,8 +79,8 @@ def generate_launch_description():
         )
         spawnRobots.append(spawnModelNode)
 
-        broadcaster_namespace = 'joint_state_broadcaster'
-        controller_namespace = 'diff_drive_base_controller'
+        broadcaster_namespace = f'joint_state_broadcaster_{i+1}'
+        controller_namespace = f'diff_drive_base_controller_{i+1}'
         load_joint_state_broadcaster = Node(
             package='controller_manager',
             executable='spawner',
@@ -92,6 +94,8 @@ def generate_launch_description():
             parameters=[{'use_sim_time': True}],
             output='screen',
         )
+        robotsStateBrod.append(load_joint_state_broadcaster)
+
         load_diff_drive_base_controller = Node(
             package='controller_manager',
             executable='spawner',
@@ -104,6 +108,19 @@ def generate_launch_description():
             ],
             parameters=[{'use_sim_time': True}],
             output='screen',
+        )
+        robotsControllers.append(load_diff_drive_base_controller)
+
+        # 🚀 Add your diff_drive_publisher node here
+        publishers.append(
+            Node(
+                package='limo_simulation',
+                executable='diff_drive_publisher',
+                name=f'diff_drive_publisher_{i}',
+                namespace=robot_name,
+                output='screen',
+                parameters=[{'use_sim_time': True}],
+            )
         )
 
     # load_joint_state_broadcaster = Node(
@@ -164,11 +181,12 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(1):
+    for i in range(2):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])
-        LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
-        LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
+        LaunchDescriptionObject.add_action(robotsStateBrod[i])
+        LaunchDescriptionObject.add_action(robotsControllers[i])
+        LaunchDescriptionObject.add_action(publishers[i])
     # LaunchDescriptionObject.add_action(spwnModelNode)
     # LaunchDescriptionObject.add_action(robotStatePubNode)
     # LaunchDescriptionObject.add_action(load_joint_state_broadcaster)

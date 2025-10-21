@@ -10,10 +10,10 @@ public:
   : Node("diff_drive_publisher")
   {
       publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(
-        "/diff_drive_base_controller/cmd_vel", 10);
-
+        "diff_drive_base_controller/cmd_vel", 10);
+        
       timer_ = this->create_wall_timer(
-        50ms, std::bind(&DiffDrivePublisher::publishCommand, this));
+        10ms, std::bind(&DiffDrivePublisher::publishCommand, this));
   }   
 
 private:
@@ -21,8 +21,8 @@ private:
   {
     geometry_msgs::msg::TwistStamped command;
     command.header.stamp = this->now();
-    command.twist.linear.x = -1;  // Forward speed in m/s
-    command.twist.angular.z = 5; // Angular speed in rad/s
+    command.twist.linear.x = 1;  // Forward speed in m/s
+    command.twist.angular.z = 2; // Angular speed in rad/s
     publisher_->publish(command);
   }
 

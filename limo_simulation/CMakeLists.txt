@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(geometry_msgs REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -16,6 +17,15 @@ find_package(geometry_msgs REQUIRED)
 install(
   DIRECTORY launch model meshes config
   DESTINATION share/${PROJECT_NAME}
+)
+
+# Install Python modules
+ament_python_install_package(${PROJECT_NAME})
+
+# Install Python executables
+install(PROGRAMS
+  scripts/diff_drive_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 add_executable(diff_drive_publisher src/diff_drive_publisher.cpp)

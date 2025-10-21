@@ -1,4 +1,4 @@
-controller_manager:
+/robot_1/controller_manager:
   ros__parameters:
     update_rate: 100  # Hz
     use_sim_time: true
@@ -10,7 +10,7 @@ controller_manager:
     diff_drive_base_controller:
       type: diff_drive_controller/DiffDriveController
 
-diff_drive_base_controller:
+/robot_1/diff_drive_base_controller:
   ros__parameters:
     # Wheel setup
     num_wheels_pair: 2

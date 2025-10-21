@@ -105,6 +105,9 @@
             <covariance_x>0.000100</covariance_x>
             <covariance_y>0.000100</covariance_y>
             <covariance_yaw>0.010000</covariance_yaw>-->
+            <ros>
+                <namespace>$(arg robot_name)</namespace>
+            </ros>
             <update_rate>50</update_rate>
             <num_wheel_pairs>2</num_wheel_pairs>
             <left_joint>front_left_wheel</left_joint>

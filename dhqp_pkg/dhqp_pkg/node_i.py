@@ -99,6 +99,12 @@ class Agent(Node):
             f'/topic_{self.node_id}',
             50,  # Queue size for messages
         )
+        # create the publisher
+        self.publisher_command = self.create_publisher(
+            Float32MultiArray,
+            f'/command_node_{self.node_id}',
+            50,  # Queue size for messages
+        )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
@@ -118,13 +124,17 @@ class Agent(Node):
         # Perform Partitioned optimization
         # Initialize a message of type float
         msg = Float32MultiArray()
+        msg_input = Float32MultiArray()
 
         if self.step == 0:  # Let the publisher start at the first iteration
             msg.data = [float(self.step)]
+            msg_input.data = [float(self.step)]
+            [msg_input.data.append([[0.0], [0.0]])]
 
             [msg.data.append(float(ss)) for ss in self.s.omni[0]]
 
             self.publisher_.publish(msg)
+            self.publisher_command.publish(msg_input)
             self.step += 1
 
             # log files
@@ -155,8 +165,13 @@ class Agent(Node):
 
                 # publish the updated message
                 msg.data = [float(self.step)]
+
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 self.publisher_.publish(msg)
+
+                # publish the command
+                msg_input.data = [float(self.step)]
+                [msg_input.data.append(float(uu) for uu in self.u_star[0][0])]
 
                 self.get_logger().info(
                     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'

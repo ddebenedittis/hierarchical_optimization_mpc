@@ -84,7 +84,7 @@ class MinimalSubscriber(Node):
             # Reorder the vector of received messages from the agents
             self.reorder_s_init(self.received_data)
 
-            self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][-1]}')
+            self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
 
             # Stop the node if tt exceeds MAXITERS
             if self.step > self.n_steps:
@@ -127,7 +127,7 @@ class MinimalSubscriber(Node):
         for j in range(self.n_nodes):
             s_j = [s for s in state_meas[j].pop(0)[1:]]
             s.append(s_j)
-        self.s_history.append([[], s])
+        self.s_history.append([s, []])
 
 
 def main(args=None):

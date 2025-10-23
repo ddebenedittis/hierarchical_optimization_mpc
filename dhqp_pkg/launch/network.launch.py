@@ -95,7 +95,6 @@ def generate_launch_description():
             prefix='xterm -title "PLOTTING AGENT" -hold -e',
         )
     )
-
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         nn = graph_matrix[i].flatten().tolist()

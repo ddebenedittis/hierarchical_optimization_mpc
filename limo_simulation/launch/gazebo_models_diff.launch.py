@@ -13,7 +13,7 @@ def generate_launch_description():
     # generate coordinates of an square with center in the origin
     a = 5
 
-    P = [[-a, a, 0], [a, a, 0], [a, -a, 0], [-a, -a, 0]]
+    P = [[-a, -a, 0, 1], [a, a, 0, -1], [a, -a, 0], [-a, a, 0]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
@@ -36,7 +36,7 @@ def generate_launch_description():
     robotsStatePub = []
     robotsStateBrod = []
     robotsControllers = []
-    publishers = []
+    # publishers = []
     for i in range(2):
         robot_name = f'robot_{i+1}'
         robotDescription = xacro.process_file(
@@ -72,7 +72,7 @@ def generate_launch_description():
                 '-z',
                 str(P[i][2]),
                 '-Y',
-                '0.00',
+                str(P[i][3]),
             ],
             namespace=robot_name,
             output='screen',
@@ -111,17 +111,17 @@ def generate_launch_description():
         )
         robotsControllers.append(load_diff_drive_base_controller)
 
-        # 🚀 Add your diff_drive_publisher node here
-        publishers.append(
-            Node(
-                package='limo_simulation',
-                executable='diff_drive_publisher',
-                name=f'diff_drive_publisher_{i}',
-                namespace=robot_name,
-                output='screen',
-                parameters=[{'use_sim_time': True}],
-            )
-        )
+        # # diff_drive_publisher spawner
+        # publishers.append(
+        #     Node(
+        #         package='limo_simulation',
+        #         executable='diff_drive_publisher',
+        #         name=f'diff_drive_publisher_{i}',
+        #         namespace=robot_name,
+        #         output='screen',
+        #         parameters=[{'use_sim_time': True}],
+        #     )
+        # )
 
     # load_joint_state_broadcaster = Node(
     #         package="controller_manager",
@@ -186,7 +186,7 @@ def generate_launch_description():
         LaunchDescriptionObject.add_action(robotsStatePub[i])
         LaunchDescriptionObject.add_action(robotsStateBrod[i])
         LaunchDescriptionObject.add_action(robotsControllers[i])
-        LaunchDescriptionObject.add_action(publishers[i])
+        # LaunchDescriptionObject.add_action(publishers[i])
     # LaunchDescriptionObject.add_action(spwnModelNode)
     # LaunchDescriptionObject.add_action(robotStatePubNode)
     # LaunchDescriptionObject.add_action(load_joint_state_broadcaster)

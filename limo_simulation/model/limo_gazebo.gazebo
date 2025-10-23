@@ -1,7 +1,6 @@
 <?xml version="1.0"?>
 
 <robot name="limo_gazebo" xmlns:xacro="http://ros.org/wiki/xacro">
-
     <xacro:macro name="limo_wheel_transmission" params="wheel_prefix">
         <transmission name="${wheel_prefix}_wheel_trans" type="SimpleTransmission">
             <type>transmission_interface/SimpleTransmission</type>

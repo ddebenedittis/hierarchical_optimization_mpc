@@ -5,6 +5,7 @@ from time import sleep
 import casadi as ca
 import numpy as np
 import rclpy
+from geometry_msgs.msg import TwistStamped
 from matplotlib import pyplot as plt
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
@@ -63,8 +64,8 @@ class Agent(Node):
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 10)
+        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(self.dt)
 
         self.goals = st.goals
         self.step = 0
@@ -93,24 +94,26 @@ class Agent(Node):
                 20,  # Queue size for messages
             )
 
-        # create the publisher
+        # create the publisher between node for communication
         self.publisher_ = self.create_publisher(
             Float32MultiArray,
             f'/topic_{self.node_id}',
             50,  # Queue size for messages
         )
-        # create the publisher
-        self.publisher_command = self.create_publisher(
-            Float32MultiArray,
-            f'/command_node_{self.node_id}',
-            50,  # Queue size for messages
+        # create the publisher for optimal input computed
+        self.ns = f'robot_{self.node_id+1}'
+        topic_name = f'/{self.ns}/diff_drive_base_controller/cmd_vel'
+        self.diff_drive_publisher = self.create_publisher(
+            TwistStamped,
+            topic_name,
+            10,  # Queue size for messages
         )
+        self.get_logger().info(f'Publisher created for {topic_name}')
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in self.robot_idx[1:]}
-
         # Create Tasks and MPC
         self.Tasks()
         self.MPC()
@@ -124,17 +127,20 @@ class Agent(Node):
         # Perform Partitioned optimization
         # Initialize a message of type float
         msg = Float32MultiArray()
-        msg_input = Float32MultiArray()
+        command = TwistStamped()
 
         if self.step == 0:  # Let the publisher start at the first iteration
             msg.data = [float(self.step)]
-            msg_input.data = [float(self.step)]
-            [msg_input.data.append([[0.0], [0.0]])]
-
             [msg.data.append(float(ss)) for ss in self.s.omni[0]]
-
             self.publisher_.publish(msg)
-            self.publisher_command.publish(msg_input)
+
+            # publish the first null command
+            command.header.stamp = self.get_clock().now().to_msg()
+            command.twist.linear.x = float(0)
+            command.twist.angular.z = float(0)
+            self.diff_drive_publisher.publish(command)
+
+            self.get_logger().info(f'published initializations command input to {self.ns}')
             self.step += 1
 
             # log files
@@ -168,14 +174,17 @@ class Agent(Node):
 
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 self.publisher_.publish(msg)
-
-                # publish the command
-                msg_input.data = [float(self.step)]
-                [msg_input.data.append(float(uu) for uu in self.u_star[0][0])]
-
                 self.get_logger().info(
                     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
                 )
+
+                # publish the command
+                command.header.stamp = self.get_clock().now().to_msg()
+                command.twist.linear.x = float(self.u_star[0][0][0])
+                command.twist.angular.z = float(self.u_star[0][0][1])
+                self.diff_drive_publisher.publish(command)
+
+                self.get_logger().info(f'published command input to {self.ns} for step {self.step}')
 
                 # Stop the node if tt exceeds MAXITERS
                 if self.step > self.n_steps:
@@ -443,13 +452,13 @@ class Agent(Node):
         # ======================================================================== #
 
         if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-1, -1.5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-5, -5, 1]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([1.5, 3]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([5, 5, -1]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([2, -2]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([5, -5]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-1.5, 1.5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-5, 5]) for _ in range(self.n_robots.omni)])
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -471,23 +480,23 @@ class Agent(Node):
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        # for j, _ in enumerate(s.omni):
-        #     for _ in range(n_intervals):
-        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-        #             [
-        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
-        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
-        #                 u_star.omni[j][1],
-        #             ]
-        #         )
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                     [
-                        u_star.omni[j][0],
+                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
                         u_star.omni[j][1],
                     ]
                 )
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 u_star.omni[j][0],
+        #                 u_star.omni[j][1],
+        #             ]
+        #         )
 
         return s
 

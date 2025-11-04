@@ -8,10 +8,13 @@
   <license>TODO: License declaration</license>
 
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>ros2launch</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>python3-transform3d</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
 
   <buildtool_depend>ament_python</buildtool_depend>
   <test_depend>ament_copyright</test_depend>

@@ -15,7 +15,7 @@ find_package(geometry_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 install(
-  DIRECTORY launch model meshes config
+  DIRECTORY launch model meshes config world
   DESTINATION share/${PROJECT_NAME}
 )
 

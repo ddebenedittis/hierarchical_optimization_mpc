@@ -1,6 +1,6 @@
-/robot_1/controller_manager:
+/**/controller_manager:
   ros__parameters:
-    update_rate: 100  # Hz
+    update_rate: 1000  # Hz
     use_sim_time: true
 
     joint_state_broadcaster:
@@ -10,10 +10,10 @@
     diff_drive_base_controller:
       type: diff_drive_controller/DiffDriveController
 
-/robot_1/diff_drive_base_controller:
+/**/diff_drive_base_controller:
   ros__parameters:
     # Wheel setup
-    num_wheels_pair: 2
+    num_wheels_pair: 1
     left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
     right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
     wheel_separation: 0.172
@@ -26,6 +26,8 @@
     enable_odom_tf: true
     publish_wheel_data: true
     publish_odom_tf: true
+
+    position_feedback: true
 
     # Topics
     cmd_vel_topic: "/cmd_vel"
@@ -46,65 +48,65 @@
 
     # Command and odometry filters
     linear.x.has_velocity_limits: true
-    linear.x.max_velocity: 6.0
-    linear.x.min_velocity: -6.0
+    linear.x.max_velocity: 1.5
+    linear.x.min_velocity: -2.0
     angular.z.has_velocity_limits: true
-    angular.z.max_velocity: 6.0
-    angular.z.min_velocity: -6.0
+    angular.z.max_velocity: 2.0
+    angular.z.min_velocity: -2.0
 
-/robot_2/controller_manager:
-  ros__parameters:
-    update_rate: 100  # Hz
-    use_sim_time: true
+# /robot_2/controller_manager:
+#   ros__parameters:
+#     update_rate: 100  # Hz
+#     use_sim_time: true
 
-    joint_state_broadcaster:
-      type: joint_state_broadcaster/JointStateBroadcaster
+#     joint_state_broadcaster:
+#       type: joint_state_broadcaster/JointStateBroadcaster
       
 
-    diff_drive_base_controller:
-      type: diff_drive_controller/DiffDriveController
+#     diff_drive_base_controller:
+#       type: diff_drive_controller/DiffDriveController
 
-/robot_2/diff_drive_base_controller:
-  ros__parameters:
-    # Wheel setup
-    num_wheels_pair: 2
-    left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
-    right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
-    wheel_separation: 0.172
-    wheel_radius: 0.045 #0.045  # From 0.09 diameter
+# /robot_2/diff_drive_base_controller:
+#   ros__parameters:
+#     # Wheel setup
+#     num_wheels_pair: 2
+#     left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
+#     right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
+#     wheel_separation: 0.172
+#     wheel_radius: 0.045 #0.045  # From 0.09 diameter
 
-    # Odometry and frames
-    odom_frame_id: "odom"
-    base_frame_id: "base_footprint"
-    publish_odom: true
-    enable_odom_tf: true
-    publish_wheel_data: true
-    publish_odom_tf: true
+#     # Odometry and frames
+#     odom_frame_id: "odom"
+#     base_frame_id: "base_footprint"
+#     publish_odom: true
+#     enable_odom_tf: true
+#     publish_wheel_data: true
+#     publish_odom_tf: true
 
-    # Topics
-    cmd_vel_topic: "/cmd_vel"
-    odom_topic: "/odom"
-    cmd_vel_timeout: 0.25
+#     # Topics
+#     cmd_vel_topic: "/cmd_vel"
+#     odom_topic: "/odom"
+#     cmd_vel_timeout: 0.25
 
-    # Controller limits
-    max_wheel_torque: 20.0
-    max_wheel_acceleration: 1.0
-    torque: 50.0
+#     # Controller limits
+#     max_wheel_torque: 20.0
+#     max_wheel_acceleration: 1.0
+#     torque: 50.0
 
-    # Covariances (optional but recommended)
-    pose_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
-    twist_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
+#     # Covariances (optional but recommended)
+#     pose_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
+#     twist_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
 
-    # TF publishing
-    broadcast_tf: true
+#     # TF publishing
+#     broadcast_tf: true
 
-    # Command and odometry filters
-    linear.x.has_velocity_limits: true
-    linear.x.max_velocity: 6.0
-    linear.x.min_velocity: -6.0
-    angular.z.has_velocity_limits: true
-    angular.z.max_velocity: 6.0
-    angular.z.min_velocity: -6.0      
+#     # Command and odometry filters
+#     linear.x.has_velocity_limits: true
+#     linear.x.max_velocity: 6.0
+#     linear.x.min_velocity: -6.0
+#     angular.z.has_velocity_limits: true
+#     angular.z.max_velocity: 6.0
+#     angular.z.min_velocity: -6.0      
             
             
             

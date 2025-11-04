@@ -5,6 +5,7 @@ from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, IncludeLaunchDescription, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -13,13 +14,13 @@ def generate_launch_description():
     # generate coordinates of an square with center in the origin
     a = 5
 
-    P = [[-a, -a, 0, 1], [a, a, 0, -1], [a, -a, 0], [-a, a, 0]]
+    P = [[-a, -a, 0, 0], [a, a, 0, 0], [a, -a, 0], [-a, a, 0]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
     name_package = 'limo_simulation'
     modelFileRelativePath = 'model/limo_four_diff.xacro'
-    worldFileRelativePath = 'model/empty_world.world'
+    worldFileRelativePath = 'world/empty.world'
 
     pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
@@ -31,6 +32,18 @@ def generate_launch_description():
     gazeboLaunch = IncludeLaunchDescription(
         gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
     )
+
+    # Gazebo bridge
+    gazebo_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        # arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"],
+        output='screen',
+    )
+
+    # rviz_config_file = PathJoinSubstitution(
+    #     [FindPackageShare("limo_simulation"), "rviz", "model_display.rviz"]
+    # )
 
     spawnRobots = []
     robotsStatePub = []
@@ -179,8 +192,18 @@ def generate_launch_description():
     #     output='screen',
     # )
 
+    # rviz_node = Node(
+    #     package="rviz2",
+    #     executable="rviz2",
+    #     name="rviz2",
+    #     output="log",
+    #     arguments=["-d", rviz_config_file],
+    # )
+
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
+    LaunchDescriptionObject.add_action(gazebo_bridge)
+    # LaunchDescriptionObject.add_action(rviz_node)
     for i in range(2):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])

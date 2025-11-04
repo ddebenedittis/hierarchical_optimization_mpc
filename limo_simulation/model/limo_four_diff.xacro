@@ -1,36 +1,35 @@
 <?xml version="1.0"?>
 
 <robot name="limo_four_diff" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:arg name="robot_name" default="limo_four_diff"/>
 
-    <xacro:arg name="robot_name" default="limo_four_diff"/>
+  <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro"/>
+  <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo"/> 
 
-    <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro" />
-    <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo"/> 
+  <!-- Variables -->
+  <xacro:property name="M_PI" value="3.14159"/>
 
-    <!-- Variables -->
-    <xacro:property name="M_PI" value="3.14159"/>
+  <!-- Vehicle Geometries -->
+  <xacro:property name="base_x_size" value="0.13" />
+  <xacro:property name="base_y_size" value="0.12" />
+  <xacro:property name="base_z_size" value="0.1" />
 
-    <!-- Vehicle Geometries -->
-    <xacro:property name="base_x_size" value="0.13" />
-    <xacro:property name="base_y_size" value="0.12" />
-    <xacro:property name="base_z_size" value="0.1" />
-  
-    <xacro:property name="wheelbase" value="0.2"/>
-    <xacro:property name="track" value="0.13"/>
-    <xacro:property name="wheel_vertical_offset" value="-0.10" />
-    <xacro:property name="base_mass" value="2.1557"/>
+  <xacro:property name="wheelbase" value="0.2"/>
+  <xacro:property name="track" value="0.13"/>
+  <xacro:property name="wheel_vertical_offset" value="-0.10" />
+  <xacro:property name="base_mass" value="2.1557"/>
 
-    <xacro:property name="wheel_length" value="0.045" />
-    <xacro:property name="wheel_radius" value="0.045" />
-  <link name="base_footprint"/>
+  <xacro:property name="wheel_length" value="0.045" />
+  <xacro:property name="wheel_radius" value="0.045" />
+  <link name="$(arg robot_name)/base_footprint"/>
 
-  <joint name="base_joint" type="fixed">
-    <parent link="base_footprint"/>
-    <child link="base_link"/>
+  <joint name="$(arg robot_name)/base_joint" type="fixed">
+    <parent link="$(arg robot_name)/base_footprint"/>
+    <child link="$(arg robot_name)/base_link"/>
     <origin xyz="0.0 0.0 0.15" rpy="0 0 0"/>
   </joint>
     <!-- Base link -->
-    <link name="base_link">
+    <link name="$(arg robot_name)/base_link">
         <visual>
             <origin xyz="0 0 -0.15" rpy="0 0 1.57" />
             <geometry>
@@ -46,7 +45,7 @@
         </collision>
     </link>
 
-    <link name="inertial_link">
+    <link name="$(arg robot_name)/inertial_link">
         <inertial>
             <origin xyz="0.0 0.0 0.0" />
             <mass value="${base_mass}" />
@@ -58,35 +57,35 @@
 
     <joint name="inertial_joint" type="fixed">
         <origin xyz="0 0 0" rpy="0 0 0" />
-        <parent link="base_link" />
-        <child link="inertial_link" />
+        <parent link="$(arg robot_name)/base_link" />
+        <child link="$(arg robot_name)/inertial_link" />
     </joint>
 
-    <xacro:limo_laser parent_prefix="base_link" frame_prefix="laser">
+    <xacro:limo_laser parent_prefix="$(arg robot_name)/base_link" frame_prefix="$(arg robot_name)/laser">
         <origin xyz="0.103 0 -0.034" rpy="0 0 0"/>
     </xacro:limo_laser>
 
-    <xacro:limo_depth_camera parent_prefix="base_link" frame_prefix="depth_camera">
+    <xacro:limo_depth_camera parent_prefix="$(arg robot_name)/base_link" frame_prefix="$(arg robot_name)/depth_camera">
         <origin xyz="0.084 0 0.3" rpy="0 0 0"/>
     </xacro:limo_depth_camera>
     
-    <xacro:limo_imu parent_prefix="base_link" frame_prefix="imu">
+    <xacro:limo_imu parent_prefix="$(arg robot_name)/base_link" frame_prefix="$(arg robot_name)/imu">
         <origin xyz="0.0 0 -0.1" rpy="0 0 0"/>
     </xacro:limo_imu>
 
-    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="front_left" reflect="1">
+    <xacro:limo_wheel parent_prefix="$(arg robot_name)/base_link" wheel_prefix="front_left" reflect="1">
         <origin xyz="${wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0  0" />
     </xacro:limo_wheel>
 
-    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="front_right" reflect="-1">
+    <xacro:limo_wheel parent_prefix="$(arg robot_name)/base_link" wheel_prefix="front_right" reflect="-1">
         <origin xyz="${wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="${M_PI} 0 0" />
     </xacro:limo_wheel>
 
-    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="rear_left" reflect="1">
+    <xacro:limo_wheel parent_prefix="$(arg robot_name)/base_link" wheel_prefix="rear_left" reflect="1">
         <origin xyz="${-wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
     </xacro:limo_wheel>
 
-    <xacro:limo_wheel parent_prefix="base_link" wheel_prefix="rear_right" reflect="-1">
+    <xacro:limo_wheel parent_prefix="$(arg robot_name)/base_link" wheel_prefix="rear_right" reflect="-1">
         <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="${M_PI} 0 0" />
     </xacro:limo_wheel>
   
@@ -205,37 +204,37 @@
   </gazebo>
     
   <gazebo reference="front_left_wheel">
-      <mu1>100</mu1>
-      <mu2>100</mu2>
-      <kp>10000000.0</kp>
-      <kd>1.0</kd>
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
       <minDepth>0.01</minDepth>
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="front_right_wheel">
-      <mu1>100</mu1>
-      <mu2>100</mu2>
-      <kp>10000000.0</kp>
-      <kd>1.0</kd>
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
       <minDepth>0.01</minDepth>
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="rear_left_wheel">
-      <mu1>100</mu1>
-      <mu2>100</mu2>
-      <kp>10000000.0</kp>
-      <kd>1.0</kd>
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
       <minDepth>0.01</minDepth>
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="rear_right_wheel">
-      <mu1>100</mu1>
-      <mu2>100</mu2>
-      <kp>10000000.0</kp>
-      <kd>1.0</kd>
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
       <minDepth>0.01</minDepth>
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>

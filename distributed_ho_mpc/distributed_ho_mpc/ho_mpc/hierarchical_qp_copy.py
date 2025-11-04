@@ -501,7 +501,7 @@ class HierarchicalQP:
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
                     #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                    # p += rho_vector
+                    p += rho_vector
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])

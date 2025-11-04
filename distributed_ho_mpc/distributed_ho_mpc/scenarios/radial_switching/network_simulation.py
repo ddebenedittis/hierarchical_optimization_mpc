@@ -114,7 +114,7 @@ def main():
 
     goals = [
         np.array([5, 5]),
-        np.array([-5, -5]),
+        np.array([-2, -10]),
         np.array([-5, 5]),
         np.array([5, -5]),
         np.array([8, 3]),
@@ -127,21 +127,24 @@ def main():
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
+            {'prio': 3, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 2},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 2]], 'distance': 2},
+            # {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
@@ -212,7 +215,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -297,8 +300,8 @@ def main():
             last_step = i + 1
         if i == 30:
             None
-        if i > 0:
-            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        # if i > 0:
+        #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for rr in range(st.inner_loop):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)

@@ -244,7 +244,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 2
+        self.threshold = 1
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -411,11 +411,11 @@ class Node:
             )"""
 
         if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-1, -1.5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-2, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([1.5, 3]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([2, -2]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([2, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 3:
             self.s = RobCont(omni=[np.array([-1.5, 1.5]) for _ in range(self.n_robots.omni)])
         """if self.node_id == 0:
@@ -482,13 +482,13 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        # self.rho_j = self.receiver.process_messages('D')
+        self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
             # compute the value of the dual function, with the old x but the updated rho values
-            self.cost_d = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, dual_comp=True)
+            # self.cost_d = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, dual_comp=True)
 
             if self.step_plot == 0:
                 self.cost_d = np.array([-20, -20, -20, -20, -20])
@@ -506,7 +506,10 @@ class Node:
                     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 )"""
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(
+                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                )
+
                 self.counter.append(self.step)
 
             if st.inner_plot and round == '2':
@@ -550,7 +553,6 @@ class Node:
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
         self.save_data()
-        return
 
         self.y_j = self.receiver.process_messages('P')
 

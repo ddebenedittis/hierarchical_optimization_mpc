@@ -4,7 +4,7 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1  # probability of arc of communication
-n_nodes = 4  # numbers of nodes
+n_nodes = 3  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
@@ -14,8 +14,8 @@ inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
 
-v_max = 1.5
-v_min = -1.5
+v_max = 1.0
+v_min = -1.0
 omega_max = 1.5
 omega_min = -1.5
 
@@ -23,7 +23,7 @@ omega_min = -1.5
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['nothing']  # change the key to decide the output visualization
+visual_method = output['save']  # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False  # plot the inner state of the robots

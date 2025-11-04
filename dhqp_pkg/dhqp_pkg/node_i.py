@@ -1,5 +1,9 @@
 import copy
 import csv
+import math
+import subprocess
+import threading
+import time
 from time import sleep
 
 import casadi as ca
@@ -7,8 +11,10 @@ import numpy as np
 import rclpy
 from geometry_msgs.msg import TwistStamped
 from matplotlib import pyplot as plt
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
+from tf_transformations import euler_from_quaternion
 
 import dhqp_pkg.settings as st
 from dhqp_pkg.ho_mpc_multi_robot import (
@@ -53,12 +59,11 @@ class Agent(Node):
         print(f'local: {self.robot_idx}')
 
         self.n_steps = self.get_parameter('max_iters').value
-        self.communication_time = self.get_parameter('communication_time').value
-
         self.n_robots = RobCont(omni=self.degree + 1)  # number of robot seen from i
         self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
 
         self.dt = self.get_parameter('dt').value  # timestep size
+        self.communication_time = self.dt  # self.get_parameter('communication_time').value
 
         self.s = RobCont(omni=None, uni=None)  # symbolic state variables
         self.u = RobCont(omni=None, uni=None)
@@ -109,19 +114,45 @@ class Agent(Node):
             10,  # Queue size for messages
         )
         self.get_logger().info(f'Publisher created for {topic_name}')
+        # odometry subscriber
+        self.subscription = self.create_subscription(
+            Odometry,
+            f'/{self.ns}/diff_drive_base_controller/odom',  # topic name
+            self.odom_callback,
+            10,
+        )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
+        # self.position_timer = self.create_timer(1, self.timer_callback_2)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in self.robot_idx[1:]}
         # Create Tasks and MPC
         self.Tasks()
         self.MPC()
+        self.ss = np.zeros(3)
 
         print(f'Setup of agent {self.node_id} complete')
 
     def listener_callback(self, msg, node):
         self.received_data[self.index_global_to_local(node)].append(list(msg.data))
+
+    def odom_callback(self, msg):
+        # Extract position
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        # z = msg.pose.pose.position.z
+
+        # Extract orientation (quaternion -> yaw)
+        q = msg.pose.pose.orientation
+        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+
+        self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
+        self.ss = np.array([x, y, yaw])
+
+    def timer_callback_2(self):
+        # Update position asynchronously to avoid blocking
+        self.async_position_update()
 
     def timer_callback(self):
         # Perform Partitioned optimization
@@ -162,12 +193,24 @@ class Agent(Node):
                 # print(f" Synchronization : {sync}")
 
             if sync:
+                # command.header.stamp = self.get_clock().now().to_msg()
+                # command.twist.linear.x = float(0)
+                # command.twist.angular.z = float(0)
+                # self.diff_drive_publisher.publish(command)
                 # Reorder the state vector received from the neighbors
                 self.reorder_s_init(self.received_data)
+                if self.step == 1:
+                    self.s.omni[1:] = copy.deepcopy(self.s_init.omni[1:])
 
                 self.u_star, self.y, self.cost_p = self.hompc(copy.deepcopy(self.s_init.tolist()))
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+
+                # publish the command
+                command.header.stamp = self.get_clock().now().to_msg()
+                command.twist.linear.x = float(self.u_star[0][0][0])
+                command.twist.angular.z = float(self.u_star[0][0][1])
+                self.diff_drive_publisher.publish(command)
 
                 # publish the updated message
                 msg.data = [float(self.step)]
@@ -177,14 +220,6 @@ class Agent(Node):
                 self.get_logger().info(
                     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
                 )
-
-                # publish the command
-                command.header.stamp = self.get_clock().now().to_msg()
-                command.twist.linear.x = float(self.u_star[0][0][0])
-                command.twist.angular.z = float(self.u_star[0][0][1])
-                self.diff_drive_publisher.publish(command)
-
-                self.get_logger().info(f'published command input to {self.ns} for step {self.step}')
 
                 # Stop the node if tt exceeds MAXITERS
                 if self.step > self.n_steps:
@@ -198,6 +233,26 @@ class Agent(Node):
     # ---------------------------------------------------------------------------- #
     #                                     Task                                     #
     # ---------------------------------------------------------------------------- #
+    def async_position_update(self):
+        """Non-blocking Gazebo position update."""
+        result = subprocess.run(
+            ['gz', 'model', '-m', 'robot_2', '--pose'],
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout.strip()
+        if not output:
+            self.get_logger().warn('Gazebo returned no data, keeping previous position.')
+            return
+
+        values = [float(x) for x in output.split()]
+        if len(values) >= 3:
+            sx, sy, syaw = values[0], values[1], values[-1]
+            self.s.omni[0] = copy.deepcopy(np.array([sx, sy, syaw]))
+            print(f'pos: {np.array([sx, sy, syaw])}')
+        else:
+            self.get_logger().warn(f'Unexpected Gazebo output: {output}')
+
     def Tasks(self) -> None:
         "Define the tasks separately"
 
@@ -452,9 +507,9 @@ class Agent(Node):
         # ======================================================================== #
 
         if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-5, -5, 1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-5, -5, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([5, 5, -1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([5, 5, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
             self.s = RobCont(omni=[np.array([5, -5]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 3:
@@ -463,11 +518,27 @@ class Agent(Node):
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
+        self.xx = copy.deepcopy(self.s_init.omni[0][0])
+        self.yy = copy.deepcopy(self.s_init.omni[0][1])
         return
 
     # ---------------------------------------------------------------------------- #
     #                                     Methods                                  #
     # ---------------------------------------------------------------------------- #
+    def position_update(self):
+        result = subprocess.run(
+            ['gz', 'model', '-m', f'{self.ns}', '--pose'],
+            capture_output=True,
+            text=True,  # ensures output is str, not bytes
+        )
+        # Get the command output
+        output = result.stdout.strip()
+
+        # Split the string into a list of floats
+        values = [float(x) for x in output.split()]
+        print(f'x{values[0]},y{values[1]},yaw{values[-1]}')
+        return values[0], values[1], values[-1]
+
     def reorder_s_init(self, state_meas: list[float]):
         self.s_init.omni[0] = copy.deepcopy(self.s.omni[0])  # self state
 

@@ -3,16 +3,6 @@
   <world name="default">
 
     <plugin name="gazebo_ros_api_plugin" filename="libgazebo_ros_state.so"/>
-    <ros>
-        <namespace>robot_1</namespace>
-        <argument>model_states:=model_states</argument>
-        <argument>link_states:=link_states</argument>
-    </ros>
-    <include>
-      <uri>model://robot_1</uri>
-      <name>robot_1</name>
-    </include>
-
 
     <include>
       <uri>model://ground_plane</uri>

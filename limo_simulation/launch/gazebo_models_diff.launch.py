@@ -20,7 +20,7 @@ def generate_launch_description():
     robotXacroName = 'limo_four_diff'
     name_package = 'limo_simulation'
     modelFileRelativePath = 'model/limo_four_diff.xacro'
-    worldFileRelativePath = 'world/empty.world'
+    worldFileRelativePath = 'world/my_world.world'
 
     pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
@@ -202,7 +202,7 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    LaunchDescriptionObject.add_action(gazebo_bridge)
+    # LaunchDescriptionObject.add_action(gazebo_bridge)
     # LaunchDescriptionObject.add_action(rviz_node)
     for i in range(2):
         LaunchDescriptionObject.add_action(spawnRobots[i])

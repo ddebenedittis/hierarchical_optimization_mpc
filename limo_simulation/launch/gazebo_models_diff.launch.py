@@ -3,7 +3,7 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
@@ -31,14 +31,6 @@ def generate_launch_description():
     )
     gazeboLaunch = IncludeLaunchDescription(
         gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
-    )
-
-    # Gazebo bridge
-    gazebo_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        # arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"],
-        output='screen',
     )
 
     # rviz_config_file = PathJoinSubstitution(
@@ -78,6 +70,8 @@ def generate_launch_description():
                 'robot_description',
                 '-entity',
                 robot_name,
+                '-robot_namespace',
+                f'/{robot_name}',
                 '-x',
                 str(P[i][0]),
                 '-y',
@@ -93,7 +87,9 @@ def generate_launch_description():
         spawnRobots.append(spawnModelNode)
 
         broadcaster_namespace = f'joint_state_broadcaster_{i+1}'
+
         controller_namespace = f'diff_drive_base_controller_{i+1}'
+
         load_joint_state_broadcaster = Node(
             package='controller_manager',
             executable='spawner',
@@ -202,8 +198,6 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    LaunchDescriptionObject.add_action(gazebo_bridge)
-    # LaunchDescriptionObject.add_action(rviz_node)
     for i in range(2):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])

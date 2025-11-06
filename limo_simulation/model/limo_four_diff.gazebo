@@ -10,7 +10,7 @@
     <xacro:limo_wheel_transmission wheel_prefix="rear_left" />
     <xacro:limo_wheel_transmission wheel_prefix="rear_right" />
     <!-- Controller configurations -->
-    <!-- <xacro:gazebo_laser frame_prefix="laser" />
+    <!--<xacro:gazebo_laser frame_prefix="laser" />
     <xacro:gazebo_depth_camera frame_prefix="depth_camera" />-->
     <xacro:gazebo_imu frame_prefix="imu" /> 
     <ros2_control name="GazeboSystem" type="system">
@@ -56,7 +56,7 @@
     <gazebo reference="$(arg robot_name)/base_link">
         <material>Gazebo/Green</material>
     </gazebo>
-    <gazebo reference="front_left_wheel">
+    <!--<gazebo reference="front_left_wheel">
         <mu1>10</mu1>
         <mu2>10</mu2>
         <kp>10000000.0</kp>
@@ -83,7 +83,7 @@
         <fdir1>1 0 0</fdir1>
         <maxContacts value="64"/>
     </gazebo>
-    <gazebo reference="$rear_right_wheel">
+    <gazebo reference="rear_right_wheel">
         <mu1>10</mu1>
         <mu2>10</mu2>
         <kp>10000000.0</kp>
@@ -91,7 +91,7 @@
         <minDepth>0.01</minDepth>
         <fdir1>1 0 0</fdir1>
         <maxContacts value="64"/>
-    </gazebo>
+    </gazebo>-->
 
     <gazebo>
         <plugin name="diff_drive_controller" filename="libgazebo_ros2_control.so">
@@ -99,7 +99,7 @@
                 <namespace>$(arg robot_name)</namespace>
                 <remapping>/tf:=tf</remapping>
                 <remapping>/tf_static:=tf_static</remapping>
-                <remapping>diffdrive_controller/odom:=odom</remapping>
+                <remapping>diff_drive_controller/odom:=odom</remapping>
             </ros>
             <!--<updateRate>100.0</updateRate>
             <leftFrontJoint>front_left_wheel</leftFrontJoint>
@@ -117,13 +117,12 @@
             <covariance_x>0.000100</covariance_x>
             <covariance_y>0.000100</covariance_y>
             <covariance_yaw>0.010000</covariance_yaw>
-            
+            <left_joint>$(arg robot_name)/front_left_wheel</left_joint>
+            <right_joint>$(arg robot_name)/front_right_wheel</right_joint>
+            <left_joint>$(arg robot_name)/rear_left_wheel</left_joint>
+            <right_joint>$(arg robot_name)/rear_right_wheel</right_joint>
             <update_rate>1000</update_rate>
             <num_wheel_pairs>2</num_wheel_pairs>
-            <left_joint>front_left_wheel</left_joint>
-            <right_joint>front_right_wheel</right_joint>
-            <left_joint>rear_left_wheel</left_joint>
-            <right_joint>rear_right_wheel</right_joint>
             <wheel_separation>0.172</wheel_separation>
             <wheel_radius>0.045</wheel_radius>
             <max_wheel_torque>20</max_wheel_torque>
@@ -135,10 +134,10 @@
             <odometry_topic>odom</odometry_topic>
             <odometry_frame>odom</odometry_frame>
             <robot_base_frame>base_footprint</robot_base_frame>
-            <odometry_source>1</odometry_source>
+            <odometry_source>1</odometry_source>-->
             <ros>
                 <remapping>odom:=/odometry</remapping>
-            </ros>-->
+            </ros>
             <parameters>
                 $(find limo_simulation)/config/diff_drive_controller.yaml
             </parameters>
@@ -160,7 +159,7 @@
     <gazebo>
         <plugin name="gazebo_ros_api_plugin" filename="libgazebo_ros2_state.so">
             <ros>
-                <namespace>/robot_1</namespace>
+                <namespace>$(arg robot_name)</namespace>
                 <argument>model_states:=model_states</argument>
                 <argument>link_states:=link_states</argument>
             </ros>

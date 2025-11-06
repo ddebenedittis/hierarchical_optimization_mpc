@@ -8,7 +8,7 @@ n_nodes = 2  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.025
+dt = 0.03
 n_steps = 1000
 inner_loop = 1  # number of inner loop of the distributed algorithm
 

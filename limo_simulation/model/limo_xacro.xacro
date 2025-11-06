@@ -47,12 +47,12 @@
                 <geometry>
                     <cylinder radius="0.02" length="0.01"/>
                 </geometry>
-                <material name='laser_material'>
+                <!--<material name='laser_material'>
                     <ambient>0.1 0.1 0.1 1</ambient>
                     <diffuse>0.1 0.1 0.2 1</diffuse>
                     <specular>0 0 0 0</specular>
                     <emissive>0 0 0 1</emissive>
-                </material>
+                </material>-->
             </visual>
             <collision name='laser_collision'>
                 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -88,12 +88,12 @@
                 <geometry>
                     <box size="0.02 0.06 0.015"/>
                 </geometry>
-                <material name='depth_camera_material'>
+                <!--<material name='depth_camera_material'>
                     <ambient>0.1 0.1 0.1 1</ambient>
                     <diffuse>0.1 0.1 0.2 1</diffuse>
                     <specular>0 0 0 0</specular>
                     <emissive>0 0 0 1</emissive>
-                </material>
+                </material>-->
             </visual>
             <collision name='depth_camera_collision'>
                 <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -139,12 +139,12 @@
                 <geometry>
                     <box size="0.001 0.001 0.001"/>
                 </geometry>
-                <material name='imu_material'>
+                <!--<material name='imu_material'>
                     <ambient>0.1 0.1 0.1 1</ambient>
                     <diffuse>0.1 0.1 0.2 1</diffuse>
                     <specular>0 0 0 0</specular>
                     <emissive>0 0 0 1</emissive>
-                </material>
+                </material>-->
             </visual>
             <collision name='imu_collision'>
                 <origin xyz="0 0 0" rpy="0 0 0"/>

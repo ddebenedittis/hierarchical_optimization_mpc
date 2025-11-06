@@ -12,9 +12,9 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     # generate coordinates of an square with center in the origin
-    a = 5
+    a = 0.5
 
-    P = [[-a, -a, 0, 0], [a, a, 0, 0], [a, -a, 0], [-a, a, 0]]
+    P = [[-a, -a, 0, 0], [a, a, 0, -3], [a, -a, 0], [-a, a, 0]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
@@ -202,7 +202,7 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    # LaunchDescriptionObject.add_action(gazebo_bridge)
+    LaunchDescriptionObject.add_action(gazebo_bridge)
     # LaunchDescriptionObject.add_action(rviz_node)
     for i in range(2):
         LaunchDescriptionObject.add_action(spawnRobots[i])

@@ -10,10 +10,10 @@ import casadi as ca
 import numpy as np
 import rclpy
 from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import Point, Pose, PoseArray, TwistStamped
 from matplotlib import pyplot as plt
-from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
 from tf_transformations import euler_from_quaternion
 
@@ -87,18 +87,7 @@ class Agent(Node):
         # create logging file
         self.out_dir = self.get_parameter('out_dir').value
 
-        # initialize subscription dict
-        self.subscriptions_list = {}
-
-        # create a subscription to each neighbor
-        for j in self.neigh:
-            topic_name = f'/topic_{j}'
-            self.subscriptions_list[j] = self.create_subscription(
-                Float32MultiArray,
-                topic_name,
-                lambda msg, node=j: self.listener_callback(msg, node),
-                20,  # Queue size for messages
-            )
+        # ------------- PUBLISHER ------------#
 
         # create the publisher between node for communication
         self.publisher_ = self.create_publisher(
@@ -107,14 +96,34 @@ class Agent(Node):
             50,  # Queue size for messages
         )
         # create the publisher for optimal input computed
-        self.ns = f'robot_{self.node_id+1}'
-        topic_name = f'/{self.ns}/diff_drive_base_controller/cmd_vel'
+        self.ns = f'/robot_{self.node_id+1}'
+        topic_name = f'{self.ns}/diff_drive_base_controller/cmd_vel'
         self.diff_drive_publisher = self.create_publisher(
             TwistStamped,
             topic_name,
             10,  # Queue size for messages
         )
         self.get_logger().info(f'Publisher created for {topic_name}')
+
+        # Publisher for detected objects (as world positions)
+        self.publisher = self.create_publisher(
+            PoseArray,
+            f'{self.ns}/detected_objects',
+            10,
+        )
+
+        # ------------- SUBSCRIBER ------------#
+        # initialize subscription dict
+        self.subscriptions_list = {}
+        # intra-neighbour communication subscribers
+        for j in self.neigh:
+            topic_name = f'/topic_{j}'
+            self.subscriptions_list[j] = self.create_subscription(
+                Float32MultiArray,
+                topic_name,
+                lambda msg, node=j: self.listener_callback(msg, node),
+                20,  # Queue size for messages
+            )
         # odometry subscriber
         self.subscription = self.create_subscription(
             ModelStates,
@@ -122,9 +131,20 @@ class Agent(Node):
             self.states_callback,
             10,
         )
+        self.subscription = self.create_subscription(
+            LaserScan,
+            f'{self.ns}/scan',  # topic name
+            self.scan_callback,
+            10,
+        )
+
+        # Sensor configuration parameters
+        self.gap_threshold = 5  # samples separating objects
+        self.range_min = 0.3
+        self.range_max = 8.0
+        self.cylinder_radius = 1.0  # meters
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
-        # self.position_timer = self.create_timer(1, self.timer_callback_2)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in self.robot_idx[1:]}
@@ -157,9 +177,92 @@ class Agent(Node):
 
         # self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
-    def timer_callback_2(self):
-        # Update position asynchronously to avoid blocking
-        self.async_position_update()
+    def scan_callback(self, msg: LaserScan):
+        ranges = np.array(msg.ranges)
+
+        # Replace invalid or out-of-range values with NaN
+        ranges[(ranges < self.range_min) | (ranges > self.range_max)] = np.nan
+
+        # Identify valid indices (where the LiDAR sees something)
+        valid_indices = np.where(~np.isnan(ranges))[0]
+
+        if len(valid_indices) == 0:
+            self.get_logger().info('No objects detected.')
+            return
+
+        # Group detections separated by >= gap_threshold samples
+        object_groups = []
+        current_group = [valid_indices[0]]
+
+        for idx in valid_indices[1:]:
+            if idx - current_group[-1] <= self.gap_threshold:
+                current_group.append(idx)
+            else:
+                object_groups.append(current_group)
+                current_group = [idx]
+        object_groups.append(current_group)
+
+        # Compute each object's average range and angle
+        objects_local = []
+        for group in object_groups:
+            group_ranges = ranges[group]
+            if np.all(np.isnan(group_ranges)):
+                continue
+
+            # Minimum range (closest point)
+            min_idx_in_group = group[np.nanargmin(group_ranges)]
+            min_range = ranges[min_idx_in_group]
+
+            # Mean angle for this object (its approximate direction)
+            group_angles = msg.angle_min + np.array(group) * msg.angle_increment
+            mean_angle = np.mean(group_angles)
+
+            objects_local.append((min_range, mean_angle))
+
+        if not objects_local:
+            self.get_logger().info('No valid object clusters found.')
+            return
+
+        # --- Convert each detected object's closest point to world coordinates ---
+        x_r, y_r, yaw_r = self.s.omni[0]  # Robot's current position and orientation
+        poses = PoseArray()
+        poses.header = msg.header  # copy time and frame info
+        poses.header.frame_id = 'my_world'
+
+        for i, (r, mean_ang) in enumerate(objects_local):
+            # Object center (1 m further along the beam)
+            range_to_center = r + self.cylinder_radius
+            # Position in robot frame
+            x_local = range_to_center * math.cos(mean_ang)
+            y_local = range_to_center * math.sin(mean_ang)
+            # Transform to world frame
+            x_world = x_r + x_local * math.cos(yaw_r) - y_local * math.sin(yaw_r)
+            y_world = y_r + x_local * math.sin(yaw_r) + y_local * math.cos(yaw_r)
+
+            # Save as Pose (only position is relevant)
+            pose = Pose()
+            pose.position.x = x_world
+            pose.position.y = y_world
+            pose.position.z = 0.0
+            poses.poses.append(pose)
+
+        # Publish all detected objects
+        self.publisher.publish(poses)
+
+        # --- Print all objects’ closest points ---
+        """self.get_logger().info(f"Detected {len(objects)} objects:")
+        for i, (dist, ang) in enumerate(objects):
+            self.get_logger().info(
+                f"  Object {i+1}: distance = {dist:.2f} m, angle = {np.degrees(ang):.1f}°"
+            )"""
+
+        # Find the closest object
+        """closest = min(objects, key=lambda x: x[0])
+        distance, angle = closest
+
+        self.get_logger().info(
+            f"Closest object: distance = {distance:.2f} m, angle = {np.degrees(angle):.1f}°"
+        )"""
 
     def timer_callback(self):
         # Perform Partitioned optimization
@@ -189,13 +292,8 @@ class Agent(Node):
                 sync = all(
                     self.step - 1 == self.received_data[j][0][0] for j in self.robot_idx[1:]
                 )  # True if all True
-                # print(f" Synchronization : {sync}")
 
             if sync:
-                # command.header.stamp = self.get_clock().now().to_msg()
-                # command.twist.linear.x = float(0)
-                # command.twist.angular.z = float(0)
-                # self.diff_drive_publisher.publish(command)
                 # Reorder the state vector received from the neighbors
                 self.reorder_s_init(self.received_data)
                 # if self.step == 1:
@@ -207,8 +305,8 @@ class Agent(Node):
 
                 # publish the command
                 command.header.stamp = self.get_clock().now().to_msg()
-                command.twist.linear.x = float(self.u_star[0][0][0])
-                command.twist.angular.z = float(self.u_star[0][0][1])
+                command.twist.linear.x = 0.0  # float(self.u_star[0][0][0])
+                command.twist.angular.z = 0.0  # float(self.u_star[0][0][1])
                 self.diff_drive_publisher.publish(command)
 
                 # publish the updated message
@@ -234,25 +332,6 @@ class Agent(Node):
     # ---------------------------------------------------------------------------- #
     #                                     Task                                     #
     # ---------------------------------------------------------------------------- #
-    def async_position_update(self):
-        """Non-blocking Gazebo position update."""
-        result = subprocess.run(
-            ['gz', 'model', '-m', 'robot_2', '--pose'],
-            capture_output=True,
-            text=True,
-        )
-        output = result.stdout.strip()
-        if not output:
-            self.get_logger().warn('Gazebo returned no data, keeping previous position.')
-            return
-
-        values = [float(x) for x in output.split()]
-        if len(values) >= 3:
-            sx, sy, syaw = values[0], values[1], values[-1]
-            self.s.omni[0] = copy.deepcopy(np.array([sx, sy, syaw]))
-            print(f'pos: {np.array([sx, sy, syaw])}')
-        else:
-            self.get_logger().warn(f'Unexpected Gazebo output: {output}')
 
     def Tasks(self) -> None:
         "Define the tasks separately"
@@ -508,7 +587,7 @@ class Agent(Node):
         # ======================================================================== #
 
         if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-5, -5, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-0.5, -0.5, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 1:
             self.s = RobCont(omni=[np.array([5, 5, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
@@ -526,20 +605,6 @@ class Agent(Node):
     # ---------------------------------------------------------------------------- #
     #                                     Methods                                  #
     # ---------------------------------------------------------------------------- #
-    def position_update(self):
-        result = subprocess.run(
-            ['gz', 'model', '-m', f'{self.ns}', '--pose'],
-            capture_output=True,
-            text=True,  # ensures output is str, not bytes
-        )
-        # Get the command output
-        output = result.stdout.strip()
-
-        # Split the string into a list of floats
-        values = [float(x) for x in output.split()]
-        print(f'x{values[0]},y{values[1]},yaw{values[-1]}')
-        return values[0], values[1], values[-1]
-
     def reorder_s_init(self, state_meas: list[float]):
         # self.s_init.omni[0] = copy.deepcopy(self.s.omni[0])  # self state
 

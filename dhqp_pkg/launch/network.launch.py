@@ -41,6 +41,9 @@ def generate_launch_description():
     # ---------------------------------------------------------------------------- #
 
     # deterministic graphs
+    if st.n_nodes == 1:
+        graph_matrix = np.array([[0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0])
     if st.n_nodes == 2:
         graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])

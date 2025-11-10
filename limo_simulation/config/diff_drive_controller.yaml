@@ -35,9 +35,10 @@
     cmd_vel_timeout: 0.25
 
     # Controller limits
-    max_wheel_torque: 20.0
-    max_wheel_acceleration: 1.0
-    torque: 50.0
+    max_wheel_torque: 30.0
+    max_wheel_acceleration: 15.0
+    max_wheel_acceleration: -15.0
+    torque: 60.0
 
     # Covariances (optional but recommended)
     pose_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
@@ -48,11 +49,11 @@
 
     # Command and odometry filters
     linear.x.has_velocity_limits: true
-    linear.x.max_velocity: 1.5
-    linear.x.min_velocity: -2.0
+    linear.x.max_velocity: 3.0
+    linear.x.min_velocity: -3.0
     angular.z.has_velocity_limits: true
-    angular.z.max_velocity: 2.0
-    angular.z.min_velocity: -2.0
+    angular.z.max_velocity: 10.0
+    angular.z.min_velocity: -10.0
 
 # /robot_2/controller_manager:
 #   ros__parameters:
@@ -70,8 +71,8 @@
 #   ros__parameters:
 #     # Wheel setup
 #     num_wheels_pair: 2
-#     left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
-#     right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
+#     left_wheel_names: ["robot_2/front_left_wheel", "robot_2/rear_left_wheel"]
+#     right_wheel_names: ["robot_2/front_right_wheel", "robot_2/rear_right_wheel"]
 #     wheel_separation: 0.172
 #     wheel_radius: 0.045 #0.045  # From 0.09 diameter
 

@@ -2,9 +2,10 @@
 
 <robot name="limo_four_diff" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:arg name="robot_name" default="limo_four_diff"/>
+  <xacro:arg name="namespace" default=""/>
 
-  <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro"/>
-  <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo"/> 
+  <xacro:include filename="$(find limo_simulation)/model/limo_xacro.xacro" />
+  <xacro:include filename="$(find limo_simulation)/model/limo_four_diff.gazebo" ns='$(arg namespace)'/> 
 
   <!-- Variables -->
   <xacro:property name="M_PI" value="3.14159"/>
@@ -172,7 +173,7 @@
 <gazebo reference="$(arg robot_name)/laser_link">
     <sensor name="$(arg robot_name)/laser" type="ray">
       <always_on>true</always_on>
-      <visualize>true</visualize>
+      <visualize>false</visualize>
       <update_rate>8</update_rate>
       <ray>
         <scan>
@@ -205,9 +206,9 @@
     </sensor>
   </gazebo>
     
-  <gazebo reference="front_left_wheel">
-      <mu1>1.0</mu1>
-      <mu2>1.0</mu2>
+  <!--<gazebo reference="front_left_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
       <kp>100000.0</kp>
       <kd>10.0</kd>
       <minDepth>0.01</minDepth>
@@ -215,8 +216,8 @@
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="front_right_wheel">
-      <mu1>1.0</mu1>
-      <mu2>1.0</mu2>
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
       <kp>100000.0</kp>
       <kd>10.0</kd>
       <minDepth>0.01</minDepth>
@@ -224,8 +225,8 @@
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="rear_left_wheel">
-      <mu1>1.0</mu1>
-      <mu2>1.0</mu2>
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
       <kp>100000.0</kp>
       <kd>10.0</kd>
       <minDepth>0.01</minDepth>
@@ -233,14 +234,14 @@
       <maxContacts value="64"/>
   </gazebo>
   <gazebo reference="rear_right_wheel">
-      <mu1>1.0</mu1>
-      <mu2>1.0</mu2>
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
       <kp>100000.0</kp>
       <kd>10.0</kd>
       <minDepth>0.01</minDepth>
       <fdir1>1 0 0</fdir1>
       <maxContacts value="64"/>
-  </gazebo>
+  </gazebo>-->
   <!--<gazebo>
     <plugin name="diff_drive_controller" filename="libgazebo_ros_control.so">
         <update_rate>50</update_rate>

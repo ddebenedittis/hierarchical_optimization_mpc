@@ -64,7 +64,7 @@ class Agent(Node):
         self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
 
         self.dt = self.get_parameter('dt').value  # timestep size
-        self.communication_time = 1e-3  # self.get_parameter('communication_time').value
+        self.communication_time = 1e-4  # self.get_parameter('communication_time').value
 
         self.s = RobCont(omni=None, uni=None)  # symbolic state variables
         self.u = RobCont(omni=None, uni=None)
@@ -101,7 +101,7 @@ class Agent(Node):
         self.diff_drive_publisher = self.create_publisher(
             TwistStamped,
             topic_name,
-            10,  # Queue size for messages
+            20,  # Queue size for messages
         )
         self.get_logger().info(f'Publisher created for {topic_name}')
 
@@ -109,7 +109,7 @@ class Agent(Node):
         self.publisher = self.create_publisher(
             PoseArray,
             f'{self.ns}/detected_objects',
-            10,
+            20,
         )
 
         # ------------- SUBSCRIBER ------------#
@@ -129,25 +129,26 @@ class Agent(Node):
             ModelStates,
             '/model_states',  # topic name
             self.states_callback,
-            10,
+            20,
         )
         self.subscription = self.create_subscription(
             LaserScan,
             f'{self.ns}/scan',  # topic name
             self.scan_callback,
-            10,
+            20,
         )
 
         # Sensor configuration parameters
         self.gap_threshold = 5  # samples separating objects
         self.range_min = 0.3
         self.range_max = 8.0
-        self.cylinder_radius = 1.0  # meters
+        self.cylinder_radius = 0.5  # meters
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in self.robot_idx[1:]}
+
         # Create Tasks and MPC
         self.Tasks()
         self.MPC()
@@ -160,20 +161,17 @@ class Agent(Node):
     def states_callback(self, msg):
         """Extract the pose from gazebo"""
         # Extract position from Gazebo
-        nn = None
         for n, name in enumerate(msg.name):
-            if name == self.ns:
-                nn = n
-        if nn == None:
-            self.get_logger().error('NO MODEL NAME MATCHING')
+            for neigh in self.robot_idx_global:
+                if name == f'/robot_{neigh+1}':
+                    x = msg.pose[n].position.x  # msg.pose.pose.position.x
+                    y = msg.pose[n].position.y  # msg.pose.pose.position.y
 
-        x = msg.pose[nn].position.x  # msg.pose.pose.position.x
-        y = msg.pose[nn].position.y  # msg.pose.pose.position.y
-
-        # Extract orientation (quaternion -> yaw)
-        q = msg.pose[nn].orientation  # msg.pose.pose.orientation
-        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
-        self.s.omni[0] = np.array([x, y, yaw])  # self state
+                    # Extract orientation (quaternion -> yaw)
+                    q = msg.pose[n].orientation  # msg.pose.pose.orientation
+                    roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                    nn = self.index_global_to_local(neigh)
+                    self.s.omni[nn] = np.array([x, y, yaw])  # self state
 
         # self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
@@ -239,6 +237,7 @@ class Agent(Node):
             x_world = x_r + x_local * math.cos(yaw_r) - y_local * math.sin(yaw_r)
             y_world = y_r + x_local * math.sin(yaw_r) + y_local * math.cos(yaw_r)
 
+            self.objects_global = [x_world, y_world]
             # Save as Pose (only position is relevant)
             pose = Pose()
             pose.position.x = x_world
@@ -248,7 +247,21 @@ class Agent(Node):
 
         # Publish all detected objects
         self.publisher.publish(poses)
-
+        # if self.step < 4:
+        #     self.obstacle_pos = self.objects_global
+        #     self.task_obs_avoidance = [
+        #         ca.vertcat(
+        #             -((self.s.omni[0][0] - self.obstacle_pos[0]) ** 2)
+        #             - (self.s.omni[0][1] - self.obstacle_pos[1]) ** 2
+        #             + self.obstacle_size**2
+        #         )
+        #     ]
+        #     self.hompc.update_task_bi(
+        #             name='obstacle_avoidance',
+        #             prio=3,
+        #             type=TaskType.Bi,
+        #             ineq_task_coeff=self.task_obs_avoidance,
+        #     )
         # --- Print all objects’ closest points ---
         """self.get_logger().info(f"Detected {len(objects)} objects:")
         for i, (dist, ang) in enumerate(objects):
@@ -305,8 +318,8 @@ class Agent(Node):
 
                 # publish the command
                 command.header.stamp = self.get_clock().now().to_msg()
-                command.twist.linear.x = 0.0  # float(self.u_star[0][0][0])
-                command.twist.angular.z = 0.0  # float(self.u_star[0][0][1])
+                command.twist.linear.x = float(self.u_star[0][0][0])
+                command.twist.angular.z = float(self.u_star[0][0][1])
                 self.diff_drive_publisher.publish(command)
 
                 # publish the updated message
@@ -340,10 +353,10 @@ class Agent(Node):
 
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
-                self.u.omni[0] - 1.5,  # vmax
-                -self.u.omni[0] + (-1.5),  # vmin
-                self.u.omni[1] - 1.5,  # vmax
-                -self.u.omni[1] + (-1.5),  # vmin
+                self.u.omni[0] - st.v_max,  # vmax
+                -self.u.omni[0] + st.v_min,  # vmin
+                self.u.omni[1] - st.omega_max,  # vmax
+                -self.u.omni[1] + st.omega_min,  # vmin
             )
         )
 
@@ -399,7 +412,7 @@ class Agent(Node):
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 2
+        self.threshold = 0.8
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -414,8 +427,9 @@ class Agent(Node):
         ]
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([2, 2])
-        self.obstacle_size = 3
+
+        self.obstacle_pos = np.array([0, 0])
+        self.obstacle_size = 2
         self.task_obs_avoidance = [
             ca.vertcat(
                 -((self.s.omni[0] - self.obstacle_pos[0]) ** 2)
@@ -587,19 +601,17 @@ class Agent(Node):
         # ======================================================================== #
 
         if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-0.5, -0.5, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-5, -5, 0]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([5, 5, 0]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([5, -5, -3]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([5, -5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([5, 5, -3]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-5, 5]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([-5, 5, 0]) for _ in range(self.n_robots.omni)])
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
-        self.xx = copy.deepcopy(self.s_init.omni[0][0])
-        self.yy = copy.deepcopy(self.s_init.omni[0][1])
         return
 
     # ---------------------------------------------------------------------------- #
@@ -610,8 +622,8 @@ class Agent(Node):
 
         for j in self.robot_idx[1:]:
             s_j = [s for s in state_meas[j].pop(0)[1:]]
-            s_j = np.array(s_j)
-            self.s.omni[j] = copy.deepcopy(s_j)
+            # s_j = np.array(s_j)
+            # self.s.omni[j] = copy.deepcopy(s_j)
 
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
         """Update the state of the system using the control input u_star and the time step dt"""

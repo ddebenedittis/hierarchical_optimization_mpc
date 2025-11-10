@@ -4,20 +4,20 @@ import numpy as np
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
 p = 1  # probability of arc of communication
-n_nodes = 2  # numbers of nodes
+n_nodes = 4  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.03
-n_steps = 1000
+dt = 0.1
+n_steps = 3500
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
 
-v_max = 1.5
-v_min = -1.5
-omega_max = 2
-omega_min = -2
+v_max = 1.0
+v_min = -1.0
+omega_max = 3.0
+omega_min = -3.0
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
@@ -46,8 +46,8 @@ step_size = 1e-5
 
 goals = [
     np.array([5, 5]),
-    np.array([-5, -5]),
     np.array([-5, 5]),
+    np.array([-5, -5]),
     np.array([5, -5]),
 ]
 system_tasks = {

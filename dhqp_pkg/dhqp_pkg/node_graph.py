@@ -86,41 +86,30 @@ class MinimalSubscriber(Node):
 
             self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
 
-            # Stop the node if tt exceeds MAXITERS
-            if self.step > self.n_steps:
-                print('\nMAXITERS reached')
-                if st.simulation:
-                    save_snapshots(
-                        self.s_history,
-                        self.goals,
-                        None,
-                        st.dt,
-                        [(self.step - 1) * st.dt],
-                        f'{self.out_dir}/snapshot',
-                        x_lim=[-10, 10],
-                        y_lim=[-8, 8],
-                        flags=self.flags,
-                    )
-
-                    display_animation(
-                        self.s_history,
-                        self.goals,
-                        None,
-                        st.dt,
-                        st.visual_method,
-                        video_name=f'{self.out_dir}/video.mp4',
-                        x_lim=[-10, 10],
-                        y_lim=[-8, 8],
-                        flags=self.flags,
-                    )
-                else:
-                    self.get_logger().info('My work is done, no plot requested. Goodbye!')
-
-                self.destroy_node()
-
             # update iteration counter
             self.sync = False
             self.step += 1
+
+        # Stop the node if tt exceeds MAXITERS
+        if self.step >= self.n_steps - 5:
+            print('\nMAXITERS reached')
+            if st.simulation:
+                save_snapshots(
+                    self.s_history,
+                    self.goals,
+                    None,
+                    st.dt,
+                    [(self.step - 1) * st.dt],
+                    f'{self.out_dir}/snapshot',
+                    x_lim=[-10, 10],
+                    y_lim=[-8, 8],
+                    flags=self.flags,
+                )
+
+            else:
+                self.get_logger().info('My work is done, no plot requested. Goodbye!')
+
+            self.destroy_node()
 
     def reorder_s_init(self, state_meas: list[float]):
         s = []

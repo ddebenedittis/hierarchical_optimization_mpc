@@ -12,10 +12,10 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
     - [Scripts](#scripts)
       - [With ROS](#with-ros)
       - [With Python](#with-python)
-        - [Distributed](#distributed)
+    - [Distributed](#distributed)
       - [With Python](#with-python-1)
       - [With ROS](#with-ros-1)
-  - [Examples](#examples)
+      - [Examples](#examples)
   - [Development](#development)
     - [Pre-Commit](#pre-commit)
     - [Tests](#tests)
@@ -88,7 +88,7 @@ Parameters:
 - `--solver {clarabel, osqp, proxqp, quadprog, reluqp}`: QP solver to use.
 - `--visual_method {plot, save, none}`: how to display the results.
 
-##### Distributed
+### Distributed
 #### With Python
 Distributed examples can be run with the scripts `network_simulation.py` in the `scenarios` folder in `distributed_ho_mpc` package.
 The following scenarios with the relative setting are already settend in the folders:
@@ -105,7 +105,7 @@ The relative pkg are:
 - limo_simulation
   provide a gazebo simulation for testing the algorithm. It spawns limo robots 
 
-## Examples
+#### Examples
 ```shell
 ros2 launch limo_simulation gazebo_models_diff.launch.py
 ```

@@ -45,10 +45,18 @@ def get_unicycle_model(dt: float):
 
     v = u[0]
     omega = u[1]
+    # Slip parameters (can be tuned or estimated online)
+    kv = 0.9  # longitudinal slip factor
+    komega = 0.8  # rotational slip factor
+    beta = 0.05  # lateral slip angle (radians)
+
+    # Effective motion considering slip
+    v = kv * v
+    omega = komega * omega
 
     s_kp1 = ca.vertcat(
-        x + dt * ca.cos(theta + 1 / 2 * dt * omega) * v,
-        y + dt * ca.sin(theta + 1 / 2 * dt * omega) * v,
+        x + dt * ca.cos(theta + beta + 1 / 2 * dt * omega) * v,
+        y + dt * ca.sin(theta + beta + 1 / 2 * dt * omega) * v,
         theta + dt * omega,
     )
 

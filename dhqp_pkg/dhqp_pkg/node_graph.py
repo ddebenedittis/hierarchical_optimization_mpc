@@ -101,8 +101,8 @@ class MinimalSubscriber(Node):
                     st.dt,
                     [(self.step - 1) * st.dt],
                     f'{self.out_dir}/snapshot',
-                    x_lim=[-10, 10],
-                    y_lim=[-8, 8],
+                    x_lim=[-6, 15],
+                    y_lim=[-6, 15],
                     flags=self.flags,
                 )
 

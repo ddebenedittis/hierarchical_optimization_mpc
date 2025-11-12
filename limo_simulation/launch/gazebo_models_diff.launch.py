@@ -3,12 +3,12 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription, RegisterEventHandler
-from launch.event_handlers import OnProcessExit
+from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from scripts import GazeboRosPaths
 
 
 def generate_launch_description():
@@ -27,12 +27,47 @@ def generate_launch_description():
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
     # robotDescription = xacro.process_file(pathModelFile).toxml()
 
-    gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
-        os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
+    model, plugin, media = GazeboRosPaths.get_paths()
+
+    if 'GAZEBO_MODEL_PATH' in os.environ:
+        model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
+    if 'GAZEBO_PLUGIN_PATH' in os.environ:
+        plugin += os.pathsep + os.environ['GAZEBO_PLUGIN_PATH']
+    if 'GAZEBO_RESOURCE_PATH' in os.environ:
+        media += os.pathsep + os.environ['GAZEBO_RESOURCE_PATH']
+
+    gazebo_config_file_path = os.path.join(
+        get_package_share_path('limo_simulation'),
+        'config',
+        'gazebo_params.yaml',
     )
-    gazeboLaunch = IncludeLaunchDescription(
-        gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
+    gazebo_server = ExecuteProcess(
+        cmd=[
+            [
+                'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=true world:=',
+                pathWorldFile,
+                ' params_file:=',
+                gazebo_config_file_path,
+            ]
+        ],
+        additional_env={
+            '__NV_PRIME_RENDER_OFFLOAD': '1',
+            '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
+            'GAZEBO_MODEL_PATH': model,
+            'GAZEBO_PLUGIN_PATH': plugin,
+            'GAZEBO_RESOURCE_PATH': media,
+        },
+        shell=True,
+        output='screen',
     )
+
+    gazebo_client = ExecuteProcess(
+        cmd=[['ros2 launch gazebo_ros gzclient.launch.py']],
+        additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
+        shell=True,
+        output='screen',
+    )
+
     controller_params_file = os.path.join(
         get_package_share_path('limo_simulation'), 'config', 'diff_drive_controller.yaml'
     )
@@ -278,7 +313,8 @@ def generate_launch_description():
     # )'''
 
     LaunchDescriptionObject = LaunchDescription()
-    LaunchDescriptionObject.add_action(gazeboLaunch)
+    LaunchDescriptionObject.add_action(gazebo_server)
+    LaunchDescriptionObject.add_action(gazebo_client)
     for i in range(4):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])

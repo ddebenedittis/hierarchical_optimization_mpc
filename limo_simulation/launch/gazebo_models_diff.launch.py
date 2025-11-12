@@ -44,7 +44,7 @@ def generate_launch_description():
     gazebo_server = ExecuteProcess(
         cmd=[
             [
-                'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=true world:=',
+                'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=false world:=',
                 pathWorldFile,
                 ' params_file:=',
                 gazebo_config_file_path,

@@ -3,7 +3,8 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
@@ -26,92 +27,94 @@ def generate_launch_description():
     pathModelFile = os.path.join(get_package_share_path(name_package), modelFileRelativePath)
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
     # robotDescription = xacro.process_file(pathModelFile).toxml()
-
-    model, plugin, media = GazeboRosPaths.get_paths()
-
-    if 'GAZEBO_MODEL_PATH' in os.environ:
-        model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
-    if 'GAZEBO_PLUGIN_PATH' in os.environ:
-        plugin += os.pathsep + os.environ['GAZEBO_PLUGIN_PATH']
-    if 'GAZEBO_RESOURCE_PATH' in os.environ:
-        media += os.pathsep + os.environ['GAZEBO_RESOURCE_PATH']
-
-    gazebo_config_file_path = os.path.join(
-        get_package_share_path('limo_simulation'),
-        'config',
-        'gazebo_params.yaml',
+    gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
+        os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
     )
-    gazebo_server = ExecuteProcess(
-        cmd=[
-            [
-                'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=false world:=',
-                pathWorldFile,
-                ' params_file:=',
-                gazebo_config_file_path,
-            ]
-        ],
-        additional_env={
-            '__NV_PRIME_RENDER_OFFLOAD': '1',
-            '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
-            'GAZEBO_MODEL_PATH': model,
-            'GAZEBO_PLUGIN_PATH': plugin,
-            'GAZEBO_RESOURCE_PATH': media,
-        },
-        shell=True,
-        output='screen',
+    gazeboLaunch = IncludeLaunchDescription(
+        gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
     )
+    # model, plugin, media = GazeboRosPaths.get_paths()
 
-    gazebo_client = ExecuteProcess(
-        cmd=[['ros2 launch gazebo_ros gzclient.launch.py']],
-        additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
-        shell=True,
-        output='screen',
-    )
+    # if 'GAZEBO_MODEL_PATH' in os.environ:
+    #     model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
+    # if 'GAZEBO_PLUGIN_PATH' in os.environ:
+    #     plugin += os.pathsep + os.environ['GAZEBO_PLUGIN_PATH']
+    # if 'GAZEBO_RESOURCE_PATH' in os.environ:
+    #     media += os.pathsep + os.environ['GAZEBO_RESOURCE_PATH']
 
-    controller_params_file = os.path.join(
-        get_package_share_path('limo_simulation'), 'config', 'diff_drive_controller.yaml'
-    )
+    # gazebo_config_file_path = os.path.join(
+    #     get_package_share_path('limo_simulation'),
+    #     'config',
+    #     'gazebo_params.yaml',
+    # )
+    # gazebo_server = ExecuteProcess(
+    #     cmd=[
+    #         [
+    #             'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=false world:=',
+    #             pathWorldFile,
+    #             ' params_file:=',
+    #             gazebo_config_file_path,
+    #         ]
+    #     ],
+    #     additional_env={
+    #         '__NV_PRIME_RENDER_OFFLOAD': '1',
+    #         '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
+    #         'GAZEBO_MODEL_PATH': model,
+    #         'GAZEBO_PLUGIN_PATH': plugin,
+    #         'GAZEBO_RESOURCE_PATH': media,
+    #     },
+    #     shell=True,
+    #     output='screen',
+    # )
+
+    # gazebo_client = ExecuteProcess(
+    #     cmd=[['ros2 launch gazebo_ros gzclient.launch.py']],
+    #     additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
+    #     shell=True,
+    #     output='screen',
+    # )
+
     # rviz_config_file = PathJoinSubstitution(
     #     [FindPackageShare("limo_simulation"), "rviz", "model_display.rviz"]
     # )
 
+    doc = xacro.parse(open(pathModelFile))
     spawnRobots = []
     robotsStatePub = []
     robotsStateBrod = []
     robotsControllers = []
+    event_handlers = []
 
     # publishers = []
-    for i in range(4):
+    for i in range(3):
         robot_name = f'robot_{i+1}'
-        robotDescription = xacro.process_file(
-            pathModelFile, mappings={'robot_name': robot_name, 'namespace': robot_name}
-        ).toxml()
-        publisher_name = f'robot_state_publisher'
-
+        entity = f'/{robot_name}'
+        # robotDescription = xacro.process_file(
+        #     pathModelFile, mappings={'robot_name': robot_name, 'namespace': robot_name}
+        # ).toxml()
+        description = f'/{robot_name}/robot_description'
+        xacro.process_doc(doc, mappings={'robot_name': robot_name, 'namespace': robot_name})
+        params = {'robot_description': doc.toxml(), 'use_sim_time': True}
         # Node to publish the state of the robot to tf
         robotStatePubNode = Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
-            name=publisher_name,
             namespace=robot_name,
             output='screen',
-            parameters=[{'robot_description': robotDescription, 'use_sim_time': True}],
+            parameters=[params],
         )
 
-        robotsStatePub.append(robotStatePubNode)
-        spawner_name = f'spawn_entity_{robot_name}'
         # Node to spawn the robot in gazebo
         spawnModelNode = Node(
             package='gazebo_ros',
             executable='spawn_entity.py',
-            name=spawner_name,
             arguments=[
                 '-topic',
-                f'/{robot_name}/robot_description',
+                description,
                 '-robot_namespace',
                 robot_name,
                 '-entity',
-                f'/{robot_name}',
+                entity,
                 '-x',
                 str(P[i][0]),
                 '-y',
@@ -121,56 +124,90 @@ def generate_launch_description():
                 '-Y',
                 str(P[i][3]),
             ],
-            namespace=robot_name,
             output='screen',
         )
-        spawnRobots.append(spawnModelNode)
 
-        broadcaster_namespace = f'joint_state_broadcaster_{i+1}'
+        controller = f'/{robot_name}/controller_manager'
 
-        controller_namespace = f'diff_drive_base_controller_{i+1}'
-
-        load_joint_state_broadcaster = Node(
-            package='controller_manager',
-            executable='spawner',
-            name=broadcaster_namespace,
-            namespace=robot_name,
-            arguments=[
+        load_joint_state_broadcaster = ExecuteProcess(
+            cmd=[
+                'ros2',
+                'control',
+                'load_controller',
+                '--set-state',
+                'active',
                 'joint_state_broadcaster',
-                '--controller-manager',
-                f'/{robot_name}/controller_manager',
+                '-c',
+                controller,
             ],
-            parameters=[{'use_sim_time': True}],
             output='screen',
         )
-        robotsStateBrod.append(load_joint_state_broadcaster)
 
-        load_diff_drive_base_controller = Node(
-            package='controller_manager',
-            executable='spawner',
-            name=controller_namespace,
-            namespace=robot_name,
-            arguments=[
+        load_diff_drive_base_controller = ExecuteProcess(
+            cmd=[
+                'ros2',
+                'control',
+                'load_controller',
+                '--set-state',
+                'active',
                 'diff_drive_base_controller',
-                '--controller-manager',
-                f'/{robot_name}/controller_manager',
+                '-c',
+                controller,
             ],
-            parameters=[{'use_sim_time': True}],
             output='screen',
         )
-        robotsControllers.append(load_diff_drive_base_controller)
 
-        # # diff_drive_publisher spawner
-        # publishers.append(
-        #     Node(
-        #         package='limo_simulation',
-        #         executable='diff_drive_publisher',
-        #         name=f'diff_drive_publisher_{i}',
-        #         namespace=robot_name,
-        #         output='screen',
-        #         parameters=[{'use_sim_time': True}],
-        #     )
-        # )
+        # Add event handler: when spawn finishes, load controllers
+        event_handler = RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=spawnModelNode,
+                on_exit=[load_joint_state_broadcaster, load_diff_drive_base_controller],
+            )
+        )
+
+        robotsStatePub.append(robotStatePubNode)
+        spawnRobots.append(spawnModelNode)
+        robotsStateBrod.append(load_joint_state_broadcaster)
+        robotsControllers.append(load_diff_drive_base_controller)
+        event_handlers.append(event_handler)
+
+    # Flatten all actions into one LaunchDescription
+    return LaunchDescription(event_handlers + [gazeboLaunch] + robotsStatePub + spawnRobots)
+    # LaunchDescriptionObject = LaunchDescription()
+    # LaunchDescriptionObject.add_action(gazebo_server)
+    # LaunchDescriptionObject.add_action(gazebo_client)
+    # for i in range(4):
+    #     LaunchDescriptionObject.add_action(spawnRobots[i])
+    #     LaunchDescriptionObject.add_action(robotsStatePub[i])
+    #     LaunchDescriptionObject.add_action(robotsStateBrod[i])
+    #     LaunchDescriptionObject.add_action(robotsControllers[i])
+
+    # return LaunchDescriptionObject
+    # return LaunchDescription([
+    #     RegisterEventHandler(
+    #         event_handler=OnProcessExit(
+    #               target_action=spwnModelNode_1,
+    #               on_exit=[
+    #                         load_joint_state_broadcaster_r1,
+    #                         load_diff_drive_base_controller_r1
+    #                       ],
+    #         )
+    #     ),
+    #     RegisterEventHandler(
+    #         event_handler=OnProcessExit(
+    #               target_action=spwnModelNode_2,
+    #               on_exit=[
+    #                         load_joint_state_broadcaster_r2,
+    #                         load_diff_drive_base_controller_r2
+    #                       ],
+    #         )
+    #     ),
+    #     gazeboLaunch,
+    #     robotStatePubNode_1,
+    #     robotStatePubNode_2,
+    #     spwnModelNode_1,
+    #     spwnModelNode_2,
+    # ])
 
     """# load_joint_state_broadcaster = Node(
     #         package="controller_manager",
@@ -303,52 +340,3 @@ def generate_launch_description():
         ],
         output='screen',
     )"""
-
-    # rviz_node = Node(
-    #     package="rviz2",
-    #     executable="rviz2",
-    #     name="rviz2",
-    #     output="log",
-    #     arguments=["-d", rviz_config_file],
-    # )'''
-
-    LaunchDescriptionObject = LaunchDescription()
-    LaunchDescriptionObject.add_action(gazebo_server)
-    LaunchDescriptionObject.add_action(gazebo_client)
-    for i in range(4):
-        LaunchDescriptionObject.add_action(spawnRobots[i])
-        LaunchDescriptionObject.add_action(robotsStatePub[i])
-        LaunchDescriptionObject.add_action(robotsStateBrod[i])
-        LaunchDescriptionObject.add_action(robotsControllers[i])
-        # LaunchDescriptionObject.add_action(publishers[i])
-    # LaunchDescriptionObject.add_action(spwnModelNode)
-    # LaunchDescriptionObject.add_action(robotStatePubNode)
-    # LaunchDescriptionObject.add_action(load_joint_state_broadcaster)
-    # LaunchDescriptionObject.add_action(load_diff_drive_base_controller)
-
-    return LaunchDescriptionObject
-    # return LaunchDescription([
-    #     RegisterEventHandler(
-    #         event_handler=OnProcessExit(
-    #               target_action=spwnModelNode_1,
-    #               on_exit=[
-    #                         load_joint_state_broadcaster_r1,
-    #                         load_diff_drive_base_controller_r1
-    #                       ],
-    #         )
-    #     ),
-    #     RegisterEventHandler(
-    #         event_handler=OnProcessExit(
-    #               target_action=spwnModelNode_2,
-    #               on_exit=[
-    #                         load_joint_state_broadcaster_r2,
-    #                         load_diff_drive_base_controller_r2
-    #                       ],
-    #         )
-    #     ),
-    #     gazeboLaunch,
-    #     robotStatePubNode_1,
-    #     robotStatePubNode_2,
-    #     spwnModelNode_1,
-    #     spwnModelNode_2,
-    # ])

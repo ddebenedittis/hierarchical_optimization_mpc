@@ -12,5 +12,9 @@
       <uri>model://sun</uri>
     </include>
 
+    
   </world>
 </sdf>
+<!--<physics type='ode'>
+      <real_time_update_rate>100</real_time_update_rate>   1000 is normal speed 
+  </physics>-->

@@ -105,7 +105,17 @@ class MinimalSubscriber(Node):
                     y_lim=[-6, 15],
                     flags=self.flags,
                 )
-
+                display_animation(
+                    self.s_history,
+                    self.goals,
+                    None,
+                    st.dt,
+                    st.visual_method,
+                    video_name=f'{self.out_dir}/video.mp4',
+                    x_lim=[-10, 10],
+                    y_lim=[-8, 8],
+                    flags=self.flags,
+                )
             else:
                 self.get_logger().info('My work is done, no plot requested. Goodbye!')
 

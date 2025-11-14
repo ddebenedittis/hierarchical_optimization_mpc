@@ -3,7 +3,7 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'obst_avoid'  # 'radial_swt' 'form'
+experiment_name = 'radial_swt'  # 'obst_avoid' 'form'
 
 if experiment_name == 'radial_swt':
     goals = [
@@ -129,7 +129,7 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.02
-n_steps = 3000
+n_steps = 1000
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8

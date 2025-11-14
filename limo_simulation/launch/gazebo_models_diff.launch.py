@@ -27,52 +27,52 @@ def generate_launch_description():
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
     # robotDescription = xacro.process_file(pathModelFile).toxml()
 
-    # model, plugin, media = GazeboRosPaths.get_paths()
+    model, plugin, media = GazeboRosPaths.get_paths()
 
-    # if 'GAZEBO_MODEL_PATH' in os.environ:
-    #     model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
-    # if 'GAZEBO_PLUGIN_PATH' in os.environ:
-    #     plugin += os.pathsep + os.environ['GAZEBO_PLUGIN_PATH']
-    # if 'GAZEBO_RESOURCE_PATH' in os.environ:
-    #     media += os.pathsep + os.environ['GAZEBO_RESOURCE_PATH']
+    if 'GAZEBO_MODEL_PATH' in os.environ:
+        model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
+    if 'GAZEBO_PLUGIN_PATH' in os.environ:
+        plugin += os.pathsep + os.environ['GAZEBO_PLUGIN_PATH']
+    if 'GAZEBO_RESOURCE_PATH' in os.environ:
+        media += os.pathsep + os.environ['GAZEBO_RESOURCE_PATH']
 
-    # gazebo_config_file_path = os.path.join(
-    #     get_package_share_path('limo_simulation'),
-    #     'config',
-    #     'gazebo_params.yaml',
-    # )
-    # gazebo_server = ExecuteProcess(
-    #     cmd=[
-    #         [
-    #             'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=false world:=',
-    #             pathWorldFile,
-    #             ' params_file:=',
-    #             gazebo_config_file_path,
-    #         ]
-    #     ],
-    #     additional_env={
-    #         '__NV_PRIME_RENDER_OFFLOAD': '1',
-    #         '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
-    #         'GAZEBO_MODEL_PATH': model,
-    #         'GAZEBO_PLUGIN_PATH': plugin,
-    #         'GAZEBO_RESOURCE_PATH': media,
-    #     },
-    #     shell=True,
-    #     output='screen',
-    # )
-
-    # gazebo_client = ExecuteProcess(
-    #     cmd=[['ros2 launch gazebo_ros gzclient.launch.py']],
-    #     additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
-    #     shell=True,
-    #     output='screen',
-    # )
-    gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
-        os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
+    gazebo_config_file_path = os.path.join(
+        get_package_share_path('limo_simulation'),
+        'config',
+        'gazebo_params.yaml',
     )
-    gazeboLaunch = IncludeLaunchDescription(
-        gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
+    gazebo_server = ExecuteProcess(
+        cmd=[
+            [
+                'ros2 launch gazebo_ros gzserver.launch.py verbose:=true pause:=false world:=',
+                pathWorldFile,
+                ' params_file:=',
+                gazebo_config_file_path,
+            ]
+        ],
+        additional_env={
+            '__NV_PRIME_RENDER_OFFLOAD': '1',
+            '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
+            'GAZEBO_MODEL_PATH': model,
+            'GAZEBO_PLUGIN_PATH': plugin,
+            'GAZEBO_RESOURCE_PATH': media,
+        },
+        shell=True,
+        output='screen',
     )
+
+    gazebo_client = ExecuteProcess(
+        cmd=[['ros2 launch gazebo_ros gzclient.launch.py']],
+        additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
+        shell=True,
+        output='screen',
+    )
+    # gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
+    #     os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
+    # )
+    # gazeboLaunch = IncludeLaunchDescription(
+    #     gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
+    # )
 
     spawnRobots = []
     robotsStatePub = []
@@ -160,9 +160,9 @@ def generate_launch_description():
         robotsControllers.append(load_diff_drive_base_controller)
 
     LaunchDescriptionObject = LaunchDescription()
-    LaunchDescriptionObject.add_action(gazeboLaunch)
-    # LaunchDescriptionObject.add_action(gazebo_server)
-    # LaunchDescriptionObject.add_action(gazebo_client)
+    # LaunchDescriptionObject.add_action(gazeboLaunch)
+    LaunchDescriptionObject.add_action(gazebo_server)
+    LaunchDescriptionObject.add_action(gazebo_client)
     for i in range(4):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])

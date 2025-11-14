@@ -3,7 +3,7 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'radial_swt'  # 'obst_avoid' 'form'
+experiment_name = 'form'  # 'radial_swt'  'obst_avoid'
 
 if experiment_name == 'radial_swt':
     goals = [
@@ -55,21 +55,21 @@ elif experiment_name == 'form':
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 4},
             {'prio': 4, 'name': 'formation', 'agents': [[0, 2]], 'distance': 4},
-            {'prio': 4, 'name': 'formation', 'agents': [[0, 3]], 'distance': 5.65},
             # {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'formation', 'agents': [[1, 0]], 'distance': 4},
-            {'prio': 4, 'name': 'formation', 'agents': [[1, 2]], 'distance': 4},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 2]], 'distance': 4},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 1]], 'distance': 5.65},
             # {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
             # {'prio': 3, 'name': 'collision_avoidance'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'obstacles_avoidance'},
+            # {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 0]], 'distance': 4},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 1]], 'distance': 5.65},
             {'prio': 4, 'name': 'formation', 'agents': [[2, 3]], 'distance': 4},
@@ -80,7 +80,6 @@ elif experiment_name == 'form':
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 4, 'name': 'formation', 'agents': [[3, 2]], 'distance': 4},
             {'prio': 4, 'name': 'formation', 'agents': [[3, 1]], 'distance': 4},
-            {'prio': 4, 'name': 'formation', 'agents': [[0, 3]], 'distance': 5.65},
         ],
     }
 elif experiment_name == 'obst_avoid':

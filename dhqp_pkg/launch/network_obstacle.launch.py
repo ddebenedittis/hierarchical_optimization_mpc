@@ -80,15 +80,15 @@ def generate_launch_description():
 
     launch_description = []  # append here your nodes
 
-    launch_description.append(
-        Node(
-            package='dhqp_pkg',
-            namespace='scanner',
-            executable='node_scan',
-            output='screen',
-            prefix='xterm -title "SCAN AGENT" -hold -e',
-        )
-    )
+    # launch_description.append(
+    #     Node(
+    #         package='dhqp_pkg',
+    #         namespace='scanner',
+    #         executable='node_scan',
+    #         output='screen',
+    #         prefix='xterm -title "SCAN AGENT" -hold -e',
+    #     )
+    # )
 
     launch_description.append(
         Node(

@@ -73,6 +73,8 @@ class Agent(Node):
         # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
         self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 10)
 
+        self.init_pos = np.array([-2, -2, 1])
+
         self.goals = st.goals
         self.step = 0
         self.step_plot = 0
@@ -124,25 +126,26 @@ class Agent(Node):
                 lambda msg, node=j: self.listener_callback(msg, node),
                 20,  # Queue size for messages
             )
-        # odometry subscriber
+        # State subscriber
         self.subscription = self.create_subscription(
             ModelStates,
             '/model_states',  # topic name
             self.states_callback,
             20,
         )
-        """self.subscription = self.create_subscription(
+        # Scan subscriber
+        self.subscription = self.create_subscription(
             LaserScan,
             f'{self.ns}/scan',  # topic name
             self.scan_callback,
             20,
-        )"""
-        self.subscription = self.create_subscription(
-            PoseArray,
-            f'{self.ns}/detected_objects',  # topic name
-            self.scan_callback,
-            20,
         )
+        # self.subscription = self.create_subscription(
+        #     PoseArray,
+        #     f'{self.ns}/detected_objects',  # topic name
+        #     self.scan_callback,
+        #     20,
+        # )
 
         # Sensor configuration parameters
         self.gap_threshold = 5  # samples separating objects
@@ -183,10 +186,88 @@ class Agent(Node):
 
         # self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
-    def scan_callback(self, msg: PoseArray):
+    def scan_callback(self, msg: LaserScan):
         """Callback when a PoseArray message is received"""
-        for p in msg.poses:
-            self.objects_detected = [p.position.x, p.position.y]
+        # for p in msg.poses:
+        #     self.objects_detected = [p.position.x, p.position.y]
+
+        ranges = np.array(msg.ranges)
+
+        # Replace invalid or out-of-range values with NaN
+        ranges[(ranges < self.range_min) | (ranges > self.range_max)] = np.nan
+
+        # Identify valid indices (where the LiDAR sees something)
+        valid_indices = np.where(~np.isnan(ranges))[0]
+
+        if len(valid_indices) == 0:
+            # self.get_logger().info('No objects detected.')
+            return
+
+        # Group detections separated by >= gap_threshold samples
+        object_groups = []
+        current_group = [valid_indices[0]]
+
+        for idx in valid_indices[1:]:
+            if idx - current_group[-1] <= self.gap_threshold:
+                current_group.append(idx)
+            else:
+                object_groups.append(current_group)
+                current_group = [idx]
+        object_groups.append(current_group)
+
+        # Compute each object's average range and angle
+        objects_local = []
+        for group in object_groups:
+            group_ranges = ranges[group]
+            if np.all(np.isnan(group_ranges)):
+                continue
+
+            # Minimum range (closest point)
+            min_idx_in_group = group[np.nanargmin(group_ranges)]
+            min_range = ranges[min_idx_in_group]
+
+            # Mean angle for this object (its approximate direction)
+            group_angles = msg.angle_min + np.array(group) * msg.angle_increment
+            mean_angle = np.mean(group_angles)
+
+            objects_local.append((min_range, mean_angle))
+
+        if not objects_local:
+            self.get_logger().info('No valid object clusters found.')
+            return
+
+        # --- Convert each detected object's closest point to world coordinates ---
+        if self.step > 0:
+            x_r, y_r, yaw_r = self.s.omni[0]  # Robot's current position and orientation
+        else:
+            x_r, y_r, yaw_r = self.init_pos  # Robot's current position and orientation
+        # poses = PoseArray()
+        # poses.header = msg.header  # copy time and frame info
+        # poses.header.frame_id = 'my_world'
+
+        for i, (r, mean_ang) in enumerate(objects_local):
+            # Object center (1 m further along the beam)
+            range_to_center = r + self.cylinder_radius
+            # Position in robot frame
+            x_local = range_to_center * math.cos(mean_ang)
+            y_local = range_to_center * math.sin(mean_ang)
+            # Transform to world frame
+            x_world = x_r + x_local * math.cos(yaw_r) - y_local * math.sin(yaw_r)
+            y_world = y_r + x_local * math.sin(yaw_r) + y_local * math.cos(yaw_r)
+
+            self.objects_detected = [x_world, y_world]
+        #     # Save as Pose (only position is relevant)
+        #     pose = Pose()
+        #     pose.position.x = x_world
+        #     pose.position.y = y_world
+        #     pose.position.z = 0.0
+        #     poses.poses.append(pose)
+
+        # # Publish all detected objects
+        # self.publisher.publish(poses)
+        # self.get_logger().info(
+        #     f'Published {len(poses.poses)} detected objects \n at robot position ({x_world:.2f}, {y_world:.2f}).'
+        # )
 
     def timer_callback(self):
         # Perform Partitioned optimization
@@ -547,13 +628,13 @@ class Agent(Node):
                 self.s = RobCont(omni=[np.array([-2, 2, 1]) for _ in range(self.n_robots.omni)])
         elif st.experiment_name == 'obst_avoid':
             if self.node_id == 0:
-                self.s = RobCont(omni=[np.array([-2, -2, 1]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
             elif self.node_id == 1:
-                self.s = RobCont(omni=[np.array([-2, -2, 1]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
             elif self.node_id == 2:
-                self.s = RobCont(omni=[np.array([2, 2, 1]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
             elif self.node_id == 3:
-                self.s = RobCont(omni=[np.array([-2, 2, 1]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]

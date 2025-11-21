@@ -10,7 +10,7 @@ import casadi as ca
 import numpy as np
 import rclpy
 from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Point, Pose, PoseArray, TwistStamped
+from geometry_msgs.msg import Point, Pose, PoseArray, Twist, TwistStamped
 from matplotlib import pyplot as plt
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
@@ -29,6 +29,7 @@ from dhqp_pkg.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
 )
+from mocap_msgs.msg import RigidBodies
 
 
 def writer(filename, string):
@@ -71,9 +72,9 @@ class Agent(Node):
         self.s_kp1 = RobCont(omni=None, uni=None)
 
         # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 10)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 4)
 
-        self.init_pos = np.array([-2, -2, 1])
+        self.init_pos = np.array([-2, -2, 0])
 
         self.goals = st.goals
         self.step = 0
@@ -107,6 +108,16 @@ class Agent(Node):
         )
         self.get_logger().info(f'Publisher created for {topic_name}')
 
+        # create the publisher for optimal input computed
+
+        topic_name = f'/cmd_vel'
+        self.cmd_publisher = self.create_publisher(
+            Twist,
+            topic_name,
+            10,  # Queue size for messages
+        )
+        # self.get_logger().info(f'Publisher created for {topic_name}')
+
         """# Publisher for detected objects (as world positions)
         self.publisher = self.create_publisher(
             PoseArray,
@@ -131,6 +142,13 @@ class Agent(Node):
             ModelStates,
             '/model_states',  # topic name
             self.states_callback,
+            20,
+        )
+        # State-QUALYSIS subscriber
+        self.subscription = self.create_subscription(
+            RigidBodies,
+            '/rigid_bodies',  # topic name
+            self.state_callback,
             20,
         )
         # Scan subscriber
@@ -185,6 +203,25 @@ class Agent(Node):
                         self.s.omni[nn] = np.array([x, y, yaw])  # self state
 
         # self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
+
+    def state_callback(self, msg):
+        """Extract the pose of the robot from qualysis node"""
+        # if self.step = 0:
+        # Extract position from Gazebo
+        for body in msg.rigidbodies:
+            for neigh in self.robot_idx_global:
+                if body.rigid_body_name == f'limo_{neigh+1}':
+                    print(body)
+                    x = body.pose.position.x  # msg.pose.pose.position.x
+                    y = body.pose.position.y  # msg.pose.pose.position.y
+
+                    # Extract orientation (quaternion -> yaw)
+                    q = body.pose.orientation  # msg.pose.pose.orientation
+                    roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                    nn = self.index_global_to_local(neigh)
+                    self.s.omni[nn] = np.array([x, y, yaw])  # self state
+
+        self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
     def scan_callback(self, msg: LaserScan):
         """Callback when a PoseArray message is received"""
@@ -274,8 +311,10 @@ class Agent(Node):
         # Initialize a message of type float
         msg = Float32MultiArray()
         command = TwistStamped()
+        cmd = Twist()
 
         if self.step == 0:  # Let the publisher start at the first iteration
+            self.objects_detected = np.array([8.0, 8.0])
             if self.objects_detected is not None and st.experiment_name == 'obst_avoid':
                 # Create Tasks and MPC
                 self.Tasks()
@@ -318,6 +357,7 @@ class Agent(Node):
                 #     self.s.omni[1:] = copy.deepcopy(self.s_init.omni[1:])
 
                 self.u_star, self.y, self.cost_p = self.hompc(copy.deepcopy(self.s.tolist()))
+                # print(f'state desired: {self.y[0][0:2]}')
 
                 # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
@@ -327,13 +367,17 @@ class Agent(Node):
                 command.twist.angular.z = float(self.u_star[0][0][1])
                 self.diff_drive_publisher.publish(command)
 
+                cmd.linear.x = float(self.u_star[0][0][0])
+                cmd.angular.z = float(self.u_star[0][0][1])
+                self.cmd_publisher.publish(cmd)
+
                 # publish the updated message
                 msg.data = [float(self.step)]
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 self.publisher_.publish(msg)
-                self.get_logger().info(
-                    f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
-                )
+                # self.get_logger().info(
+                #     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
+                # )
 
                 # Stop the node if tt exceeds MAXITERS
                 if self.step > self.n_steps:
@@ -417,7 +461,7 @@ class Agent(Node):
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 1
+        self.threshold = 0.8
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -438,7 +482,7 @@ class Agent(Node):
             if self.objects_detected is not None
             else np.array([0.0, 0.0])
         )
-        self.obstacle_size = 1.5
+        self.obstacle_size = 1.0
         self.task_obs_avoidance = [
             ca.vertcat(
                 -((self.s.omni[0] - self.obstacle_pos[0]) ** 2)

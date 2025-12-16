@@ -130,7 +130,7 @@ class HOMPCMultiRobot(HOMPC):
         self._n_control = 1  # control horizon timesteps
         self._n_pred = 0  # prediction horizon timesteps (the input is constant)
 
-        self.regularization = 1e-7  # regularization factor
+        self.regularization = 1e-6  # regularization factor
 
         self.solver = QPSolver.get_enum(solver)
 
@@ -1508,6 +1508,7 @@ class HOMPCMultiRobot(HOMPC):
                         x_star_p[p][self._get_idx_state_kp1(c, j, k)] = copy.deepcopy(
                             [x_star_p[p][self._get_idx_state_kp1(c, j, k)]]
                         )
+
                         # x_star_p[p][self._get_idx_input_k(c, j, k)] = copy.deepcopy(
                         #         [x_star_p[p][self._get_idx_input_k(c, j, k)]])
                         # print(f'k: {copy.deepcopy([self._state_bar[c][j][k].T + x_star_p[p][self._get_idx_state_kp1(c, j, k)]])}')

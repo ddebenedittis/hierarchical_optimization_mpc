@@ -118,14 +118,10 @@ def main():
     time_start = time.time()
 
     goals = [
-        np.array([5, 5]),
-        np.array([-5, -5]),
-        np.array([-5, 5]),
-        np.array([5, -5]),
-        np.array([8, 3]),
-        np.array([-8, -3]),
-        np.array([8, -3]),
-        np.array([-8, 3]),
+        np.array([2.1, 1.4]),
+        np.array([2.1, -0.64]),
+        np.array([-1.29, -0.34]),
+        np.array([-1.29, 1.16]),
     ]
 
     system_tasks = {
@@ -153,34 +149,34 @@ def main():
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
         ],
-        'agent_4': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
-        ],
-        'agent_5': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
-        ],
-        'agent_6': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
-        ],
-        'agent_7': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
-        ],
+        # 'agent_4': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
+        # ],
+        # 'agent_5': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
+        # ],
+        # 'agent_6': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
+        # ],
+        # 'agent_7': [
+        #     {'prio': 1, 'name': 'input_limits'},
+        #     {'prio': 2, 'name': 'input_smooth'},
+        #     {'prio': 3, 'name': 'collision_avoidance'},
+        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
+        #     {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
+        # ],
     }
 
     # ---------------------------------------------------------------------------- #
@@ -192,7 +188,7 @@ def main():
         graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
     if st.n_nodes == 3:
-        graph_matrix = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+        graph_matrix = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
     if st.n_nodes == 4:
         graph_matrix = np.array(
@@ -425,8 +421,8 @@ def main():
             st.dt,
             [(last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
-            x_lim=[-10, 10],
-            y_lim=[-8, 8],
+            x_lim=[-5, 5],
+            y_lim=[-4, 4],
             flags=flags,
         )
 

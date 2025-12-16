@@ -50,44 +50,44 @@
         </joint>
     </ros2_control>
     <gazebo reference="$(arg robot_name)/base_link">
-        <material>Gazebo/Green</material>
+        <material>Gazebo/Grey</material>
     </gazebo>
     <gazebo reference="front_left_wheel">
-        <mu1>1</mu1>
-        <mu2>1</mu2>
-        <kp>10000000.0</kp>
-        <kd>1.0</kd>
-        <minDepth>0.01</minDepth>
-        <fdir1>1 0 0</fdir1>
-        <maxContacts value="64"/>
-    </gazebo>
-    <gazebo reference="front_right_wheel">
-        <mu1>1</mu1>
-        <mu2>1</mu2>
-        <kp>10000000.0</kp>
-        <kd>1.0</kd>
-        <minDepth>0.01</minDepth>
-        <fdir1>1 0 0</fdir1>
-        <maxContacts value="64"/>
-    </gazebo>
-    <gazebo reference="rear_left_wheel">
-        <mu1>1</mu1>
-        <mu2>1</mu2>
-        <kp>10000000.0</kp>
-        <kd>1.0</kd>
-        <minDepth>0.01</minDepth>
-        <fdir1>1 0 0</fdir1>
-        <maxContacts value="64"/>
-    </gazebo>
-    <gazebo reference="rear_right_wheel">
-        <mu1>1</mu1>
-        <mu2>1</mu2>
-        <kp>10000000.0</kp>
-        <kd>1.0</kd>
-        <minDepth>0.01</minDepth>
-        <fdir1>1 0 0</fdir1>
-        <maxContacts value="64"/>
-    </gazebo>
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="front_right_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="rear_left_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="rear_right_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
 
     <gazebo>
         <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">

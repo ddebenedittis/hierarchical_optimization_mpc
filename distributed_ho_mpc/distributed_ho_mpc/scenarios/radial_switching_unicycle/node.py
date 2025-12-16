@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.radial_switching_unicycle.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -128,7 +128,7 @@ class Node:
         self.s_kp1 = RobCont(omni=None, uni=None)
 
         # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10*dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(10 * dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -240,7 +240,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 2
+        self.threshold = 0.6
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -372,16 +372,16 @@ class Node:
         if self.node_id == 0:
             self.s = RobCont(
                 omni=[
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([2, -2, 2.8]),
+                    np.array([-0.437, -0.618, 0.63]),
+                    np.array([-0.577, 1.72, -0.89]),
+                    np.array([1.7, 0.2, -3]),
                     np.array([-2, 2, -0.3]),
                 ]
             )
         elif self.node_id == 1:
             self.s = RobCont(
                 omni=[
-                    np.array([2, 2, -2.7]),
+                    np.array([-0.582, 1.416, -0.676]),
                     np.array([-2, -2, 0.3]),
                     np.array([2, -2, 2.8]),
                     np.array([-2, 2, -0.3]),
@@ -390,7 +390,7 @@ class Node:
         elif self.node_id == 2:
             self.s = RobCont(
                 omni=[
-                    np.array([2, -2, 2.8]),
+                    np.array([1.852, 1.443, -2.5]),
                     np.array([-2, -2, 0.3]),
                     np.array([2, 2, -2.8]),
                     np.array([-2, 2, -0.3]),
@@ -399,7 +399,7 @@ class Node:
         elif self.node_id == 3:
             self.s = RobCont(
                 omni=[
-                    np.array([-2, 2, -0.3]),
+                    np.array([1.95, -0.498, 2.5]),
                     np.array([-2, -2, 0.3]),
                     np.array([2, 2, -2.8]),
                     np.array([2, -2, 2.8]),
@@ -450,9 +450,7 @@ class Node:
                 if j == self.node_id:
                     self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j)
                 else:
-                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(
-                        s_j
-                    ) + np.random.uniform(-0.25, 0.25, s_j.shape)
+                    self.s_init.omni[self.index_global_to_local(j)] = copy.deepcopy(s_j)
                 # TODO manage eterogeneous robots
 
         # update position of other robots (not neigh) seen as obstacles
@@ -487,23 +485,22 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            
             self.u_star, self.y, self.cost = self.hompc(
                 copy.deepcopy(self.s_init.tolist()), rho_delta
             )
-            
+
             self.counter.append(self.step)
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
             # self.w = self.w[1:-1]
             # self.y_i = copy.deepcopy(self.y)
 
             if round == '2':
-                self.s_ = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
+                # self.s_ = self.evolve(
+                #     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                # )
 
                 self.s = self.evolve(
-                    copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt
+                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 )
 
             if st.inner_plot and round == '2':

@@ -3,9 +3,10 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from scripts import GazeboRosPaths
@@ -13,9 +14,15 @@ from scripts import GazeboRosPaths
 
 def generate_launch_description():
     # generate coordinates of an square with center in the origin
-    a = 5
+    a = 1.5
 
-    P = [[-a, -a, 0, 0], [a, -a, 0, -3], [a, a, 0, -3], [-a, a, 0, 0]]
+    # P = [[0, 0, 0, 0], [a, a, 0, -3], [a, a, 0, -3], [-a, a, 0, 0]]
+    P = [
+        [-0.437, -0.618, 0, 0.63],
+        [-0.582, 1.416, 0, -0.676],
+        [1.852, 1.443, 0, -2.5],
+        [1.95, -0.498, 0, 2.5],
+    ]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
@@ -27,8 +34,7 @@ def generate_launch_description():
     pathWorldFile = os.path.join(get_package_share_path(name_package), worldFileRelativePath)
     # robotDescription = xacro.process_file(pathModelFile).toxml()
 
-    model, plugin, media = GazeboRosPaths.get_paths()
-
+    """model, plugin, media = GazeboRosPaths.get_paths()
     if 'GAZEBO_MODEL_PATH' in os.environ:
         model += os.pathsep + os.environ['GAZEBO_MODEL_PATH']
     if 'GAZEBO_PLUGIN_PATH' in os.environ:
@@ -41,6 +47,7 @@ def generate_launch_description():
         'config',
         'gazebo_params.yaml',
     )
+    
     gazebo_server = ExecuteProcess(
         cmd=[
             [
@@ -66,13 +73,15 @@ def generate_launch_description():
         additional_env={'__NV_PRIME_RENDER_OFFLOAD': '1', '__GLX_VENDOR_LIBRARY_NAME': 'nvidia'},
         shell=True,
         output='screen',
+    )        """
+
+    gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
+        os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
     )
-    # gazebo_rosPakageLaunch = PythonLaunchDescriptionSource(
-    #     os.path.join(get_package_share_path('gazebo_ros'), 'launch', 'gazebo.launch.py')
-    # )
-    # gazeboLaunch = IncludeLaunchDescription(
-    #     gazebo_rosPakageLaunch, launch_arguments={'world': pathWorldFile}.items()
-    # )
+    gazeboLaunch = IncludeLaunchDescription(
+        gazebo_rosPakageLaunch,
+        launch_arguments={'world': pathWorldFile}.items(),
+    )
 
     spawnRobots = []
     robotsStatePub = []
@@ -160,9 +169,12 @@ def generate_launch_description():
         robotsControllers.append(load_diff_drive_base_controller)
 
     LaunchDescriptionObject = LaunchDescription()
-    # LaunchDescriptionObject.add_action(gazeboLaunch)
-    LaunchDescriptionObject.add_action(gazebo_server)
-    LaunchDescriptionObject.add_action(gazebo_client)
+
+    # LaunchDescriptionObject.add_action(gazebo_server)
+    # LaunchDescriptionObject.add_action(gazebo_client)
+
+    LaunchDescriptionObject.add_action(gazeboLaunch)
+
     for i in range(4):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])

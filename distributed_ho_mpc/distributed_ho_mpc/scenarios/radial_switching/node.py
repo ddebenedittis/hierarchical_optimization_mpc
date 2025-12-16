@@ -482,7 +482,7 @@ class Node:
     def update(self, round: str):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        self.rho_j = self.receiver.process_messages('D')
+        # self.rho_j = self.receiver.process_messages('D')
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
@@ -553,7 +553,7 @@ class Node:
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
         self.save_data()
-
+        return
         self.y_j = self.receiver.process_messages('P')
 
         # linear update of rho_i

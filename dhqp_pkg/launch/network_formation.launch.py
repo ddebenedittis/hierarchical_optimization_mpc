@@ -48,7 +48,7 @@ def generate_launch_description():
         graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
     if st.n_nodes == 3:
-        graph_matrix = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+        graph_matrix = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
     if st.n_nodes == 4:
         graph_matrix = np.array(
@@ -63,14 +63,27 @@ def generate_launch_description():
     if st.n_nodes == 5:
         graph_matrix = np.array(
             [
-                [0.0, 1.0, 0.0, 0.0, 0.0],
-                [1.0, 0.0, 1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0, 1.0],
-                [0.0, 0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
+
+    if st.n_nodes == 6:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4, 5])
     # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     package_name = 'dhqp_pkg'

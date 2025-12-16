@@ -8,16 +8,16 @@ n_nodes = 3  # numbers of nodes
 random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
-dt = 0.05
-n_steps = 200
+dt = 0.02
+n_steps = 900
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
 
-v_max = 1.0
-v_min = -1.0
-omega_max = 1.5
-omega_min = -1.5
+v_max = 0.3
+v_min = 0.0
+omega_max = 0.7
+omega_min = -0.7
 
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #

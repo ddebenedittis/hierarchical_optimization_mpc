@@ -469,7 +469,6 @@ class HierarchicalQP:
                 )
 
                 p = np.zeros(nx + nw)
-                # TODO hard coded brutto
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])

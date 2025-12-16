@@ -14,7 +14,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     # generate coordinates of an square with center in the origin
     a = 2
-    P = [[a, -a, 0, 1], [-a, -a, 0, 1], [a, a, 0, 1], [-a, a, 0, 1]]
+    P = [[a, -a, 0, 1], [-a, -a, 0, 1], [-a, a, 0, 1], [a, a, 0, 1], [0, 0, 0, 1]]
 
     # Constants for paths to different files and folders
     robotXacroName = 'limo_four_diff'
@@ -45,7 +45,7 @@ def generate_launch_description():
     robotsControllers = []
 
     # publishers = []
-    for i in range(4):
+    for i in range(5):
         robot_name = f'robot_{i+1}'
         robotDescription = xacro.process_file(
             pathModelFile, mappings={'robot_name': robot_name, 'namespace': robot_name}
@@ -126,7 +126,7 @@ def generate_launch_description():
 
     LaunchDescriptionObject = LaunchDescription()
     LaunchDescriptionObject.add_action(gazeboLaunch)
-    for i in range(4):
+    for i in range(5):
         LaunchDescriptionObject.add_action(spawnRobots[i])
         LaunchDescriptionObject.add_action(robotsStatePub[i])
         LaunchDescriptionObject.add_action(robotsStateBrod[i])

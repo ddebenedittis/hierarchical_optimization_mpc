@@ -12,7 +12,6 @@ import rclpy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Point, Pose, PoseArray, Twist, TwistStamped
 from matplotlib import pyplot as plt
-from mocap_msgs.msg import RigidBodies
 from numpy import random
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -33,6 +32,7 @@ from dhqp_pkg.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
 )
+from mocap_msgs.msg import RigidBodies
 
 
 def writer(filename, string):
@@ -124,7 +124,7 @@ class Agent(Node):
         self.s = RobCont(omni=None, uni=None)  # current state
 
         # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 4)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 3)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -251,10 +251,10 @@ class Agent(Node):
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in self.robot_idx[1:]}
 
-        if st.experiment_name != 'obst_avoid':
-            # Create Tasks and MPC
-            self.Tasks()
-            self.MPC()
+        # if st.experiment_name != 'obst_avoid':
+        #     # Create Tasks and MPC
+        self.Tasks()
+        self.MPC()
 
         print(f'Setup of agent {self.node_id} complete')
 
@@ -310,6 +310,24 @@ class Agent(Node):
                     self.s.omni[0] = np.array([x, y, yaw])  # self state
                 else:
                     self.init_pos = np.array([x, y, yaw])
+            if body.rigid_body_name == f'obstacle_davide':
+                x = body.pose.position.x  # msg.pose.pose.position.x
+                y = body.pose.position.y  # msg.pose.pose.position.y
+                obs_pos = np.array([x, y])
+                if np.any(np.isnan(obs_pos)):
+                    continue
+                task_obs_avoidance = [
+                    ca.vertcat(
+                        -((self.s_var.omni[0] - obs_pos[0]) ** 2)
+                        - (self.s_var.omni[1] - obs_pos[1]) ** 2
+                        + self.obstacle_size**2
+                    )
+                ]
+
+                self.hompc.update_task(
+                    name='obstacle_avoidance',
+                    ineq_task_ls=task_obs_avoidance[0],
+                )
 
         # self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
@@ -474,7 +492,7 @@ class Agent(Node):
         cmd = Twist()
 
         if self.step == 0:  # Let the publisher start at the first iteration
-            if len(self.objects_detected) is not None and st.experiment_name == 'obst_avoid':
+            """if len(self.objects_detected) is not None and st.experiment_name == 'obst_avoid':
                 # Create Tasks and MPC
                 self.Tasks()
                 self.MPC()
@@ -496,7 +514,16 @@ class Agent(Node):
                 # log files
                 # 1) visualize on the terminal
                 self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
-                self.step += 1
+                self.step += 1"""
+            msg.data = [float(self.step)]
+            [msg.data.append(float(ss)) for ss in self.s.omni[0]]
+            [msg.data.append(float(0)) for _ in range(2)]
+            self.publisher_.publish(msg)
+
+            # log files
+            # 1) visualize on the terminal
+            self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
+            self.step += 1
         else:  # Have all messages at time t-1 arrived?
             # Check if lists are nonempty
             all_received = all(
@@ -512,6 +539,19 @@ class Agent(Node):
             if sync:
                 # Reorder the state vector received from the neighbors
                 self.reorder_s_init(self.received_data)
+                task_coverage_coeff = self.hompc.get_task_coverage(
+                    copy.deepcopy(self.s.tolist())
+                    # cov_rob_idx
+                )
+
+                self.hompc.update_task(
+                    name='coverage',
+                    # eq_task_ls = task_coverage,
+                    eq_task_coeff=task_coverage_coeff,
+                    # robot_index = cov_rob_idx,
+                )
+                print(f'coef: {task_coverage_coeff}\n\n')
+                print(f'coef: {self.task_coverage}\n\n')
 
                 self.u_star, self.y, self.cost_p = self.hompc(copy.deepcopy(self.s.tolist()))
 
@@ -567,7 +607,14 @@ class Agent(Node):
         )
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
+        # ===========================Coverage====================================== #
 
+        self.task_coverage = [[None]]  # [None for i in range(len(self.goals))]
+        self.task_coverage_coeff = [[None]]  # [None for i in range(len(self.goals))]
+        self.task_coverage = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+        self.task_coverage_coeff = RobCont(
+            omni=[[np.random.rand(2)] for _ in range(self.n_robots.omni)],
+        )
         # ===========================Go-to-Goal====================================== #
         self.task_pos = [None for i in range(len(self.goals))]
         self.task_pos_coeff = [None for i in range(len(self.goals))]
@@ -580,7 +627,8 @@ class Agent(Node):
         self.mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.5
+        self.threshold = 0.1
+
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(
             omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1])
@@ -621,13 +669,13 @@ class Agent(Node):
             if self.objects_detected is not None
             else [
                 np.array([2.4, 2.5]),
-                np.array([2.1, -2.9]),
-                np.array([-1.6, -2.5]),
-                np.array([-1.6, 2.16]),
+                # np.array([2.1, -2.9]),
+                # np.array([-1.6, -2.5]),
+                # np.array([-1.6, 2.16]),
             ]
         )
         self.task_obs_avoidances = []
-        self.obstacle_size = 1.1
+        self.obstacle_size = 0.7
         for obs in self.obstacle_pos:
             self.task_obs_avoidances.append(
                 [
@@ -756,15 +804,33 @@ class Agent(Node):
                     eq_task_ls=self.task_input_min.tolist(),
                     robot_index=[self.robot_idx],
                 )
+            elif task['name'] == 'coverage':
+                self.hompc.create_task(
+                    name='coverage',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_coverage.tolist(),
+                    eq_task_coeff=self.task_coverage_coeff.tolist(),
+                    time_index=TaskIndexes.All,
+                    robot_index=[self.robot_idx],
+                )
             elif task['name'] == 'input_smooth':
                 self.hompc.create_task(
                     name='input_smooth',
                     prio=task['prio'],
                     type=TaskType.SameTimeDiff,
                     ineq_task_ls=RobCont(
-                        omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1])
+                        omni=ca.vertcat(
+                            self.u_var.omni[0],
+                            -self.u_var.omni[0],
+                            self.u_var.omni[1],
+                            -self.u_var.omni[1],
+                        )
                     ).tolist(),
-                    # ineq_task_coeff = np.array([0,0,0,0]),
+                    ineq_task_coeff=[
+                        [[np.array([0.1, 0.1, 0.1, 0.1])] for _ in range(self.n_robots.omni)],
+                        [[]],
+                    ],
                     robot_index=[self.robot_idx],
                 )
             elif task['name'] == 'formation':

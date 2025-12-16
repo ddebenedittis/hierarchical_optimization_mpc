@@ -176,7 +176,7 @@ class HOMPCMultiRobot(HOMPC):
             for i in range(len(states))
         ]
 
-        self.bounding_box = np.array([-20, 20, -20, 20])
+        self.bounding_box = np.array([-3.4, 3.0, -3.0, 3.0])
 
         self._tasks: list[self.Task] = []
 
@@ -1615,6 +1615,9 @@ class HOMPCMultiRobot(HOMPC):
         else:
             towers = np.array([state_meas[0][j][0:2] for j in robot_idx[0]])
             n_cov = [len(robot_idx[0]), len(robot_idx[1])]
+
+        # print(f'towers: {towers}')
+        # print(f'bounding box: {self.bounding_box}')
 
         vor_task = VoronoiTask(towers, self.bounding_box)
 

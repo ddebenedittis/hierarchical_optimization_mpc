@@ -56,15 +56,19 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
     git \
     python3-pip \
     ros-$ROS_DISTRO-gazebo-ros-pkgs \
+    ros-$ROS_DISTRO-ros-gz-bridge \
     ros-$ROS_DISTRO-gazebo-ros2-control \
     ros-$ROS_DISTRO-joint-state-publisher \
+    ros-$ROS_DISTRO-tf-transformations \
     ros-$ROS_DISTRO-joint-state-publisher-gui \
     ros-${ROS_DISTRO}-pinocchio \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
+    ros-$ROS_DISTRO-rqt-graph \
     ros-$ROS_DISTRO-rviz2 \
     ros-$ROS_DISTRO-xacro \
     ros-$ROS_DISTRO-plotjuggler-ros \
+    ros-$ROS_DISTRO-domain-bridge \
     sudo \
     xterm
 
@@ -86,6 +90,7 @@ RUN pip3 install \
     ruff \
     scipy \
     sympy \
+    transforms3d \
     --upgrade
 
 RUN pip3 install \

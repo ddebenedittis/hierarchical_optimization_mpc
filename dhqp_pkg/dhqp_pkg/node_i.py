@@ -27,7 +27,7 @@ from dhqp_pkg.ho_mpc_multi_robot import (
     TaskType,
 )
 from dhqp_pkg.message import MessageReceiver, MessageSender
-from dhqp_pkg.robot_models import (
+from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
     get_unicycle_model,
@@ -609,8 +609,6 @@ class Agent(Node):
         self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
         # ===========================Coverage====================================== #
 
-        self.task_coverage = [[None]]  # [None for i in range(len(self.goals))]
-        self.task_coverage_coeff = [[None]]  # [None for i in range(len(self.goals))]
         self.task_coverage = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
         self.task_coverage_coeff = RobCont(
             omni=[[np.random.rand(2)] for _ in range(self.n_robots.omni)],

@@ -19,7 +19,7 @@ import dhqp_pkg.settings as st
 #     display_animation,
 #     save_snapshots,
 # )
-from dhqp_pkg.robot_models import (
+from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
 )

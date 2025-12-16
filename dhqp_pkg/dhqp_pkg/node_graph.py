@@ -5,6 +5,7 @@ from time import sleep
 import casadi as ca
 import numpy as np
 import rclpy
+from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
@@ -41,6 +42,7 @@ class MinimalSubscriber(Node):
         self.dt = self.get_parameter('dt').value  # timestep size
 
         self.s_history = []
+        self.u_history = []
 
         self.goals = st.goals
         self.step = 0
@@ -48,12 +50,27 @@ class MinimalSubscriber(Node):
 
         # create logging file
         self.out_dir = self.get_parameter('out_dir').value
+        self.filename = f'{self.out_dir}/traj_data.csv'
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+
+            header = ['Time']
+            for i in range(st.n_nodes):
+                header.append(f'stateX_{i}')
+                header.append(f'stateY_{i}')
+                header.append(f'stateRHO_{i}')
+            for i in range(st.n_nodes):
+                header.append(f'inputV{i}')
+                header.append(f'inputOM{i}')
+
+            writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
         self.flags.voronoi = False
 
         # initialize subscription dict
         self.subscriptions_list = {}
+        self.sub_input_list = {}
         # create a subscription to each neighbor
         for j in range(self.n_nodes):
             topic_name = f'/topic_{j}'
@@ -61,6 +78,13 @@ class MinimalSubscriber(Node):
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback(msg, node),
+                20,  # Queue size for messages
+            )
+            topic_name = f'/robot_{j}/cmd_vel'
+            self.subscriptions_list[j] = self.create_subscription(
+                Twist,
+                topic_name,
+                self.input_callback,
                 20,  # Queue size for messages
             )
 
@@ -76,6 +100,9 @@ class MinimalSubscriber(Node):
         if all(self.received_data[j] for j in range(self.n_nodes)):
             self.sync = True
 
+    def input_callback(self, msg):
+        return
+
     def timer_callback(self):
         # Initialize a message of type float
         msg = Float32MultiArray()
@@ -85,24 +112,31 @@ class MinimalSubscriber(Node):
             self.reorder_s_init(self.received_data)
 
             self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
-
+            self.get_logger().info(f'u:{self.u_history[-1]}')
             # update iteration counter
             self.sync = False
             self.step += 1
 
         # Stop the node if tt exceeds MAXITERS
-        if self.step >= self.n_steps - 5:
+        if self.step >= self.n_steps - 10:
             print('\nMAXITERS reached')
+            with open(self.filename, mode='a', newline='') as file:
+                for s in range(1, self.step):
+                    writer = csv.writer(file)
+                    flat_s = [v for sub in self.s_history[s][0] for v in sub]  # flatten
+                    flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
+                    row = [s] + flat_s + flat_u
+                    writer.writerow(row)
             if st.simulation:
                 save_snapshots(
                     self.s_history,
-                    self.goals,
                     None,
+                    None,  # [[3, 3, 0.5]],
                     st.dt,
                     [(self.step - 1) * st.dt],
                     f'{self.out_dir}/snapshot',
-                    x_lim=[-6, 15],
-                    y_lim=[-6, 15],
+                    x_lim=[-3, 3],
+                    y_lim=[-3, 3],
                     flags=self.flags,
                 )
                 display_animation(
@@ -123,10 +157,14 @@ class MinimalSubscriber(Node):
 
     def reorder_s_init(self, state_meas: list[float]):
         s = []
+        u = []
         for j in range(self.n_nodes):
             s_j = [s for s in state_meas[j].pop(0)[1:]]
-            s.append(s_j)
+            u_j = s_j[-2:]
+            s.append(s_j[:-2])
+            u.append(u_j)
         self.s_history.append([s, []])
+        self.u_history.append([u])
 
 
 def main(args=None):

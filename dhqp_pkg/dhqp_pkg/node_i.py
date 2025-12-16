@@ -12,6 +12,7 @@ import rclpy
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Point, Pose, PoseArray, Twist, TwistStamped
 from matplotlib import pyplot as plt
+from mocap_msgs.msg import RigidBodies
 from numpy import random
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -32,7 +33,6 @@ from dhqp_pkg.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
 )
-from mocap_msgs.msg import RigidBodies
 
 
 def writer(filename, string):
@@ -117,12 +117,14 @@ class Agent(Node):
         self.dt = self.get_parameter('dt').value  # timestep size
         self.communication_time = 1e-2  # self.get_parameter('communication_time').value
 
-        self.s = RobCont(omni=None, uni=None)  # symbolic state variables
-        self.u = RobCont(omni=None, uni=None)
+        self.s_var = RobCont(omni=None, uni=None)  # symbolic state variables
+        self.u_var = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 4)
+        self.s = RobCont(omni=None, uni=None)  # current state
+
+        # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 4)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -557,14 +559,14 @@ class Agent(Node):
 
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
-                self.u.omni[0] - st.v_max,  # vmax
-                -self.u.omni[0] + st.v_min,  # vmin
-                self.u.omni[1] - st.omega_max,  # vmax
-                -self.u.omni[1] + st.omega_min,  # vmin
+                self.u_var.omni[0] - st.v_max,  # vmax
+                -self.u_var.omni[0] + st.v_min,  # vmin
+                self.u_var.omni[1] - st.omega_max,  # vmax
+                -self.u_var.omni[1] + st.omega_min,  # vmin
             )
         )
 
-        self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
+        self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
 
         # ===========================Go-to-Goal====================================== #
         self.task_pos = [None for i in range(len(self.goals))]
@@ -575,50 +577,14 @@ class Agent(Node):
                 omni=[[np.array(g)] for _ in range(self.n_robots.omni)],
             )
 
-        # ========================Formation============================================ #
-        if 0:
-            self.aux = ca.SX.sym('aux', 2, 2)
-            self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
-            self.task_formation = ca.vertcat(
-                (self.aux[0, 0] - self.aux[1, 0]) ** 2 + (self.aux[0, 1] - self.aux[1, 1]) ** 2 - 0,
-            )
-            if self.node_id == 0:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 0, 0, 3**2),
-                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 1:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 0, 0, 1, 0, 3**2),
-                    TaskBiCoeff(0, 2, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 2:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 0, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 3, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 3:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
-                ]
-            elif self.node_id == 4:
-                self.task_formation_coeff = [
-                    TaskBiCoeff(0, 1, 0, 2, 0, 3**2),
-                    TaskBiCoeff(0, 4, 0, 3, 0, 3**2),
-                    TaskBiCoeff(0, 0, 0, 4, 0, 3**2),
-                ]
-
-        self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        self.mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
 
         # =====================Collision Avoidance=================================== #
         self.threshold = 0.5
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
-        self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        self.mapping_avoid_collision = RobCont(
+            omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1])
+        )
         self.task_avoid_collision = ca.vertcat(
             -((self.aux_avoid_collision[0, 0] - self.aux_avoid_collision[1, 0]) ** 2)
             - (self.aux_avoid_collision[0, 1] - self.aux_avoid_collision[1, 1]) ** 2,
@@ -643,8 +609,8 @@ class Agent(Node):
         #     self.obstacles.append(
         #         [
         #             ca.vertcat(
-        #                 -((self.s.omni[0] - pos_obstacle[0]) ** 2)
-        #                 - (self.s.omni[1] - pos_obstacle[1]) ** 2
+        #                 -((self.s_var.omni[0] - pos_obstacle[0]) ** 2)
+        #                 - (self.s_var.omni[1] - pos_obstacle[1]) ** 2
         #                 + self.obstacle_size**2
         #             )
         #         ]
@@ -666,8 +632,8 @@ class Agent(Node):
             self.task_obs_avoidances.append(
                 [
                     ca.vertcat(
-                        -((self.s.omni[0] - obs[0]) ** 2)
-                        - (self.s.omni[1] - obs[1]) ** 2
+                        -((self.s_var.omni[0] - obs[0]) ** 2)
+                        - (self.s_var.omni[1] - obs[1]) ** 2
                         + self.obstacle_size**2
                     )
                 ]
@@ -676,7 +642,7 @@ class Agent(Node):
 
     def task_formation_method(self, agents, distance):
         aux = ca.SX.sym('aux', 2, 2)
-        # mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
+        # mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
         task_formation = ca.vertcat(
             (aux[0, 0] - aux[1, 0]) ** 2 + (aux[0, 1] - aux[1, 1]) ** 2 - 0,
         )
@@ -751,8 +717,8 @@ class Agent(Node):
     # ---------------------------------------------------------------------------- #
     def MPC(self) -> None:
         self.hompc = HOMPCMultiRobot(
-            self.s.tolist(),
-            self.u.tolist(),
+            self.s_var.tolist(),
+            self.u_var.tolist(),
             self.s_kp1.tolist(),
             self.n_robots.tolist(),
             self.degree,
@@ -795,7 +761,9 @@ class Agent(Node):
                     name='input_smooth',
                     prio=task['prio'],
                     type=TaskType.SameTimeDiff,
-                    ineq_task_ls=RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1])).tolist(),
+                    ineq_task_ls=RobCont(
+                        omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1])
+                    ).tolist(),
                     # ineq_task_coeff = np.array([0,0,0,0]),
                     robot_index=[self.robot_idx],
                 )

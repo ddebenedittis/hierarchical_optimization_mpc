@@ -403,10 +403,6 @@ class HierarchicalQP:
                 ]
             )
         ]
-        if degree == 0:
-            cost = np.ones(n_tasks + 1) * (-100)
-        else:
-            cost = np.ones(n_tasks) * (-100)
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
@@ -507,28 +503,6 @@ class HierarchicalQP:
             H = H + self._regularization * np.eye(H.shape[0])
             # sigma = min(np.linalg.eig(H))   # convexity parameter
 
-            if dual_comp is not None:
-                if priority == 6:
-                    # cost[priority] = (dual_comp[priority].T @ H @ dual_comp[priority]) * 0.5 + p.T @ dual_comp[priority]
-                    # cost[priority-1] = rho_vector[:nx].T @ H @ rho_vector[:nx] * 0.5 + dual_comp[priority].T @ p
-                    cost[priority] = (
-                        0.5
-                        * (
-                            (
-                                dual_comp[priority].T @ Ap.T @ Ap @ dual_comp[priority]
-                                + bp.T @ bp
-                                - 2 * dual_comp[priority].T @ Ap.T @ bp
-                            )
-                            + dual_comp[priority][nx:].T @ dual_comp[priority][nx:]
-                        )
-                        + dual_comp[priority].T @ rho_vector
-                    )
-                    # cost[priority-1] = 0.5 * ((rho_vector[:nx].T @ Ap.T @ Ap @ rho_vector[:nx] + bp.T@bp - 2 * rho_vector[:nx].T @ Ap.T @ bp) + rho_vector[nx:].T@rho_vector[nx:] ) + dual_comp[priority].T @ rho_vector
-                    None
-                if priority == n_tasks - 1:
-                    return cost
-                continue
-
             # ================== Compute C_tilde And D_tilde ================= #
 
             nC2 = np.concatenate(C[0 : priority + 1]).shape[0]
@@ -559,7 +533,7 @@ class HierarchicalQP:
             # Quadprog library QP problem formulation
             #   min  1/2 x^T H x + p^T x
             #   s.t. CI^T x >= ci0
-            sol, obj = self._solve_qp(H, p, C_tilde, d_tilde, priority)
+            sol = self._solve_qp(H, p, C_tilde, d_tilde, priority)
             if sol is None:
                 for i in range(n_tasks - priority):
                     if stack:
@@ -576,31 +550,14 @@ class HierarchicalQP:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])
-                return x_star_bar, x_star_bar_p, cost, sol_old
+                return x_star_bar, x_star_bar_p, sol_old
 
             # ======================== Post-processing ======================= #
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-            cost[priority] = obj
-            if degree == 0 and priority == 3:
-                cost[priority + 1] = 0.5 * (
-                    (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)
-                    + sol[nx:].T @ sol[nx:]
-                )  # + rho_vector.T @ x_star
-            if priority == 4:
-                cost[priority] = 0.5 * (
-                    (x_star.T @ Ap.T @ Ap @ x_star + bp.T @ bp - 2 * x_star.T @ Ap.T @ bp)
-                    + sol[nx:].T @ sol[nx:]
-                )  # + rho_vector.T @ x_star
             sol_old.append(sol)
             Z_list.append(Z)
-            """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
-                for key in Z_n.keys():
-                    if len(Z_n[key][-1]) > priority:           # check if neigh as same priority level's task
-                        Z = Z @ Z_n[key][-1][priority]
-                    else:
-                        Z = Z @ Z_n[key][-1][-1]"""
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
@@ -630,9 +587,9 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p, cost, sol_old
+                return x_star_bar, x_star_bar_p, sol_old
                 # w_star_bar
-        return x_star_bar, x_star_bar_p, cost, sol_old
+        return x_star_bar, x_star_bar_p, sol_old
 
     def rho_vector(self, rho, degree, n_c):
         x_i = rho[1].shape[0] // degree

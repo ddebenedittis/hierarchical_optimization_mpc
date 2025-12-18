@@ -64,8 +64,6 @@ class Node:
         )  # step size for primal and dual variables
         self.w = None
         self.a = 1
-        self.cost_p = np.empty((st.n_priority + 1, 1))
-        self.cost_d = np.empty((st.n_priority + 1, 1))
 
         self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
         self.rho_i = np.zeros((2, self.n_priority, self.n_xi * (self.degree)))
@@ -112,10 +110,6 @@ class Node:
                 # header.append(f'stateRHO_{i}')
                 header.append(f'inputX{i}')
                 header.append(f'inputY{i}')
-            for i in range(st.n_priority + 1):
-                header.append(f'cost_p{i}')
-            for i in range(st.n_priority + 1):
-                header.append(f'cost_d{i}')
 
             writer.writerow(header)
 
@@ -486,16 +480,8 @@ class Node:
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
-            # rho_delta = 2*self.rho_i
-            # compute the value of the dual function, with the old x but the updated rho values
-            # self.cost_d = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta, dual_comp=True)
 
-            if self.step_plot == 0:
-                self.cost_d = np.array([-20, -20, -20, -20, -20])
-
-            self.u_star, self.y, self.cost_p = self.hompc(
-                copy.deepcopy(self.s_init.tolist()), rho_delta
-            )
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
 
             self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
             # self.w = self.w[1:-1]
@@ -634,8 +620,6 @@ class Node:
                     row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 4)
-            row.extend(self.cost_p.tolist())
-            row.extend(self.cost_d.tolist())
 
             writer.writerow(row)
         self.step_plot += 1

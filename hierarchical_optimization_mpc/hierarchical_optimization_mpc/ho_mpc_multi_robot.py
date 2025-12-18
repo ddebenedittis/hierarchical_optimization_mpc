@@ -1270,29 +1270,12 @@ class HOMPCMultiRobot(HOMPC):
                 C[p - 1] = np.vstack((C[p - 1], C_temp))
                 d[p - 1] = np.vstack((d[p - 1], d_temp))
 
-        """n_tasks = len(self._tasks)
-
-        A = [None] * (1 + n_tasks)
-        b = [None] * (1 + n_tasks)
-        C = [None] * (1 + n_tasks)
-        d = [None] * (1 + n_tasks)
-
-        A[0], b[0] = self._task_dynamics_consistency()
-
-        self.solve_times['Create Problem'] += time.time() - start_time
-
-        self._tasks = sorted(self._tasks, key=lambda x: x.prio)
-
-        for k in range(n_tasks):
-            kp = k + 1
-            A[kp], b[kp], C[kp], d[kp] = self._create_task_i_matrices(k)
-        """
         # self.solve_times["Create Problem"] += time.time() - start_time
 
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, cost = self.hqp(A, b, C, d)
+            x_star = self.hqp(A, b, C, d)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
@@ -1316,7 +1299,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, cost
+        return u_0
 
     # ======================================================================== #
 

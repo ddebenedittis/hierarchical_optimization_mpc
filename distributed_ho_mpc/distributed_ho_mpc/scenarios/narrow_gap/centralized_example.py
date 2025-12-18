@@ -79,8 +79,6 @@ def main():
             header.append(f'stateTheta_{i}')
             header.append(f'inputV_{i}')
             header.append(f'inputOH_{i}')
-        for i in range(5):
-            header.append(f'cost_p{i}')
 
         writer.writerow(header)
 
@@ -459,7 +457,7 @@ def main():
         time_coord_start = time.time()
         print(k)
 
-        u_star, cost = hompc(copy.deepcopy(s.tolist()))
+        u_star = hompc(copy.deepcopy(s.tolist()))
 
         print(f's: {s}')
         print(f'u_star: {u_star}')
@@ -476,7 +474,6 @@ def main():
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
-            row.extend(cost.tolist())
 
             writer.writerow(row)
 

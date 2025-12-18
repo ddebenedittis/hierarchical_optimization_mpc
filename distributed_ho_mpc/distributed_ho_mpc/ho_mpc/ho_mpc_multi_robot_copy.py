@@ -1437,15 +1437,9 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            if dual_comp:
-                cost_d = self.hqp(
-                    A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio, dual_comp=self.sol_old
-                )
-                return cost_d
-            else:
-                x_star, x_star_p, cost, self.sol_old = self.hqp(
-                    A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio
-                )
+            x_star, x_star_p, self.sol_old = self.hqp(
+                A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio
+            )
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
@@ -1492,7 +1486,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, y, cost
+        return u_0, y
 
     # ======================================================================== #
 

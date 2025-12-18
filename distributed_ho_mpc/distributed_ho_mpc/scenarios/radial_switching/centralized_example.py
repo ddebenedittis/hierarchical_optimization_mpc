@@ -83,8 +83,6 @@ def main():
             header.append(f'stateY_{i}')
             header.append(f'inputX_{i}')
             header.append(f'inputY_{i}')
-        for i in range(4):
-            header.append(f'cost_p{i}')
 
         writer.writerow(header)
 
@@ -346,7 +344,7 @@ def main():
         # for n, jj in enumerate(s_copy.omni):
         #     s_copy.omni[n] = jj + np.random.uniform(-0.05, 0.05, jj.shape)
 
-        u_star, cost = hompc(copy.deepcopy(s.tolist()))
+        u_star = hompc(copy.deepcopy(s.tolist()))
 
         print(f's: {s}')
         print(f'u_star: {u_star}')
@@ -361,7 +359,6 @@ def main():
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
-            row.extend(cost.tolist())
 
             writer.writerow(row)
 

@@ -548,7 +548,7 @@ class Agent(Node):
                         # robot_index = cov_rob_idx,
                     )
 
-                self.u_star, self.y, self.cost_p = self.hompc(copy.deepcopy(self.s.tolist()))
+                self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()))
 
                 # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 

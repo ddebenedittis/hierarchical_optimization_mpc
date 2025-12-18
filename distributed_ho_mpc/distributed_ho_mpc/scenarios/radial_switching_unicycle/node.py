@@ -110,8 +110,6 @@ class Node:
                 header.append(f'stateRHO_{i}')
                 header.append(f'inputV{i}')
                 header.append(f'inputOM{i}')
-            # for i in range(self.n_priority+1):
-            #     header.append(f'cost_p{i}')
 
             writer.writerow(header)
 
@@ -149,7 +147,6 @@ class Node:
         self.v_min = copy.deepcopy(st.v_min)
         self.omega_max = copy.deepcopy(st.omega_max)
         self.omega_min = copy.deepcopy(st.omega_min)
-        self.cost = []
         self.dist_hist = [[], [], [], [], [], [], [], []]
         self.delta_hist = [[], [], [], [], [], [], [], []]
         self.counter = []
@@ -485,9 +482,7 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, self.y, self.cost = self.hompc(
-                copy.deepcopy(self.s_init.tolist()), rho_delta
-            )
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
 
             self.counter.append(self.step)
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share

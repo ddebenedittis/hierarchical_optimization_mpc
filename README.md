@@ -138,7 +138,7 @@ colcon test
 
 ## Known Bugs
 
-- **Problem**: `qpsolvers` does return both the solution and the cost. This breaks older centralized code. **Solution**: create another function `solve_qp_cost` that does also return the cost, and have `solve_qp` only return the solution. ToDo.
+None.
 
 ## Publications
 

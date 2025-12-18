@@ -58,9 +58,6 @@ class Node:
         self.n_priority = st.n_priority  # number of priorities
         self.n_xi = st.n_control * 5  # dimension of primal variables
 
-        self.cost_history = []  # history of cost function values
-        self.cost_p = np.empty((st.n_priority + 1, 1))
-        self.cost_d = np.empty((st.n_priority + 1, 1))
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
             self.n_xi * (self.degree)
@@ -113,10 +110,6 @@ class Node:
                 header.append(f'stateRHO_{i}')
                 header.append(f'inputV_{i}')
                 header.append(f'inputOM_{i}')
-            for i in range(st.n_priority + 1):
-                header.append(f'cost_p{i}')
-
-            # header.append('cost')
 
             writer.writerow(header)
 
@@ -502,9 +495,7 @@ class Node:
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y, self.cost_p = self.hompc(
-                copy.deepcopy(self.s_init.tolist()), rho_delta
-            )
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
 
             if round == '2':
                 self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -606,7 +597,6 @@ class Node:
                     row.extend(ss)
             for u in self.u_star[0]:
                 row.extend(list(u))
-            row.append(self.cost_history[-1])
 
 
             writer.writerow(row)"""
@@ -633,8 +623,6 @@ class Node:
                     row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 5)
-            row.extend(self.cost_p.tolist())
-            # row.append(self.cost_history[-1])
 
             writer.writerow(row)
 
@@ -868,7 +856,6 @@ class Node:
             #     for j in self.neigh:
             #         header.append(f'inputX_{j}')
             #         header.append(f'inputY_{j}')
-            #     header.append('cost')
             #     # Write the header
             #     writer.writerow(header)
 

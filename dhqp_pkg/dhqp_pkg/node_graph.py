@@ -66,7 +66,7 @@ class MinimalSubscriber(Node):
             writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
-        self.flags.voronoi = False
+        self.flags.voronoi = True
 
         # initialize subscription dict
         self.subscriptions_list = {}
@@ -135,8 +135,8 @@ class MinimalSubscriber(Node):
                     st.dt,
                     [(self.step - 1) * st.dt],
                     f'{self.out_dir}/snapshot',
-                    x_lim=[-3, 3],
-                    y_lim=[-3, 3],
+                    x_lim=[-0.1, 1.8],
+                    y_lim=[-0.1, 1.8],
                     flags=self.flags,
                 )
                 display_animation(

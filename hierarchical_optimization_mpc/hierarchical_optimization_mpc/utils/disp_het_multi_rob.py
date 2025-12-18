@@ -533,7 +533,10 @@ class Animation:
         # Past trajectory.
         if self.artists_flags.past_trajectory:
             for e in self.artists.past_trajectory:
-                e.remove()
+                try:
+                    e.remove()
+                except:
+                    pass
 
             cnt = 0
             for c in range(len(self.data[frame])):

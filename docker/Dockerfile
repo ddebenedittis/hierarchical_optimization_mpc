@@ -79,13 +79,13 @@ RUN pip3 install \
     cvxpy \
     matplotlib \
     networkx \
-    numpy \
+    numpy==1.26.4 \
     osqp \
     pandas \
     pre-commit \
     progressbar2 \
     proxsuite \
-    git+https://github.com/fedeiada/qpsolvers.git#egg=qpsolvers \
+    qpsolvers \
     quadprog \
     ruff \
     scipy \

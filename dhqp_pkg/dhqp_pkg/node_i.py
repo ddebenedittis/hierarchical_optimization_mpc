@@ -150,7 +150,7 @@ class Agent(Node):
         self.sender = MessageSender(self.node_id, self.neigh, self.y_i, self.rho_i, 4, 4)
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, 4)
-
+        self.flag_coverage = False
         self.goals = st.goals
         self.step = 0
         self.step_plot = 0
@@ -278,12 +278,8 @@ class Agent(Node):
                         self.s.omni[nn] = np.array([x, y, yaw])  # self state"""
             for n, name in enumerate(msg.name):
                 if name == f'/robot_{self.node_id+1}':
-                    x = msg.pose[n].position.x + float(
-                        np.random.normal(0, 0.01, 1)
-                    )  # msg.pose.pose.position.x
-                    y = msg.pose[n].position.y + float(
-                        np.random.normal(0, 0.01, 1)
-                    )  # msg.pose.pose.position.y
+                    x = msg.pose[n].position.x  # msg.pose.pose.position.x
+                    y = msg.pose[n].position.y  # msg.pose.pose.position.y
 
                     # Extract orientation (quaternion -> yaw)
                     q = msg.pose[n].orientation  # msg.pose.pose.orientation
@@ -539,19 +535,18 @@ class Agent(Node):
             if sync:
                 # Reorder the state vector received from the neighbors
                 self.reorder_s_init(self.received_data)
-                task_coverage_coeff = self.hompc.get_task_coverage(
-                    copy.deepcopy(self.s.tolist())
-                    # cov_rob_idx
-                )
+                if self.flag_coverage:
+                    task_coverage_coeff = self.hompc.get_task_coverage(
+                        copy.deepcopy(self.s.tolist())
+                        # cov_rob_idx
+                    )
 
-                self.hompc.update_task(
-                    name='coverage',
-                    # eq_task_ls = task_coverage,
-                    eq_task_coeff=task_coverage_coeff,
-                    # robot_index = cov_rob_idx,
-                )
-                print(f'coef: {task_coverage_coeff}\n\n')
-                print(f'coef: {self.task_coverage}\n\n')
+                    self.hompc.update_task(
+                        name='coverage',
+                        # eq_task_ls = task_coverage,
+                        eq_task_coeff=task_coverage_coeff,
+                        # robot_index = cov_rob_idx,
+                    )
 
                 self.u_star, self.y, self.cost_p = self.hompc(copy.deepcopy(self.s.tolist()))
 
@@ -803,6 +798,7 @@ class Agent(Node):
                     robot_index=[self.robot_idx],
                 )
             elif task['name'] == 'coverage':
+                self.flag_coverage = True
                 self.hompc.create_task(
                     name='coverage',
                     prio=task['prio'],

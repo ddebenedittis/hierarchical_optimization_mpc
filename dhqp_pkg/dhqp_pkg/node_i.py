@@ -124,7 +124,7 @@ class Agent(Node):
         self.s = RobCont(omni=None, uni=None)  # current state
 
         # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(0.12)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(0.25)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -527,25 +527,25 @@ class Agent(Node):
 
                 self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()))
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 # publish the command
-                command.header.stamp = self.get_clock().now().to_msg()
-                command.twist.linear.x = float(
-                    st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0])
-                )
-                command.twist.angular.z = float(
-                    st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0])
-                )
-                # command.twist.linear.x = float(self.u_star[0][0][0])
-                # command.twist.angular.z = float((self.u_star[0][0][1]))
+                # command.header.stamp = self.get_clock().now().to_msg()
+                # command.twist.linear.x = float(
+                #     st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0])
+                # )
+                # command.twist.angular.z = float(
+                #     st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0])
+                # )
+                command.twist.linear.x = float(self.u_star[0][0][0])
+                command.twist.angular.z = float((self.u_star[0][0][1]))
 
                 self.diff_drive_publisher.publish(command)
 
-                cmd.linear.x = float(st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0]))
-                cmd.angular.z = float(st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0]))
-                # cmd.linear.x = float(self.u_star[0][0][0])
-                # cmd.angular.z = float(self.u_star[0][0][1])
+                # cmd.linear.x = float(st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0]))
+                # cmd.angular.z = float(st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0]))
+                cmd.linear.x = float(self.u_star[0][0][0])
+                cmd.angular.z = float(self.u_star[0][0][1])
                 self.cmd_publisher.publish(cmd)
 
                 # publish the updated message
@@ -578,23 +578,23 @@ class Agent(Node):
 
         # =========================== Define The Tasks ========================== #
 
-        # self.task_input_limits = RobCont(
-        #     omni=ca.vertcat(
-        #         self.u_var.omni[0] - st.v_max,  # vmax
-        #         -self.u_var.omni[0] + st.v_min,  # vmin
-        #         self.u_var.omni[1] - st.omega_max,  # vmax
-        #         -self.u_var.omni[1] + st.omega_min,  # vmin
-        #     )
-        # )
-
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
-                st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) - st.v_max,  # vmax
-                -st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) + st.v_min,  # vmin
-                st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) - st.omega_max,  # vmax
-                -st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) + st.omega_min,  # vmin
+                self.u_var.omni[0] - st.v_max,  # vmax
+                -self.u_var.omni[0] + st.v_min,  # vmin
+                self.u_var.omni[1] - st.omega_max,  # vmax
+                -self.u_var.omni[1] + st.omega_min,  # vmin
             )
         )
+
+        # self.task_input_limits = RobCont(
+        #     omni=ca.vertcat(
+        #         st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) - st.v_max,  # vmax
+        #         -st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) + st.v_min,  # vmin
+        #         st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) - st.omega_max,  # vmax
+        #         -st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) + st.omega_min,  # vmin
+        #     )
+        # )
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
 
@@ -605,7 +605,7 @@ class Agent(Node):
                 self.s_var.omni[0] - 3.9,  # float(st.bounding_box[1]),  # limit max on x
                 -self.s_var.omni[0] - 1.6,  # float(st.bounding_box[0]),  # limit min on x
                 self.s_var.omni[1] - 1.6,  # float(st.bounding_box[3]),  # limit max on y
-                -self.s_var.omni[1] - 1.05,  # float(st.bounding_box[2]),  # limit min on y
+                -self.s_var.omni[1] - 1.15,  # float(st.bounding_box[2]),  # limit min on y
             )
         )
         # ===========================Coverage====================================== #
@@ -626,7 +626,7 @@ class Agent(Node):
         self.mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.7
+        self.threshold = 0.6
 
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(
@@ -667,7 +667,7 @@ class Agent(Node):
             np.array(self.objects_detected)
             if self.objects_detected is not None
             else [
-                np.array([0.3, 0.5]),
+                np.array([1.75, 0.28]),
                 # np.array([2.1, -2.9]),
                 # np.array([-1.6, -2.5]),
                 # np.array([-1.6, 2.16]),
@@ -951,42 +951,42 @@ class Agent(Node):
 
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
         """Update the state of the system using the control input u_star and the time step dt"""
-        n_intervals = 10
-        for j, _ in enumerate(s.omni):
-            for _ in range(n_intervals):
-                theta = s.omni[j][2]
-
-                omega_l = u_star.omni[j][0]
-                omega_r = u_star.omni[j][1]
-
-                v = st.R * (omega_r + omega_l) / 2
-                omega = st.R * (omega_r - omega_l) / st.L
-
-                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-                    [
-                        v * np.cos(theta),
-                        v * np.sin(theta),
-                        omega,
-                    ]
-                )
         # n_intervals = 10
         # for j, _ in enumerate(s.omni):
         #     for _ in range(n_intervals):
+        #         theta = s.omni[j][2]
+
+        #         omega_l = u_star.omni[j][0]
+        #         omega_r = u_star.omni[j][1]
+
+        #         v = st.R * (omega_r + omega_l) / 2
+        #         omega = st.R * (omega_r - omega_l) / st.L
+
         #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
         #             [
-        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
-        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
-        #                 u_star.omni[j][1],
+        #                 v * np.cos(theta),
+        #                 v * np.sin(theta),
+        #                 omega,
         #             ]
         #         )
-        # for j, _ in enumerate(s.omni):
-        #     for _ in range(n_intervals):
-        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-        #             [
-        #                 u_star.omni[j][0],
-        #                 u_star.omni[j][1],
-        #             ]
-        #         )
+        n_intervals = 10
+        for j, _ in enumerate(s.omni):
+            for _ in range(n_intervals):
+                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                    [
+                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                        u_star.omni[j][1],
+                    ]
+                )
+        for j, _ in enumerate(s.omni):
+            for _ in range(n_intervals):
+                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                    [
+                        u_star.omni[j][0],
+                        u_star.omni[j][1],
+                    ]
+                )
 
         return s
 

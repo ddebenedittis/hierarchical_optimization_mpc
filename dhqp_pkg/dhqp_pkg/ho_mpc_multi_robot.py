@@ -8,6 +8,7 @@ import casadi as ca
 import numpy as np
 from scipy.special import binom
 
+import dhqp_pkg.settings as st
 from dhqp_pkg.hierarchical_qp import HierarchicalQP, QPSolver
 from dhqp_pkg.ho_mpc import HOMPC, subs
 from dhqp_pkg.voronoi_task import VoronoiTask
@@ -176,7 +177,7 @@ class HOMPCMultiRobot(HOMPC):
             for i in range(len(states))
         ]
 
-        self.bounding_box = np.array([-3.4, 3.0, -3.0, 3.0])
+        self.bounding_box = np.array([-1.5, 1.5, -1.5, 1.5])
 
         self._tasks: list[self.Task] = []
 
@@ -205,7 +206,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
         self._input_bar = [
             [
-                [np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
+                [np.zeros(self._n_inputs[i]) + np.array([0.2, 0.2]) for _ in range(self.n_control)]
                 for _ in range(self.n_robots[i])
             ]
             for i in range(len(self.n_robots))

@@ -207,7 +207,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
         self._input_bar = [
             [
-                [np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
+                [np.zeros(self._n_inputs[i]) + np.array([1, 1]) for _ in range(self.n_control)]
                 for _ in range(self.n_robots[i])
             ]
             for i in range(len(self.n_robots))

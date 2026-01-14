@@ -122,7 +122,7 @@ class HOMPCMultiRobot(HOMPC):
             if n_r < 0:
                 raise ValueError(f'The {i}-th class of robots has a negative number of robots.')
 
-        self._n_control = 1  # control horizon timesteps
+        self._n_control = 3  # control horizon timesteps
         self._n_pred = 0  # prediction horizon timesteps (the input is constant)
 
         self.regularization = 1e-6  # regularization factor
@@ -164,7 +164,7 @@ class HOMPCMultiRobot(HOMPC):
         # Inputs around which the linearization is performed.
         # _input_bar[class c][robot j][timestep k]
         self._input_bar = [
-            [[np.zeros(self._n_inputs[i])] * self.n_control] * n_robots[i]
+            [[np.zeros(self._n_inputs[i]) + np.array([0, 1])] * self.n_control] * n_robots[i]
             for i in range(len(states))
         ]
 
@@ -195,7 +195,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
         self._input_bar = [
             [
-                [np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
+                [np.zeros(self._n_inputs[i]) + np.array([1, 1]) for _ in range(self.n_control)]
                 for _ in range(self.n_robots[i])
             ]
             for i in range(len(self.n_robots))

@@ -48,13 +48,17 @@ class MinimalSubscriber(Node):
         self.step = 0
         self.step_plot = 0
 
+        self.t_0 = np.nan
+        self.time = np.zeros(self.n_steps - 10) * np.nan
+
         # create logging file
         self.out_dir = self.get_parameter('out_dir').value
         self.filename = f'{self.out_dir}/traj_data.csv'
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 
-            header = ['Time']
+            header = ['k']
+            header.append('time')
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
@@ -66,7 +70,7 @@ class MinimalSubscriber(Node):
             writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
-        self.flags.voronoi = True
+        self.flags.voronoi = False
 
         # initialize subscription dict
         self.subscriptions_list = {}
@@ -108,7 +112,11 @@ class MinimalSubscriber(Node):
         msg = Float32MultiArray()
 
         if self.sync:
+            if self.t_0 is np.nan:
+                self.t_0 = self.get_clock().now().nanoseconds
+
             # Reorder the vector of received messages from the agents
+            self.time[self.step] = (self.get_clock().now().nanoseconds - self.t_0) / 1e9
             self.reorder_s_init(self.received_data)
 
             self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
@@ -125,18 +133,18 @@ class MinimalSubscriber(Node):
                     writer = csv.writer(file)
                     flat_s = [v for sub in self.s_history[s][0] for v in sub]  # flatten
                     flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
-                    row = [s] + flat_s + flat_u
+                    row = [s] + [self.time[s]] + flat_s + flat_u
                     writer.writerow(row)
             if st.simulation:
                 save_snapshots(
                     self.s_history,
                     None,
-                    None,  # [[3, 3, 0.5]],
+                    [[0.3, 0.5, 0.5]],  # [[3, 3, 0.5]],
                     st.dt,
                     [(self.step - 1) * st.dt],
                     f'{self.out_dir}/snapshot',
-                    x_lim=[-0.1, 1.8],
-                    y_lim=[-0.1, 1.8],
+                    x_lim=[-3.5, 3.5],
+                    y_lim=[-3.5, 3.5],
                     flags=self.flags,
                 )
                 display_animation(

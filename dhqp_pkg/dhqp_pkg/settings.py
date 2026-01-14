@@ -3,14 +3,18 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'obst_avoid'  # 'radial_swt' 'form'
+experiment_name = 'form'  # 'radial_swt' 'obst_avoid'
 
 if experiment_name == 'radial_swt':
     goals = [
-        np.array([2.1, 1.4]),  # np.array([-3.437, -3.618]),
-        np.array([2.1, -0.64]),
-        np.array([-1.29, -0.34]),
-        np.array([-1.29, 1.16]),
+        np.array([3.48, 1.25]),  # np.array([-3.437, -3.618]),
+        np.array([3.4, -0.36]),
+        np.array([-0.58, -0.59]),
+        np.array([-0.61, 1.32]),
+        # np.array([-0.58, -0.59]),  # np.array([-3.437, -3.618]),
+        # np.array([-0.61, 1.32]),
+        # np.array([3.48, 1.25]),
+        # np.array([3.4, -0.36]),
     ]
     n_nodes = 4
     system_tasks = {
@@ -66,7 +70,7 @@ if experiment_name == 'radial_swt':
         ],
     }"""
 elif experiment_name == 'form':
-    n_nodes = 4
+    n_nodes = 5
     goals = [
         np.array([0, 0]),
     ]
@@ -90,6 +94,12 @@ elif experiment_name == 'form':
             {'prio': 4, 'name': 'coverage'},
         ],
         'agent_3': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 4, 'name': 'coverage'},
+        ],
+        'agent_4': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
@@ -156,10 +166,14 @@ elif experiment_name == 'form':
 elif experiment_name == 'obst_avoid':
     n_nodes = 4
     goals = [
-        np.array([2.1, 1.4]),
-        np.array([2.1, -0.64]),
-        np.array([-1.29, -0.34]),
-        np.array([-1.29, 1.16]),
+        np.array([3.48, 1.25]),  # np.array([-3.437, -3.618]),
+        np.array([3.4, -0.36]),
+        np.array([-0.58, -0.59]),
+        np.array([-0.61, 1.32]),
+        # np.array([-0.58, -0.59]),  # np.array([-3.437, -3.618]),
+        # np.array([-0.61, 1.32]),
+        # np.array([3.48, 1.25]),
+        # np.array([3.4, -0.36]),
     ]
     system_tasks = {
         'agent_0': [
@@ -197,16 +211,16 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
-dt = 0.09
-n_steps = 100
+dt = 0.01
+n_steps = 150
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
 
-v_max = 0.5
+v_max = 0.2
 v_min = 0.0
-omega_max = 0.9
-omega_min = -0.9
+omega_max = 0.4
+omega_min = -0.4
 bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
 
 
@@ -222,7 +236,7 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 3  # mpc control step
+n_control = 4  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 2

@@ -124,7 +124,7 @@ class Agent(Node):
         self.s = RobCont(omni=None, uni=None)  # current state
 
         # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 3)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(0.12)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -306,24 +306,24 @@ class Agent(Node):
                     self.s.omni[0] = np.array([x, y, yaw])  # self state
                 else:
                     self.init_pos = np.array([x, y, yaw])
-            if body.rigid_body_name == f'obstacle_davide':
-                x = body.pose.position.x  # msg.pose.pose.position.x
-                y = body.pose.position.y  # msg.pose.pose.position.y
-                obs_pos = np.array([x, y])
-                if np.any(np.isnan(obs_pos)):
-                    continue
-                task_obs_avoidance = [
-                    ca.vertcat(
-                        -((self.s_var.omni[0] - obs_pos[0]) ** 2)
-                        - (self.s_var.omni[1] - obs_pos[1]) ** 2
-                        + self.obstacle_size**2
-                    )
-                ]
+            # if body.rigid_body_name == f'obstacle_davide':
+            #     x = body.pose.position.x  # msg.pose.pose.position.x
+            #     y = body.pose.position.y  # msg.pose.pose.position.y
+            #     obs_pos = np.array([x, y])
+            #     if np.any(np.isnan(obs_pos)):
+            #         continue
+            #     task_obs_avoidance = [
+            #         ca.vertcat(
+            #             -((self.s_var.omni[0] - obs_pos[0]) ** 2)
+            #             - (self.s_var.omni[1] - obs_pos[1]) ** 2
+            #             + self.obstacle_size**2
+            #         )
+            #     ]
 
-                self.hompc.update_task(
-                    name='obstacle_avoidance',
-                    ineq_task_ls=task_obs_avoidance[0],
-                )
+            #     self.hompc.update_task(
+            #         name='obstacle_avoidance',
+            #         ineq_task_ls=task_obs_avoidance[0],
+            #     )
 
         # self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
@@ -488,29 +488,6 @@ class Agent(Node):
         cmd = Twist()
 
         if self.step == 0:  # Let the publisher start at the first iteration
-            """if len(self.objects_detected) is not None and st.experiment_name == 'obst_avoid':
-                # Create Tasks and MPC
-                self.Tasks()
-                self.MPC()
-
-                msg.data = [float(self.step)]
-                [msg.data.append(float(ss)) for ss in self.s.omni[0]]
-                [msg.data.append(float(0)) for _ in range(2)]
-                self.publisher_.publish(msg)
-
-                # log files
-                # 1) visualize on the terminal
-                self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
-                self.step += 1
-            elif st.experiment_name != 'obst_avoid':
-                msg.data = [float(self.step)]
-                [msg.data.append(float(ss)) for ss in self.s.omni[0]]
-                self.publisher_.publish(msg)
-
-                # log files
-                # 1) visualize on the terminal
-                self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
-                self.step += 1"""
             msg.data = [float(self.step)]
             [msg.data.append(float(ss)) for ss in self.s.omni[0]]
             [msg.data.append(float(0)) for _ in range(2)]
@@ -550,16 +527,25 @@ class Agent(Node):
 
                 self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()))
 
-                # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 # publish the command
                 command.header.stamp = self.get_clock().now().to_msg()
-                command.twist.linear.x = float(self.u_star[0][0][0])
-                command.twist.angular.z = float(self.u_star[0][0][1])
+                command.twist.linear.x = float(
+                    st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0])
+                )
+                command.twist.angular.z = float(
+                    st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0])
+                )
+                # command.twist.linear.x = float(self.u_star[0][0][0])
+                # command.twist.angular.z = float((self.u_star[0][0][1]))
+
                 self.diff_drive_publisher.publish(command)
 
-                cmd.linear.x = float(self.u_star[0][0][0])
-                cmd.angular.z = float(self.u_star[0][0][1])
+                cmd.linear.x = float(st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0]))
+                cmd.angular.z = float(st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0]))
+                # cmd.linear.x = float(self.u_star[0][0][0])
+                # cmd.angular.z = float(self.u_star[0][0][1])
                 self.cmd_publisher.publish(cmd)
 
                 # publish the updated message
@@ -592,16 +578,36 @@ class Agent(Node):
 
         # =========================== Define The Tasks ========================== #
 
+        # self.task_input_limits = RobCont(
+        #     omni=ca.vertcat(
+        #         self.u_var.omni[0] - st.v_max,  # vmax
+        #         -self.u_var.omni[0] + st.v_min,  # vmin
+        #         self.u_var.omni[1] - st.omega_max,  # vmax
+        #         -self.u_var.omni[1] + st.omega_min,  # vmin
+        #     )
+        # )
+
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
-                self.u_var.omni[0] - st.v_max,  # vmax
-                -self.u_var.omni[0] + st.v_min,  # vmin
-                self.u_var.omni[1] - st.omega_max,  # vmax
-                -self.u_var.omni[1] + st.omega_min,  # vmin
+                st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) - st.v_max,  # vmax
+                -st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) + st.v_min,  # vmin
+                st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) - st.omega_max,  # vmax
+                -st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) + st.omega_min,  # vmin
             )
         )
 
         self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
+
+        # ===========================simulation limits====================================== #
+
+        self.task_limits = RobCont(
+            omni=ca.vertcat(
+                self.s_var.omni[0] - 1.5,  # float(st.bounding_box[1]),  # limit max on x
+                -self.s_var.omni[0] - 1.5,  # float(st.bounding_box[0]),  # limit min on x
+                self.s_var.omni[1] - 1.5,  # float(st.bounding_box[3]),  # limit max on y
+                -self.s_var.omni[1] - 1.5,  # float(st.bounding_box[2]),  # limit min on y
+            )
+        )
         # ===========================Coverage====================================== #
 
         self.task_coverage = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
@@ -620,7 +626,7 @@ class Agent(Node):
         self.mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.1
+        self.threshold = 0.7
 
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(
@@ -661,14 +667,14 @@ class Agent(Node):
             np.array(self.objects_detected)
             if self.objects_detected is not None
             else [
-                np.array([2.4, 2.5]),
+                np.array([0.3, 0.5]),
                 # np.array([2.1, -2.9]),
                 # np.array([-1.6, -2.5]),
                 # np.array([-1.6, 2.16]),
             ]
         )
         self.task_obs_avoidances = []
-        self.obstacle_size = 0.7
+        self.obstacle_size = 0.5
         for obs in self.obstacle_pos:
             self.task_obs_avoidances.append(
                 [
@@ -722,7 +728,7 @@ class Agent(Node):
                     type=TaskType.Same,
                     eq_task_ls=self.task_pos[task['goal_index']].tolist(),
                     eq_task_coeff=self.task_pos_coeff[task['goal_index']].tolist(),
-                    # time_index=TaskIndexes.All,
+                    # time_index=[2],
                     robot_index=[[robot_idx]],
                 )
             elif task['name'] == 'formation':
@@ -786,7 +792,7 @@ class Agent(Node):
                     type=TaskType.Same,
                     eq_task_ls=self.task_pos[task['goal_index']].tolist(),
                     eq_task_coeff=self.task_pos_coeff[task['goal_index']].tolist(),
-                    # time_index=TaskIndexes.All,
+                    # time_index=[3],
                     robot_index=[[0]],
                 )
             elif task['name'] == 'input_minimization':
@@ -800,12 +806,20 @@ class Agent(Node):
             elif task['name'] == 'coverage':
                 self.flag_coverage = True
                 self.hompc.create_task(
+                    name='space_limits',
+                    prio=2,
+                    type=TaskType.Same,
+                    ineq_task_ls=self.task_limits.tolist(),
+                    robot_index=[self.robot_idx],
+                    # ineq_task_coeff= self.task_input_limits_coeffs
+                )
+                self.hompc.create_task(
                     name='coverage',
                     prio=task['prio'],
                     type=TaskType.Same,
                     eq_task_ls=self.task_coverage.tolist(),
                     eq_task_coeff=self.task_coverage_coeff.tolist(),
-                    time_index=TaskIndexes.All,
+                    # time_index=[1],
                     robot_index=[self.robot_idx],
                 )
             elif task['name'] == 'input_smooth':
@@ -822,7 +836,7 @@ class Agent(Node):
                         )
                     ).tolist(),
                     ineq_task_coeff=[
-                        [[np.array([0.1, 0.1, 0.1, 0.1])] for _ in range(self.n_robots.omni)],
+                        [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
                         [[]],
                     ],
                     robot_index=[self.robot_idx],
@@ -890,26 +904,34 @@ class Agent(Node):
                 )
         elif st.experiment_name == 'form':
             if self.node_id == 0:
-                self.s = RobCont(omni=[np.array([2, -2, 1.4]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 1.2, -3]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 1:
-                self.s = RobCont(omni=[np.array([-2, -2, 1.4]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0.5, 0]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 2:
-                self.s = RobCont(omni=[np.array([-2, 2, 1.4]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, -0.5, -3]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 3:
-                self.s = RobCont(omni=[np.array([-2, 0, 1.4]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, -1.2, 0]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 4:
                 self.s = RobCont(omni=[np.array([2, 2, 1.4]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 5:
                 self.s = RobCont(omni=[np.array([0, 0, 1.4]) for _ in range(self.n_robots.omni)])
         elif st.experiment_name == 'obst_avoid':
             if self.node_id == 0:
-                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
+                self.s = RobCont(
+                    omni=[np.array([-0.437, -0.618, 0.63]) for _ in range(self.n_robots.omni)]
+                )
             elif self.node_id == 1:
-                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
+                self.s = RobCont(
+                    omni=[np.array([-0.582, 1.416, -0.676]) for _ in range(self.n_robots.omni)]
+                )
             elif self.node_id == 2:
-                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
+                self.s = RobCont(
+                    omni=[np.array([1.852, 1.443, -2.5]) for _ in range(self.n_robots.omni)]
+                )
             elif self.node_id == 3:
-                self.s = RobCont(omni=[self.init_pos for _ in range(self.n_robots.omni)])
+                self.s = RobCont(
+                    omni=[np.array([1.95, -0.498, 2.5]) for _ in range(self.n_robots.omni)]
+                )
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -929,17 +951,34 @@ class Agent(Node):
 
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
         """Update the state of the system using the control input u_star and the time step dt"""
-
         n_intervals = 10
         for j, _ in enumerate(s.omni):
             for _ in range(n_intervals):
+                theta = s.omni[j][2]
+
+                omega_l = u_star.omni[j][0]
+                omega_r = u_star.omni[j][1]
+
+                v = st.R * (omega_r + omega_l) / 2
+                omega = st.R * (omega_r - omega_l) / st.L
+
                 s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                     [
-                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
-                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
-                        u_star.omni[j][1],
+                        v * np.cos(theta),
+                        v * np.sin(theta),
+                        omega,
                     ]
                 )
+        # n_intervals = 10
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
+        #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
+        #                 u_star.omni[j][1],
+        #             ]
+        #         )
         # for j, _ in enumerate(s.omni):
         #     for _ in range(n_intervals):
         #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
@@ -969,7 +1008,7 @@ def main(args=None):
 
     agent = Agent()
     print(f'Agent {agent.node_id} -- Waiting for sync.')
-    sleep(0.5)
+    sleep(1.0)
     print('GO!')
     try:
         rclpy.spin(agent)

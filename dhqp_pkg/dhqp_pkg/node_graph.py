@@ -47,7 +47,7 @@ class MinimalSubscriber(Node):
         self.goals = st.goals
         self.step = 0
         self.step_plot = 0
-
+        self.save_interval = 20
         self.t_0 = np.nan
         self.time = np.zeros(self.n_steps - 10) * np.nan
 
@@ -112,7 +112,7 @@ class MinimalSubscriber(Node):
         msg = Float32MultiArray()
 
         if self.sync:
-            if self.t_0 is np.nan:
+            if np.isnan(self.t_0):
                 self.t_0 = self.get_clock().now().nanoseconds
 
             # Reorder the vector of received messages from the agents
@@ -123,18 +123,28 @@ class MinimalSubscriber(Node):
             self.get_logger().info(f'u:{self.u_history[-1]}')
             # update iteration counter
             self.sync = False
-            self.step += 1
 
+            if self.step % 20 == 0 and self.step > 0:
+                with open(self.filename, mode='a', newline='') as file:
+                    for s in range(self.step - self.save_interval, self.step):
+                        if s == 0:
+                            continue
+                        writer = csv.writer(file)
+                        flat_s = [v for sub in self.s_history[s][0] for v in sub]  # flatten
+                        flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
+                        row = [s] + [self.time[s]] + flat_s + flat_u
+                        writer.writerow(row)
+            self.step += 1
         # Stop the node if tt exceeds MAXITERS
         if self.step >= self.n_steps - 10:
-            print('\nMAXITERS reached')
-            with open(self.filename, mode='a', newline='') as file:
-                for s in range(1, self.step):
-                    writer = csv.writer(file)
-                    flat_s = [v for sub in self.s_history[s][0] for v in sub]  # flatten
-                    flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
-                    row = [s] + [self.time[s]] + flat_s + flat_u
-                    writer.writerow(row)
+            # print('\nMAXITERS reached')
+            # with open(self.filename, mode='a', newline='') as file:
+            #     for s in range(1, self.step):
+            #         writer = csv.writer(file)
+            #         flat_s = [v for sub in self.s_history[s][0] for v in sub]  # flatten
+            #         flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
+            #         row = [s] + [self.time[s]] + flat_s + flat_u
+            #         writer.writerow(row)
             if st.simulation:
                 save_snapshots(
                     self.s_history,

@@ -602,10 +602,10 @@ class Agent(Node):
 
         self.task_limits = RobCont(
             omni=ca.vertcat(
-                self.s_var.omni[0] - 1.5,  # float(st.bounding_box[1]),  # limit max on x
-                -self.s_var.omni[0] - 1.5,  # float(st.bounding_box[0]),  # limit min on x
-                self.s_var.omni[1] - 1.5,  # float(st.bounding_box[3]),  # limit max on y
-                -self.s_var.omni[1] - 1.5,  # float(st.bounding_box[2]),  # limit min on y
+                self.s_var.omni[0] - 3.9,  # float(st.bounding_box[1]),  # limit max on x
+                -self.s_var.omni[0] - 1.6,  # float(st.bounding_box[0]),  # limit min on x
+                self.s_var.omni[1] - 1.6,  # float(st.bounding_box[3]),  # limit max on y
+                -self.s_var.omni[1] - 1.05,  # float(st.bounding_box[2]),  # limit min on y
             )
         )
         # ===========================Coverage====================================== #
@@ -806,14 +806,6 @@ class Agent(Node):
             elif task['name'] == 'coverage':
                 self.flag_coverage = True
                 self.hompc.create_task(
-                    name='space_limits',
-                    prio=2,
-                    type=TaskType.Same,
-                    ineq_task_ls=self.task_limits.tolist(),
-                    robot_index=[self.robot_idx],
-                    # ineq_task_coeff= self.task_input_limits_coeffs
-                )
-                self.hompc.create_task(
                     name='coverage',
                     prio=task['prio'],
                     type=TaskType.Same,
@@ -840,6 +832,14 @@ class Agent(Node):
                         [[]],
                     ],
                     robot_index=[self.robot_idx],
+                )
+                self.hompc.create_task(
+                    name='space_limits',
+                    prio=2,
+                    type=TaskType.Same,
+                    ineq_task_ls=self.task_limits.tolist(),
+                    robot_index=[self.robot_idx],
+                    # ineq_task_coeff= self.task_input_limits_coeffs
                 )
             elif task['name'] == 'formation':
                 aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (

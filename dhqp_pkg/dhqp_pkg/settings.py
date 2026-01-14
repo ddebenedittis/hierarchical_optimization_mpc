@@ -164,28 +164,28 @@ elif experiment_name == 'obst_avoid':
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'obstacle_avoidance'},
             {'prio': 3, 'name': 'collision_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},

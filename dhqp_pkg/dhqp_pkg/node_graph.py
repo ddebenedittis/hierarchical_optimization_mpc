@@ -70,7 +70,7 @@ class MinimalSubscriber(Node):
             writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
-        self.flags.voronoi = False
+        self.flags.voronoi = True
 
         # initialize subscription dict
         self.subscriptions_list = {}
@@ -149,12 +149,12 @@ class MinimalSubscriber(Node):
                 save_snapshots(
                     self.s_history,
                     None,
-                    [[0.3, 0.5, 0.5]],  # [[3, 3, 0.5]],
+                    None,  # [[1.75, 0.28, 0.4]],  # [[3, 3, 0.5]],
                     st.dt,
                     [(self.step - 1) * st.dt],
                     f'{self.out_dir}/snapshot',
-                    x_lim=[-3.5, 3.5],
-                    y_lim=[-3.5, 3.5],
+                    x_lim=[-1, 3.8],
+                    y_lim=[-1, 2],
                     flags=self.flags,
                 )
                 display_animation(

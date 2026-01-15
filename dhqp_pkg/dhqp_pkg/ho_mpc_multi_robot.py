@@ -177,7 +177,7 @@ class HOMPCMultiRobot(HOMPC):
             for i in range(len(states))
         ]
 
-        self.bounding_box = np.array([-1.5, 3.8, -1.0, 1.5])
+        self.bounding_box = np.array([-1.6, 3.9, -1.15, 1.6])
 
         self._tasks: list[self.Task] = []
 

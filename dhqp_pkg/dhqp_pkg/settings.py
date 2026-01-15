@@ -6,7 +6,7 @@ import numpy as np
 experiment_name = 'form'  # 'radial_swt' 'obst_avoid'
 
 if experiment_name == 'radial_swt':
-    goals = [
+    """goals = [
         np.array([3.48, 1.25]),  # np.array([-3.437, -3.618]),
         np.array([3.4, -0.36]),
         np.array([-0.58, -0.59]),
@@ -15,8 +15,18 @@ if experiment_name == 'radial_swt':
         # np.array([-0.61, 1.32]),
         # np.array([3.48, 1.25]),
         # np.array([3.4, -0.36]),
+    ]"""
+
+    # Fill the five positions of the limos from later
+    goals = [
+        np.array([-0.476, 0.4064]),
+        np.array([0.844, 1.4424]),
+        np.array([2.834, 1.4424]),
+        np.array([2.804, -0.8676]),
+        np.array([0.704, -0.9176]),
     ]
-    n_nodes = 4
+
+    n_nodes = 5
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
@@ -37,6 +47,12 @@ if experiment_name == 'radial_swt':
             {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
+        ],
+        'agent_4': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
@@ -70,7 +86,7 @@ if experiment_name == 'radial_swt':
         ],
     }"""
 elif experiment_name == 'form':
-    n_nodes = 5
+    n_nodes = 4
     goals = [
         np.array([0, 0]),
     ]
@@ -79,30 +95,35 @@ elif experiment_name == 'form':
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'coverage'},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'coverage'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'coverage'},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'coverage'},
         ],
         'agent_4': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'coverage'},
         ],
     }
@@ -212,13 +233,13 @@ I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
 dt = 0.01
-n_steps = 150
+n_steps = 2000
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 8
 
-v_max = 0.2
-v_min = 0.0
+v_max = 0.5
+v_min = -0.5
 omega_max = 0.4
 omega_min = -0.4
 bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
@@ -236,7 +257,7 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 4  # mpc control step
+n_control = 3  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 2

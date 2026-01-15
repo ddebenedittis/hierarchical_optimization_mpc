@@ -124,7 +124,7 @@ class Agent(Node):
         self.s = RobCont(omni=None, uni=None)  # current state
 
         # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(0.25)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(0.2)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -306,24 +306,24 @@ class Agent(Node):
                     self.s.omni[0] = np.array([x, y, yaw])  # self state
                 else:
                     self.init_pos = np.array([x, y, yaw])
-            # if body.rigid_body_name == f'obstacle_davide':
-            #     x = body.pose.position.x  # msg.pose.pose.position.x
-            #     y = body.pose.position.y  # msg.pose.pose.position.y
-            #     obs_pos = np.array([x, y])
-            #     if np.any(np.isnan(obs_pos)):
-            #         continue
-            #     task_obs_avoidance = [
-            #         ca.vertcat(
-            #             -((self.s_var.omni[0] - obs_pos[0]) ** 2)
-            #             - (self.s_var.omni[1] - obs_pos[1]) ** 2
-            #             + self.obstacle_size**2
-            #         )
-            #     ]
+            if body.rigid_body_name == f'uomo_enorme':
+                x = body.pose.position.x  # msg.pose.pose.position.x
+                y = body.pose.position.y  # msg.pose.pose.position.y
+                obs_pos = np.array([x, y])
+                if np.any(np.isnan(obs_pos)):
+                    continue
+                task_obs_avoidance = [
+                    ca.vertcat(
+                        -((self.s_var.omni[0] - obs_pos[0]) ** 2)
+                        - (self.s_var.omni[1] - obs_pos[1]) ** 2
+                        + self.obstacle_size**2
+                    )
+                ]
 
-            #     self.hompc.update_task(
-            #         name='obstacle_avoidance',
-            #         ineq_task_ls=task_obs_avoidance[0],
-            #     )
+                self.hompc.update_task(
+                    name='obstacle_avoidance',
+                    ineq_task_ls=task_obs_avoidance[0],
+                )
 
         # self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
 
@@ -602,10 +602,10 @@ class Agent(Node):
 
         self.task_limits = RobCont(
             omni=ca.vertcat(
-                self.s_var.omni[0] - 3.9,  # float(st.bounding_box[1]),  # limit max on x
-                -self.s_var.omni[0] - 1.6,  # float(st.bounding_box[0]),  # limit min on x
-                self.s_var.omni[1] - 1.6,  # float(st.bounding_box[3]),  # limit max on y
-                -self.s_var.omni[1] - 1.15,  # float(st.bounding_box[2]),  # limit min on y
+                self.s_var.omni[0] - 3.8,  # float(st.bounding_box[1]),  # limit max on x
+                -self.s_var.omni[0] - 1.5,  # float(st.bounding_box[0]),  # limit min on x
+                self.s_var.omni[1] - 1.5,  # float(st.bounding_box[3]),  # limit max on y
+                -self.s_var.omni[1] - 1.0,  # float(st.bounding_box[2]),  # limit min on y
             )
         )
         # ===========================Coverage====================================== #
@@ -667,14 +667,14 @@ class Agent(Node):
             np.array(self.objects_detected)
             if self.objects_detected is not None
             else [
-                np.array([1.75, 0.28]),
+                np.array([4, 4]),
                 # np.array([2.1, -2.9]),
                 # np.array([-1.6, -2.5]),
                 # np.array([-1.6, 2.16]),
             ]
         )
         self.task_obs_avoidances = []
-        self.obstacle_size = 0.5
+        self.obstacle_size = 0.8
         for obs in self.obstacle_pos:
             self.task_obs_avoidances.append(
                 [
@@ -902,17 +902,21 @@ class Agent(Node):
                 self.s = RobCont(
                     omni=[np.array([1.95, -0.498, 2.5]) for _ in range(self.n_robots.omni)]
                 )
+            elif self.node_id == 4:
+                self.s = RobCont(
+                    omni=[np.array([1.95, -0.498, 2.5]) for _ in range(self.n_robots.omni)]
+                )
         elif st.experiment_name == 'form':
             if self.node_id == 0:
-                self.s = RobCont(omni=[np.array([0, 1.2, -3]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0, -3]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 1:
-                self.s = RobCont(omni=[np.array([0, 0.5, 0]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0, 0]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 2:
-                self.s = RobCont(omni=[np.array([0, -0.5, -3]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0, -3]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 3:
-                self.s = RobCont(omni=[np.array([0, -1.2, 0]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0, 0]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 4:
-                self.s = RobCont(omni=[np.array([2, 2, 1.4]) for _ in range(self.n_robots.omni)])
+                self.s = RobCont(omni=[np.array([0, 0, 1.4]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 5:
                 self.s = RobCont(omni=[np.array([0, 0, 1.4]) for _ in range(self.n_robots.omni)])
         elif st.experiment_name == 'obst_avoid':

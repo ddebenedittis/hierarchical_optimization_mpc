@@ -3,7 +3,7 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'form'  # 'radial_swt' 'obst_avoid'
+experiment_name = 'radial_swt'  # 'form' 'obst_avoid'
 
 if experiment_name == 'radial_swt':
     """goals = [
@@ -19,12 +19,19 @@ if experiment_name == 'radial_swt':
 
     # Fill the five positions of the limos from later
     goals = [
-        np.array([-0.476, 0.4064]),
-        np.array([0.844, 1.4424]),
-        np.array([2.834, 1.4424]),
-        np.array([2.804, -0.8676]),
-        np.array([0.704, -0.9176]),
+        np.array([0.67825293, -0.78041161]),  # limo_1
+        np.array([2.46041476, -0.45777596]),  # limo_2
+        np.array([2.43334670, 1.23979552]),  # limo_3
+        np.array([0.84874856, 1.67495857]),  # limo_4
+        np.array([-0.17384899, 0.25507425]),  # limo_5
     ]
+    # goals = [
+    #     np.array([1.82051265,  1.55306792]),  # limo_1
+    #     np.array([0.03835083,  1.23043227]),  # limo_2
+    #     np.array([0.06541888, -0.46713921]),  # limo_3
+    #     np.array([1.65001702, -0.90230227]),  # limo_4
+    #     np.array([2.67261457,  0.51758206])   # limo_5
+    # ]
 
     n_nodes = 5
     system_tasks = {
@@ -56,7 +63,7 @@ if experiment_name == 'radial_swt':
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
+            {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
         ],
     }
     """system_tasks = {
@@ -232,14 +239,14 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
-dt = 0.01
-n_steps = 2000
+dt = 1 / 200
+n_steps = 1000
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
-communication_range = 8
+communication_range = 1
 
-v_max = 0.5
-v_min = -0.5
+v_max = 0.2
+v_min = 0.0
 omega_max = 0.4
 omega_min = -0.4
 bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
@@ -257,10 +264,10 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 3  # mpc control step
+n_control = 2  # mpc control step
 n_pred = 0  # mpc prediction step
 
-n_xi = n_control * 2
+n_xi = n_control * 5
 
 # --------------------------------------------------------------------------- #
 #                                 PDD settings                               #
@@ -269,3 +276,6 @@ n_xi = n_control * 2
 
 n_priority = 4
 step_size = 1e-5
+
+
+variable_connection = False

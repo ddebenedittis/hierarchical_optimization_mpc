@@ -27,6 +27,7 @@ from dhqp_pkg.ho_mpc_multi_robot import (
     TaskType,
 )
 from dhqp_pkg.message import MessageReceiver, MessageSender
+from dhqp_pkg.utils.fading_filter import FadingFilter
 from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,
@@ -262,6 +263,11 @@ class Agent(Node):
 
         print(f'Setup of agent {self.node_id} complete')
 
+        # ==================================================================== #
+
+        self.filter = FadingFilter(beta=0.6)
+        self.filter.order = 2
+
     def listener_callback(self, msg, node):
         self.received_data[self.index_global_to_local(node)].append(list(msg.data))
 
@@ -307,11 +313,21 @@ class Agent(Node):
                     self.s.omni[0] = np.array([x, y, yaw])  # self state
                 else:
                     self.init_pos = np.array([x, y, yaw])
-            # if body.rigid_body_name == f'uomo_enorme':
+            # if body.rigid_body_name == 'uomo_enorme':
             #     x = body.pose.position.x  # msg.pose.pose.position.x
             #     y = body.pose.position.y  # msg.pose.pose.position.y
-            #     obs_pos = np.array([x, y])
-            #     if np.any(np.isnan(obs_pos)):
+
+            #     pos = np.array([x, y])
+            #     msg_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            #     self.filter.update(pos, msg_time)
+            #     pos_filtered = self.filter.previous_value
+            #     vel_filtered = self.filter.previous_d_value
+            #     dt_pred = 0.125
+
+            #     if pos_filtered is None:
+            #         continue
+            #     obs_pos = pos_filtered + vel_filtered * dt_pred
+            #     if np.any(np.isnan(obs_pos)) and obs_pos is not None:
             #         continue
             #     task_obs_avoidance = [
             #         ca.vertcat(

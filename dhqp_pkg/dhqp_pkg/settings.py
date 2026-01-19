@@ -239,8 +239,8 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
-dt = 1 / 200
-n_steps = 1000
+dt = 0.05
+n_steps = 800
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1
@@ -256,7 +256,7 @@ bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['nothing']  # change the key to decide the output visualization
+visual_method = output['display']  # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False  # plot the inner state of the robots
@@ -264,11 +264,12 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 2  # mpc control step
+n_control = 4  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 5
-
+safety_distance = 0.6  # minimum safety distance between robots
+obstacle_size = 0.8
 # --------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #
@@ -278,4 +279,4 @@ n_priority = 4
 step_size = 1e-5
 
 
-variable_connection = False
+variable_connection = True

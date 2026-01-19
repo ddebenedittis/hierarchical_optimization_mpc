@@ -5,6 +5,13 @@ from scipy.spatial import Voronoi
 
 class BoundedVoronoi(Voronoi):
     def __init__(self, towers, bounding_box, show_centroids=False):
+        # Clip towers to be within the bounding box
+        towers = np.clip(
+            towers,
+            [bounding_box[0] + 0.001, bounding_box[2] + 0.001],
+            [bounding_box[1] - 0.001, bounding_box[3] - 0.001],
+        )
+
         # Select towers inside the bounding box
         i = self.in_box(towers, bounding_box)
 

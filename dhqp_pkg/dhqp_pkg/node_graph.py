@@ -1,5 +1,6 @@
 import copy
 import csv
+import time
 from time import sleep
 
 import casadi as ca
@@ -50,7 +51,7 @@ class MinimalSubscriber(Node):
         self.save_interval = 20
         self.t_0 = np.nan
         self.time = np.zeros(self.n_steps - 10) * np.nan
-
+        self.start_time = time.time()
         # create logging file
         self.out_dir = self.get_parameter('out_dir').value
         self.filename = f'{self.out_dir}/traj_data.csv'
@@ -70,7 +71,7 @@ class MinimalSubscriber(Node):
             writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
-        self.flags.voronoi = True
+        self.flags.voronoi = False
 
         # initialize subscription dict
         self.subscriptions_list = {}
@@ -119,8 +120,9 @@ class MinimalSubscriber(Node):
             self.time[self.step] = (self.get_clock().now().nanoseconds - self.t_0) / 1e9
             self.reorder_s_init(self.received_data)
 
-            self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
-            self.get_logger().info(f'u:{self.u_history[-1]}')
+            # self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
+            # self.get_logger().info(f'u:{self.u_history[-1]}')
+            self.get_logger().info(f'Iteration {self.step} under process')
             # update iteration counter
             self.sync = False
 
@@ -137,6 +139,8 @@ class MinimalSubscriber(Node):
             self.step += 1
         # Stop the node if tt exceeds MAXITERS
         if self.step >= self.n_steps - 10:
+            final_time = time.time() - self.start_time
+            self.get_logger().info(f'Total simulation time: {final_time} seconds')
             # print('\nMAXITERS reached')
             # with open(self.filename, mode='a', newline='') as file:
             #     for s in range(1, self.step):
@@ -164,8 +168,8 @@ class MinimalSubscriber(Node):
                     st.dt,
                     st.visual_method,
                     video_name=f'{self.out_dir}/video.mp4',
-                    x_lim=[-10, 10],
-                    y_lim=[-8, 8],
+                    x_lim=[-1.3, 3],
+                    y_lim=[-1.3, 3],
                     flags=self.flags,
                 )
             else:

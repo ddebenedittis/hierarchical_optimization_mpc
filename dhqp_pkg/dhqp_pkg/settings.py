@@ -3,7 +3,7 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'radial_swt'  # 'form' 'obst_avoid'
+experiment_name = 'form'  # 'form' 'obst_avoid' 'radial_swt'
 
 if experiment_name == 'radial_swt':
     """goals = [
@@ -93,7 +93,7 @@ if experiment_name == 'radial_swt':
         ],
     }"""
 elif experiment_name == 'form':
-    n_nodes = 4
+    n_nodes = 5
     goals = [
         np.array([0, 0]),
     ]
@@ -240,7 +240,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
 dt = 0.05
-n_steps = 800
+n_steps = 400
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1
@@ -249,6 +249,7 @@ v_max = 0.2
 v_min = 0.0
 omega_max = 0.4
 omega_min = -0.4
+velocity_limits = [v_min, v_max, omega_min, omega_max]
 bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
 
 
@@ -256,7 +257,7 @@ bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['display']  # change the key to decide the output visualization
+visual_method = output['nothing']  # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False  # plot the inner state of the robots
@@ -280,3 +281,4 @@ step_size = 1e-5
 
 
 variable_connection = True
+n_connection = 2  # number of maximum connections per node

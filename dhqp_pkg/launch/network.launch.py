@@ -95,7 +95,7 @@ def generate_launch_description():
                 }
             ],
             output='screen',
-            prefix='xterm -title "PLOTTING AGENT" -hold -e',
+            # prefix='xterm -title "PLOTTING AGENT" -hold -e',
         )
     )
     # Create an agents of the same type for each node of the system
@@ -113,6 +113,11 @@ def generate_launch_description():
                         'communication_time': COMM_TIME,
                         'neigh': nn,
                         'dt': st.dt,
+                        'n_xi': st.n_xi,
+                        'step_size': st.step_size,
+                        'n_priority': st.n_priority,
+                        'velocity_limits': st.velocity_limits,
+                        'n_connection': st.n_connection,
                         #'system_tasks' : s_i, #system_tasks[f'agent_{i}'],
                         #'neigh_tasks' : n_i, #neigh_tasks[f'agent_{i}'],
                         #'goals' : goals,
@@ -121,7 +126,7 @@ def generate_launch_description():
                     }
                 ],
                 output='screen',
-                prefix=f'xterm -title "agent_{i}" -hold -e',
+                # prefix=f'xterm -title "agent_{i}" -hold -e',
             )
         )
 

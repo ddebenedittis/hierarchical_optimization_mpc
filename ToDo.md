@@ -1,2 +1,3 @@
 - [ ] Save the obstacle position (human or robot) in the csv.
 - [ ] Save the MPC solution in the csv. I.e., states and inputs of the robot i and its neighbors along the optimization horizon computed by robot i, and the neighboring robots (for time-varying graph).
+- [ ] Use a moving obstacle in the coverage experiment. p = p_meas, v = v_est. For k = 1, ..., n_c, do p_obs[k] = p_meas + k*Delta t*v_est.

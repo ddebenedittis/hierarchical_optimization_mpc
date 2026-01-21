@@ -1,0 +1,2 @@
+- [ ] Save the obstacle position (human or robot) in the csv.
+- [ ] Save the MPC solution in the csv. I.e., states and inputs of the robot i and its neighbors along the optimization horizon computed by robot i, and the neighboring robots (for time-varying graph).

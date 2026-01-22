@@ -83,7 +83,7 @@ class MinimalSubscriber(Node):
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback(msg, node),
-                20,  # Queue size for messages
+                50,  # Queue size for messages
             )
             topic_name = f'/robot_{j}/cmd_vel'
             self.subscriptions_list[j] = self.create_subscription(
@@ -92,11 +92,19 @@ class MinimalSubscriber(Node):
                 self.input_callback,
                 20,  # Queue size for messages
             )
+            topic_name = f'/optimout_{j}'
+            self.subscriptions_list[j] = self.create_subscription(
+                Float32MultiArray,
+                topic_name,
+                lambda msg, node=j: self.listener_callback_mpc(msg, node),
+                80,  # Queue size for messages
+            )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in range(self.n_nodes)}
+        self.received_data_mpc = {j: [] for j in range(self.n_nodes)}
         self.sync = False
         print(f'Setup of agent for graph plotting completed')
 
@@ -104,6 +112,10 @@ class MinimalSubscriber(Node):
         self.received_data[node].append(list(msg.data))
         if all(self.received_data[j] for j in range(self.n_nodes)):
             self.sync = True
+
+    def listener_callback_mpc(self, msg, node):
+        # Currently not used, but can be implemented for MPC data handling
+        self.received_data_mpc[node].append(list(msg.data))
 
     def input_callback(self, msg):
         return
@@ -141,6 +153,7 @@ class MinimalSubscriber(Node):
         if self.step >= self.n_steps - 10:
             final_time = time.time() - self.start_time
             self.get_logger().info(f'Total simulation time: {final_time} seconds')
+            self.save_mpc_to_csv()
             # print('\nMAXITERS reached')
             # with open(self.filename, mode='a', newline='') as file:
             #     for s in range(1, self.step):
@@ -187,6 +200,41 @@ class MinimalSubscriber(Node):
             u.append(u_j)
         self.s_history.append([s, []])
         self.u_history.append([u])
+
+    def save_mpc_to_csv(
+        self,
+    ):
+        for node, data in self.received_data_mpc.items():
+            if not data:
+                continue
+            self.filename_mpc = f'{self.out_dir}/mpc_data_{node}.csv'
+
+            with open(self.filename_mpc, mode='w', newline='') as f:
+                writer = csv.writer(f)
+
+                # Optional: header
+                # n_cols = len(data[0])
+                # header = [f"col_{i}" for i in range(n_cols)]
+                # writer.writerow(header)
+                header = ['k']
+                # header.append('time')
+                if st.variable_connection:
+                    for _ in range(st.n_connection):
+                        header.append(f'neighbor')
+                    for n in range(st.n_connection + 1):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_sx_k{k}')
+                            header.append(f'{n}_sy_k{k}')
+                            header.append(f'{n}_sth_k{k}')
+                    for n in range(st.n_connection + 1):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_v_k{k}')
+                            header.append(f'{n}_o_k{k}')
+                writer.writerow(header)
+                # Data
+                writer.writerows(data)
+
+            self.get_logger().info(f'Saved MPC data for node {node} to {self.filename_mpc}')
 
 
 def main(args=None):

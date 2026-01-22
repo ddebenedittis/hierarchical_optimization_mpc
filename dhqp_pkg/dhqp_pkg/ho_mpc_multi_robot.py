@@ -1450,19 +1450,23 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]
 
-        """u = [
-            [self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
-                    for k in range(n_c)
-                for j in range(self.n_robots[c])]
+        u = [
+            [
+                self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
+                for k in range(n_c)
+                for j in range(self.n_robots[c])
+            ]
             for c in range(len(self.n_robots))
         ]
-        
+
         s = [
-            [self._state_bar[c][j][k] + x_star[self._get_idx_state_kp1(c, j, k)]
-                    for k in range(n_c)
-                for j in range(self.n_robots[c])]
+            [
+                self._state_bar[c][j][k].ravel() + x_star[self._get_idx_state_kp1(c, j, k)]
+                for k in range(n_c)
+                for j in range(self.n_robots[c])
+            ]
             for c in range(len(self.n_robots))
-        ]"""
+        ]
 
         # # prepare vector to share with the neighbours
         # x_neigh = []
@@ -1482,7 +1486,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, y
+        return u_0, s, u
 
     # ======================================================================== #
 

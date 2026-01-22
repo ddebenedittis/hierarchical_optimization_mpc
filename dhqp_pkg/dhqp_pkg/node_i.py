@@ -182,8 +182,16 @@ class Agent(Node):
         self.publisher_ = self.create_publisher(
             Float32MultiArray,
             f'/topic_{self.node_id}',
-            50,  # Queue size for messages
+            40,  # Queue size for messages
         )
+
+        # create the publisher between node for communication
+        self.publisher_mpc = self.create_publisher(
+            Float32MultiArray,
+            f'/optimout_{self.node_id}',
+            100,  # Queue size for messages
+        )
+
         # create the publisher for optimal input computed
         self.ns = f'/robot_{self.node_id+1}'
         topic_name = f'{self.ns}/diff_drive_base_controller/cmd_vel'
@@ -519,6 +527,7 @@ class Agent(Node):
         # Perform Partitioned optimization
         # Initialize a message of type float
         msg = Float32MultiArray()
+        msg_mpc = Float32MultiArray()
         command = TwistStamped()
         cmd = Twist()
         time_start = time.time()
@@ -557,7 +566,6 @@ class Agent(Node):
             min_neighbor_step = min(self.received_data[j][0][0] for j in self.all_neigh)
 
             wait = (self.step - min_neighbor_step) >= 5
-
             if not wait:
                 if st.variable_connection:
                     self.connecter(self.states)
@@ -577,7 +585,7 @@ class Agent(Node):
                         robot_index=[self.robot_idx],
                         # robot_index = cov_rob_idx,
                     )
-                self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()))
+                self.u_star, s, u = self.hompc(copy.deepcopy(self.s.tolist()))
 
                 self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
@@ -605,10 +613,22 @@ class Agent(Node):
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 [msg.data.append(float(us)) for us in self.u_star[0][0]]
                 self.publisher_.publish(msg)
+                print(f's: {s}')
+                # publish the mpc output
+                msg_mpc.data = [float(self.step)]
+                [msg_mpc.data.append(float(ag)) for ag in self.robot_idx_global[1:]]
+                for val in np.array(s).flatten():
+                    msg_mpc.data.append(float(val))
+
+                # inputs (dim = n_robots * n_c * 2)
+                for val in np.array(u).flatten():
+                    msg_mpc.data.append(float(val))
+                self.publisher_mpc.publish(msg_mpc)
+
                 # self.get_logger().info(
                 #     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
                 # )
-
+                self.get_logger().info(f'Iter:{self.step}')
                 # Stop the node if tt exceeds MAXITERS
                 if self.step > self.n_steps:
                     print('\nMAXITERS reached')

@@ -41,7 +41,7 @@ class MinimalSubscriber(Node):
         self.communication_time = self.get_parameter('communication_time').value
         self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
         self.dt = self.get_parameter('dt').value  # timestep size
-
+        self.obstacle_pos = st.obstacle_position
         self.s_history = []
         self.u_history = []
 
@@ -176,7 +176,7 @@ class MinimalSubscriber(Node):
                 )
                 display_animation(
                     self.s_history,
-                    self.goals,
+                    None,
                     None,
                     st.dt,
                     st.visual_method,
@@ -198,6 +198,8 @@ class MinimalSubscriber(Node):
             u_j = s_j[-2:]
             s.append(s_j[:-2])
             u.append(u_j)
+        self.obstacle_pos = self.obstacle_pos + st.vel * self.dt
+        s.append([self.obstacle_pos[0], self.obstacle_pos[1], 0])
         self.s_history.append([s, []])
         self.u_history.append([u])
 

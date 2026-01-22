@@ -349,7 +349,7 @@ class Agent(Node):
             #     task_obs_avoidance = [
             #         ca.vertcat(
             #             -((self.s_var.omni[0] - obs_pos[0]) ** 2)
-            #             - (self.s_var.omni[1] - obs_pos[1]) ** 2
+            #             - ((self.s_var.omni[1] - obs_pos[1]) ** 2)
             #             + self.obstacle_size**2
             #         )
             #     ]
@@ -585,6 +585,20 @@ class Agent(Node):
                         robot_index=[self.robot_idx],
                         # robot_index = cov_rob_idx,
                     )
+                if st.moving_obstacle:
+                    self.obstacle_pos[0] = self.obstacle_pos[0] + st.vel * self.dt
+                    task_obs_avoidance = [
+                        ca.vertcat(
+                            -((self.s_var.omni[0] - self.obstacle_pos[0][0]) ** 2)
+                            - ((self.s_var.omni[1] - self.obstacle_pos[0][1]) ** 2)
+                            + self.obstacle_size**2
+                        )
+                    ]
+
+                    self.hompc.update_task(
+                        name='obstacle_avoidance',
+                        ineq_task_ls=task_obs_avoidance[0],
+                    )
                 self.u_star, s, u = self.hompc(copy.deepcopy(self.s.tolist()))
 
                 self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
@@ -741,10 +755,8 @@ class Agent(Node):
             np.array(self.objects_detected)
             if self.objects_detected is not None
             else [
-                np.array([4, 4]),
+                st.obstacle_position,
                 # np.array([2.1, -2.9]),
-                # np.array([-1.6, -2.5]),
-                # np.array([-1.6, 2.16]),
             ]
         )
         self.task_obs_avoidances = []
@@ -1235,7 +1247,7 @@ class Agent(Node):
                     robot_index=[self.robot_idx[1:]],
                     pos=n[0],
                 )
-
+            self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
             self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
             self.hompc.update_task(
                 name='input_smooth',
@@ -1308,6 +1320,7 @@ class Agent(Node):
                 or task.prio < 3
                 or task.name == 'collision'
                 or task.name == 'coverage'
+                or task.name == 'obstacle_avoidance'
             ]
 
         self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
@@ -1321,7 +1334,7 @@ class Agent(Node):
             robot_index=[self.robot_idx],
         )
         self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
-
+        self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
         for n, task in enumerate(self.hompc._tasks):
             if task.type == TaskType.Bi and task.prio > 2:
                 if task.name == 'formation':
@@ -1364,7 +1377,7 @@ class Agent(Node):
                         pos=n,
                     )
             elif task.prio > 2:
-                if task.name == 'coverage':
+                if task.name == 'coverage' or task.name == 'obstacle_avoidance':
                     continue
                 # self.task_pos_coeff = [None for i in range(len(self.goals))]
                 # for i, g in enumerate(self.goals):

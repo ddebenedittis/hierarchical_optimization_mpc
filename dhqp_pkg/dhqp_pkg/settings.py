@@ -16,7 +16,7 @@ if experiment_name == 'radial_swt':
         # np.array([3.48, 1.25]),
         # np.array([3.4, -0.36]),
     ]"""
-
+    moving_obstacle = False
     # Fill the five positions of the limos from later
     goals = [
         np.array([0.67825293, -0.78041161]),  # limo_1
@@ -97,6 +97,7 @@ elif experiment_name == 'form':
     goals = [
         np.array([0, 0]),
     ]
+    moving_obstacle = True
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
@@ -193,6 +194,7 @@ elif experiment_name == 'form':
     }"""
 elif experiment_name == 'obst_avoid':
     n_nodes = 4
+    moving_obstacle = False
     goals = [
         np.array([3.48, 1.25]),  # np.array([-3.437, -3.618]),
         np.array([3.4, -0.36]),
@@ -240,7 +242,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
 dt = 0.05
-n_steps = 400
+n_steps = 100
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1
@@ -257,7 +259,7 @@ bounding_box = [-2.5, 2.5, -2.5, 2.5]  # xmin, xmax, ymin, ymax
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['nothing']  # change the key to decide the output visualization
+visual_method = output['display']  # change the key to decide the output visualization
 save_data = True
 simulation = True
 inner_plot = False  # plot the inner state of the robots
@@ -265,12 +267,14 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 4  # mpc control step
+n_control = 3  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 5
 safety_distance = 0.6  # minimum safety distance between robots
-obstacle_size = 0.8
+obstacle_position = np.array([0.5, 0])
+obstacle_size = 0.4
+vel = np.array([-0.05, 0.0])
 # --------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #

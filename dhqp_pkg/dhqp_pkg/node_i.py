@@ -246,7 +246,7 @@ class Agent(Node):
             20,
         )
         # Scan subscriber
-        self.subscription = self.create_subscription(
+        self.subscription_laser = self.create_subscription(
             LaserScan,
             '/scan',  # f'{self.ns}/scan',  # topic name
             self.scan_callback,

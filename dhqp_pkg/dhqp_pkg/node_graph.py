@@ -17,6 +17,7 @@ from dhqp_pkg.disp_het_multi_rob import (
     display_animation,
     save_snapshots,
 )
+from mocap_msgs.msg import RigidBodies
 
 
 def writer(filename, string):
@@ -44,7 +45,7 @@ class MinimalSubscriber(Node):
         self.obstacle_pos = st.obstacle_position
         self.s_history = []
         self.u_history = []
-
+        self.obs = np.array([0, 0, 0])
         self.goals = st.goals
         self.step = 0
         self.step_plot = 0
@@ -64,6 +65,9 @@ class MinimalSubscriber(Node):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
                 header.append(f'stateRHO_{i}')
+            header.append(f'obstacle_X')
+            header.append(f'obstacle_Y')
+            header.append(f'_')
             for i in range(st.n_nodes):
                 header.append(f'inputV{i}')
                 header.append(f'inputOM{i}')
@@ -75,7 +79,7 @@ class MinimalSubscriber(Node):
 
         # initialize subscription dict
         self.subscriptions_list = {}
-        self.sub_input_list = {}
+        self.subscriptions_list_mpc = {}
         # create a subscription to each neighbor
         for j in range(self.n_nodes):
             topic_name = f'/topic_{j}'
@@ -85,20 +89,20 @@ class MinimalSubscriber(Node):
                 lambda msg, node=j: self.listener_callback(msg, node),
                 50,  # Queue size for messages
             )
-            topic_name = f'/robot_{j}/cmd_vel'
-            self.subscriptions_list[j] = self.create_subscription(
-                Twist,
-                topic_name,
-                self.input_callback,
-                20,  # Queue size for messages
-            )
             topic_name = f'/optimout_{j}'
-            self.subscriptions_list[j] = self.create_subscription(
+            self.subscriptions_list_mpc[j] = self.create_subscription(
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback_mpc(msg, node),
                 80,  # Queue size for messages
             )
+        # State-QUALYSIS subscriber
+        self.subscription_obstacle = self.create_subscription(
+            RigidBodies,
+            '/rigid_bodies',  # topic name
+            self.obst_callback,
+            20,
+        )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
@@ -117,8 +121,14 @@ class MinimalSubscriber(Node):
         # Currently not used, but can be implemented for MPC data handling
         self.received_data_mpc[node].append(list(msg.data))
 
-    def input_callback(self, msg):
-        return
+    def obst_callback(self, msg):
+        for body in msg.rigidbodies:
+            if body.rigid_body_name == 'uomo_enorme':
+                x = body.pose.position.x  # msg.pose.pose.position.x
+                y = body.pose.position.y  # msg.pose.pose.position.y
+
+                self.obs = np.array([x, y])
+                msg_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
 
     def timer_callback(self):
         # Initialize a message of type float
@@ -198,8 +208,11 @@ class MinimalSubscriber(Node):
             u_j = s_j[-2:]
             s.append(s_j[:-2])
             u.append(u_j)
-        self.obstacle_pos = self.obstacle_pos + st.vel * self.dt
-        s.append([self.obstacle_pos[0], self.obstacle_pos[1], 0])
+        if st.moving_obstacle:
+            self.obstacle_pos = self.obstacle_pos + st.vel * self.dt
+            s.append([self.obstacle_pos[0], self.obstacle_pos[1], 0])
+        else:
+            s.append([self.obs[0], self.obs[1], 0])
         self.s_history.append([s, []])
         self.u_history.append([u])
 

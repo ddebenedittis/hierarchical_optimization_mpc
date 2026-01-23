@@ -45,6 +45,7 @@ class Node:
         goals: np.array,
         n_steps: int,
         out_dir: str = 'out',
+        init_s: np.array = np.array([0, 0]),
     ):
         super(Node, self).__init__()
 
@@ -57,7 +58,7 @@ class Node:
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
         self.n_xi = st.n_xi  # dimension of primal variables
-
+        self.init_s = copy.deepcopy(init_s)
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
             self.n_xi * (self.degree)
@@ -126,7 +127,7 @@ class Node:
         self.s_kp1 = RobCont(omni=None, uni=None)
 
         # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10*dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(5 * dt)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(10 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -366,71 +367,9 @@ class Node:
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-        if self.node_id == 0:
-            self.s = RobCont(
-                omni=[
-                    np.array([-0.437, -0.618, 0.63]),
-                    np.array([-0.577, 1.72, -0.89]),
-                    np.array([1.7, 0.2, -3]),
-                    np.array([-2, 2, -0.3]),
-                ]
-            )
-        elif self.node_id == 1:
-            self.s = RobCont(
-                omni=[
-                    np.array([-0.582, 1.416, -0.676]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, -2, 2.8]),
-                    np.array([-2, 2, -0.3]),
-                ]
-            )
-        elif self.node_id == 2:
-            self.s = RobCont(
-                omni=[
-                    np.array([1.852, 1.443, -2.5]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([-2, 2, -0.3]),
-                ]
-            )
-        elif self.node_id == 3:
-            self.s = RobCont(
-                omni=[
-                    np.array([1.95, -0.498, 2.5]),
-                    np.array([-2, -2, 0.3]),
-                    np.array([2, 2, -2.8]),
-                    np.array([2, -2, 2.8]),
-                ]
-            )
-
-        """if self.node_id == 0:
-            self.s = RobCont(omni=[np.array([-5, -5]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([5, 5]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([5, -5]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-5, 5]) for _ in range(self.n_robots.omni)])"""
-        """if self.node_id == 0:
-            self.s = RobCont(
-                omni=[np.array([-2.57, 4.29, 0.05]) for _ in range(self.n_robots.omni)],
-            )
-        elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([2.2, 4.37, -2.1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([2.02, -4.57, 2.1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-3, -4.59, 0.75]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 4:
-            self.s = RobCont(omni=[np.array([-4.71, -1.67, 0.25]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 5:
-            self.s = RobCont(omni=[np.array([4.48, 2.23, 3]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 6:
-            self.s = RobCont(omni=[np.array([-4.32, 2.51, 0.05]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 7:
-            self.s = RobCont(omni=[np.array([4.42, -1.8, 3]) for _ in range(self.n_robots.omni)])
-        else:
-            raise ValueError('Missing agent init on s')"""
+        self.s = RobCont(
+            omni=[self.init_s if nn == 0 else self.init_s for nn in range(self.n_robots.omni)]
+        )
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
@@ -526,8 +465,8 @@ class Node:
                     plt.show()
 
             if round == '2':
-                print(self.step)
-                print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
+                # print(self.step)
+                # print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
 
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
                 self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])

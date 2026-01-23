@@ -7,6 +7,7 @@ from itertools import combinations
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import progressbar
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
@@ -15,6 +16,7 @@ from distributed_ho_mpc.scenarios.radial_switching_unicycle.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
+    plot_distances,
     save_snapshots,
 )
 from hierarchical_optimization_mpc.utils.robot_models import (
@@ -25,6 +27,8 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 def main():
     np.random.seed(1)
+    b = progressbar.ProgressBar(maxval=st.n_steps)
+    b.start()
 
     model = {
         'unicycle': get_unicycle_model(st.dt),
@@ -55,7 +59,7 @@ def main():
                     nodes[i].a = 1
                 elif distances[0][1] > 4:
                     nodes[i].a = 5
-            closest_neighbors = set(idx for idx, _ in distances[:7])
+            closest_neighbors = set(idx for idx, _ in distances[: st.limit_connection])
 
             current_connections = set(np.nonzero(graph_matrix[i])[0])
 
@@ -115,69 +119,62 @@ def main():
         if tt > st.n_steps * st.dt:
             raise ValueError('Time instant for snapshot out of simulation lenght')
 
-    time_start = time.time()
+    center = np.array([0, 0])  # choose the center
+    num_points = st.n_nodes
 
-    goals = [
-        np.array([2.1, 1.4]),
-        np.array([2.1, -0.64]),
-        np.array([-1.29, -0.34]),
-        np.array([-1.29, 1.16]),
-    ]
+    # radius from straight-line (chord) distance = 0.8
+    radius = 1 / (2 * np.sin(np.pi / num_points))
 
-    system_tasks = {
-        'agent_0': [
+    goals = []
+    s_init = []
+
+    for i in range(num_points):
+        theta = 2 * np.pi * i / num_points
+        x = center[0] + radius * np.cos(theta)
+        y = center[1] + radius * np.sin(theta)
+        goals.append(np.array([x, y]))
+
+        theta = 2 * np.pi * i / num_points - np.pi
+        x = center[0] + radius * np.cos(theta)
+        y = center[1] + radius * np.sin(theta)
+        s_init.append(np.array([x, y, theta + np.pi]))
+
+    system_tasks = {}
+
+    for ag in range(num_points):
+        system_tasks[f'agent_{ag}'] = [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
             {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-        ],
-        'agent_1': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-            {'prio': 3, 'name': 'collision_avoidance'},
-        ],
-        'agent_2': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
-        ],
-        'agent_3': [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
-        ],
-        # 'agent_4': [
-        #     {'prio': 1, 'name': 'input_limits'},
-        #     {'prio': 2, 'name': 'input_smooth'},
-        #     {'prio': 3, 'name': 'collision_avoidance'},
-        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-        #     {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
-        # ],
-        # 'agent_5': [
-        #     {'prio': 1, 'name': 'input_limits'},
-        #     {'prio': 2, 'name': 'input_smooth'},
-        #     {'prio': 3, 'name': 'collision_avoidance'},
-        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-        #     {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
-        # ],
-        # 'agent_6': [
-        #     {'prio': 1, 'name': 'input_limits'},
-        #     {'prio': 2, 'name': 'input_smooth'},
-        #     {'prio': 3, 'name': 'collision_avoidance'},
-        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-        #     {'prio': 4, 'name': 'position', 'goal': goals[6], 'goal_index': 6},
-        # ],
-        # 'agent_7': [
-        #     {'prio': 1, 'name': 'input_limits'},
-        #     {'prio': 2, 'name': 'input_smooth'},
-        #     {'prio': 3, 'name': 'collision_avoidance'},
-        #     # {'prio':3, 'name':"formation", 'agents': [[0,3]], 'distance': 4},
-        #     {'prio': 4, 'name': 'position', 'goal': goals[7], 'goal_index': 7},
-        # ],
-    }
+            {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
+        ]
+
+    # system_tasks = {
+    #     'agent_0': [
+    #         {'prio': 1, 'name': 'input_limits'},
+    #         {'prio': 2, 'name': 'input_smooth'},
+    #         {'prio': 3, 'name': 'collision_avoidance'},
+    #         {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+    #     ],
+    #     'agent_1': [
+    #         {'prio': 1, 'name': 'input_limits'},
+    #         {'prio': 2, 'name': 'input_smooth'},
+    #         {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
+    #         {'prio': 3, 'name': 'collision_avoidance'},
+    #     ],
+    #     'agent_2': [
+    #         {'prio': 1, 'name': 'input_limits'},
+    #         {'prio': 2, 'name': 'input_smooth'},
+    #         {'prio': 3, 'name': 'collision_avoidance'},
+    #         {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
+    #     ],
+    #     'agent_3': [
+    #         {'prio': 1, 'name': 'input_limits'},
+    #         {'prio': 2, 'name': 'input_smooth'},
+    #         {'prio': 3, 'name': 'collision_avoidance'},
+    #         {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
+    #     ],
+    # }
 
     # ---------------------------------------------------------------------------- #
     #               Create the network and connection between agents               #
@@ -211,7 +208,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -252,7 +249,7 @@ def main():
         f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
     )
     os.makedirs(out_dir, exist_ok=True)
-
+    time_start = time.time()
     # Create an agents of the same type for each node of the system
     for i in range(st.n_nodes):
         node = Node(
@@ -265,6 +262,7 @@ def main():
             goals,  # goals to be reached
             st.n_steps,  # max simulation steps
             out_dir=out_dir,
+            init_s=s_init[i],
         )
         nodes.append(node)
 
@@ -320,8 +318,11 @@ def main():
             for j in range(st.n_nodes):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
             break
+        b.update(i + 1)
 
     time_elapsed = time.time() - time_start
+    with open(f'{out_dir}time.txt', 'w') as file:
+        file.write(f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s')
     time_coop = time.time() - start_time_coop
     print(f'The time elapsed is {time_elapsed} seconds')
     print(f'Time used to coordinate the network is {time_coop}')
@@ -341,7 +342,7 @@ def main():
     print(f'Total solving time is {tot_solve}s')
 
     if st.simulation:
-        robot_pairs = list(combinations(range(num_robots), 2))
+        """robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, last_step + 1) * st.dt
         plt.figure(figsize=(10, 6))
         for i, dist_list in enumerate(pairwise_distances):
@@ -354,7 +355,7 @@ def main():
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
-        plt.close()
+        plt.close()"""
 
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
@@ -391,7 +392,7 @@ def main():
         ]  # 4.8113406
         s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
 
-        distances = [[] for n in range(st.n_nodes)]
+        """distances = [[] for n in range(st.n_nodes)]
         for iter in s_hist_merged:
             for nn, ag in enumerate(iter[0]):
                 dist_opt = np.linalg.norm(ag[:2] - centr_sol[nn])
@@ -408,7 +409,7 @@ def main():
         # plt.legend()
         plt.grid(True, which='both', ls='--')
         plt.savefig(f'{out_dir}/dist_to_opt.pdf', bbox_inches='tight', format='pdf')
-        plt.close()
+        plt.close()"""
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
@@ -421,8 +422,8 @@ def main():
             st.dt,
             [(last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
-            x_lim=[-5, 5],
-            y_lim=[-4, 4],
+            x_lim=[-9, 9],
+            y_lim=[-9, 9],
             flags=flags,
         )
 
@@ -433,10 +434,17 @@ def main():
             st.dt,
             st.visual_method,
             video_name=f'{out_dir}/video.mp4',
-            x_lim=[-10, 10],
-            y_lim=[-8, 8],
+            x_lim=[-9, 9],
+            y_lim=[-9, 9],
             flags=flags,
         )
+        plot_distances(
+            s_hist_merged,
+            0.05,  # dt
+            0.6,  # dmin
+            f'{out_dir}/distances.pdf',
+        )
+    b.finish()
 
 
 if __name__ == '__main__':

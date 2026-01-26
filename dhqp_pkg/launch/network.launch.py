@@ -41,37 +41,8 @@ def generate_launch_description():
     # ---------------------------------------------------------------------------- #
 
     # deterministic graphs
-    if st.n_nodes == 1:
-        graph_matrix = np.array([[0.0]])
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0])
-    if st.n_nodes == 2:
-        graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
-    if st.n_nodes == 3:
-        graph_matrix = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
-    if st.n_nodes == 4:
-        graph_matrix = np.array(
-            [
-                [0.0, 1.0, 1.0, 1.0],
-                [1.0, 0.0, 1.0, 1.0],
-                [1.0, 1.0, 0.0, 1.0],
-                [1.0, 1.0, 1.0, 0.0],
-            ]
-        )
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
-    if st.n_nodes == 5:
-        graph_matrix = np.array(
-            [
-                [0.0, 1.0, 1.0, 1.0, 1.0],
-                [1.0, 0.0, 1.0, 1.0, 1.0],
-                [1.0, 1.0, 0.0, 1.0, 1.0],
-                [1.0, 1.0, 1.0, 0.0, 1.0],
-                [1.0, 1.0, 1.0, 1.0, 0.0],
-            ]
-        )
-        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    graph_matrix = np.ones((st.n_nodes, st.n_nodes)) - np.eye(st.n_nodes)
+    network_graph = nx.from_numpy_array(graph_matrix, nodelist=range(st.n_nodes))
 
     package_name = 'dhqp_pkg'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'

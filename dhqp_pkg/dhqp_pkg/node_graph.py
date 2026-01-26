@@ -5,10 +5,12 @@ from time import sleep
 
 import casadi as ca
 import numpy as np
+import progressbar
 import rclpy
 from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float32MultiArray
 
 import dhqp_pkg.settings as st
@@ -36,7 +38,12 @@ class MinimalSubscriber(Node):
             allow_undeclared_parameters=True,
             automatically_declare_parameters_from_overrides=True,
         )
-
+        qos_sync = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
         # Get parameters from launcher
         self.n_steps = self.get_parameter('max_iters').value
         self.communication_time = self.get_parameter('communication_time').value
@@ -87,21 +94,21 @@ class MinimalSubscriber(Node):
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback(msg, node),
-                50,  # Queue size for messages
+                qos_sync,
             )
             topic_name = f'/optimout_{j}'
             self.subscriptions_list_mpc[j] = self.create_subscription(
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback_mpc(msg, node),
-                80,  # Queue size for messages
+                qos_sync,
             )
         # State-QUALYSIS subscriber
         self.subscription_obstacle = self.create_subscription(
             RigidBodies,
             '/rigid_bodies',  # topic name
             self.obst_callback,
-            20,
+            1,
         )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
@@ -110,6 +117,9 @@ class MinimalSubscriber(Node):
         self.received_data = {j: [] for j in range(self.n_nodes)}
         self.received_data_mpc = {j: [] for j in range(self.n_nodes)}
         self.sync = False
+        self.b = progressbar.ProgressBar(maxval=st.n_steps)
+        self.b.start()
+
         print(f'Setup of agent for graph plotting completed')
 
     def listener_callback(self, msg, node):
@@ -144,7 +154,7 @@ class MinimalSubscriber(Node):
 
             # self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
             # self.get_logger().info(f'u:{self.u_history[-1]}')
-            self.get_logger().info(f'Iteration {self.step} under process')
+
             # update iteration counter
             self.sync = False
 
@@ -159,6 +169,7 @@ class MinimalSubscriber(Node):
                         row = [s] + [self.time[s]] + flat_s + flat_u
                         writer.writerow(row)
             self.step += 1
+            self.b.update(self.step)
         # Stop the node if tt exceeds MAXITERS
         if self.step >= self.n_steps - 10:
             final_time = time.time() - self.start_time
@@ -197,7 +208,7 @@ class MinimalSubscriber(Node):
                 )
             else:
                 self.get_logger().info('My work is done, no plot requested. Goodbye!')
-
+            self.b.finish()
             self.destroy_node()
 
     def reorder_s_init(self, state_meas: list[float]):
@@ -257,7 +268,6 @@ def main(args=None):
 
     agent = MinimalSubscriber()
     print(f'Agent graph -- Waiting for sync.')
-    sleep(0.5)
     print('GO!')
     try:
         rclpy.spin(agent)

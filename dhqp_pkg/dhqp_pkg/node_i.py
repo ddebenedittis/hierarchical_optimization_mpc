@@ -14,7 +14,13 @@ from geometry_msgs.msg import Point, Pose, PoseArray, Twist, TwistStamped
 from matplotlib import pyplot as plt
 from numpy import random
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
 from tf_transformations import euler_from_quaternion
@@ -99,6 +105,12 @@ class Agent(Node):
             allow_undeclared_parameters=True,
             automatically_declare_parameters_from_overrides=True,
         )
+        qos_sync = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
 
         # Get parameters from launcher
         self.node_id = self.get_parameter('agent_id').value
@@ -180,16 +192,14 @@ class Agent(Node):
 
         # create the publisher between node for communication
         self.publisher_ = self.create_publisher(
-            Float32MultiArray,
-            f'/topic_{self.node_id}',
-            40,  # Queue size for messages
+            Float32MultiArray, f'/topic_{self.node_id}', qos_sync
         )
 
         # create the publisher between node for communication
         self.publisher_mpc = self.create_publisher(
             Float32MultiArray,
             f'/optimout_{self.node_id}',
-            100,  # Queue size for messages
+            qos_sync,
         )
 
         # create the publisher for optimal input computed
@@ -198,7 +208,7 @@ class Agent(Node):
         self.diff_drive_publisher = self.create_publisher(
             TwistStamped,
             topic_name,
-            20,  # Queue size for messages
+            qos_sync,
         )
         self.get_logger().info(f'Publisher created for {topic_name}')
 
@@ -208,7 +218,7 @@ class Agent(Node):
         self.cmd_publisher = self.create_publisher(
             Twist,
             topic_name,
-            10,  # Queue size for messages
+            qos_sync,
         )
         # self.get_logger().info(f'Publisher created for {topic_name}')
 
@@ -229,21 +239,21 @@ class Agent(Node):
                 Float32MultiArray,
                 topic_name,
                 lambda msg, node=j: self.listener_callback(msg, node),
-                20,  # Queue size for messages
+                qos_sync,
             )
         # State subscriber
         self.subscription = self.create_subscription(
             ModelStates,
             '/model_states',  # topic name
             self.states_callback,
-            20,
+            qos_sync,
         )
         # State-QUALYSIS subscriber
         self.subscription = self.create_subscription(
             RigidBodies,
             '/rigid_bodies',  # topic name
             self.state_callback,
-            20,
+            1,
         )
         # Scan subscriber
         self.subscription_laser = self.create_subscription(
@@ -277,12 +287,12 @@ class Agent(Node):
         self.Tasks()
         self.MPC()
 
-        print(f'Setup of agent {self.node_id} complete')
-
         # ==================================================================== #
 
         self.filter = FadingFilter(beta=0.6)
         self.filter.order = 2
+
+        print(f'Setup of agent {self.node_id} complete')
 
     def listener_callback(self, msg, node):
         self.received_data[node].append(list(msg.data))  #! self.index_global_to_local(node)
@@ -536,17 +546,18 @@ class Agent(Node):
             [msg.data.append(float(ss)) for ss in self.s.omni[0]]
             [msg.data.append(float(0)) for _ in range(2)]
             self.publisher_.publish(msg)
-
+            print(f'timer working \n')
             # log files
             # 1) visualize on the terminal
-            self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
+            # self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
             self.step += 1
         else:  # Have all messages at time t-1 arrived?
-            """# Check if lists are nonempty
+            # Check if lists are nonempty
             # all_received = all(
             #     self.received_data[j] for j in self.robot_idx[1:]
             # )  # check if all neighbors' have been received
             # #! changed from local to global
+
             all_received = all(
                 self.received_data[j] for j in self.all_neigh
             )  # check if all neighbors' have been received
@@ -559,14 +570,14 @@ class Agent(Node):
                 sync = all(
                     self.step - 1 == self.received_data[j][0][0] for j in self.all_neigh
                 )  # True if all True
-            if sync:"""
-            if not all(self.received_data[j] for j in self.all_neigh):
-                return  # wait for missing data
+            if sync:
+                # if not all(self.received_data[j] for j in self.all_neigh):
+                #     return  # wait for missing data
 
-            min_neighbor_step = min(self.received_data[j][0][0] for j in self.all_neigh)
+                # min_neighbor_step = min(self.received_data[j][0][0] for j in self.all_neigh)
 
-            wait = (self.step - min_neighbor_step) >= 5
-            if not wait:
+                # wait = (self.step - min_neighbor_step) >= 5
+                # if not wait:
                 if st.variable_connection:
                     self.connecter(self.states)
                 # Reorder the state vector received from the neighbors
@@ -601,7 +612,7 @@ class Agent(Node):
                     )
                 self.u_star, s, u = self.hompc(copy.deepcopy(self.s.tolist()))
 
-                self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+                # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 # publish the command
                 # command.header.stamp = self.get_clock().now().to_msg()
@@ -627,7 +638,7 @@ class Agent(Node):
                 [msg.data.append(float(ss)) for ss in self.s.omni[0]]
                 [msg.data.append(float(us)) for us in self.u_star[0][0]]
                 self.publisher_.publish(msg)
-                print(f's: {s}')
+
                 # publish the mpc output
                 msg_mpc.data = [float(self.step)]
                 [msg_mpc.data.append(float(ag)) for ag in self.robot_idx_global[1:]]
@@ -732,25 +743,7 @@ class Agent(Node):
         ]
 
         # =====================Obstacle Avoidance===================================== #
-        # self.obstacles = []
-        # self.obstacle_size = 0.8
-        # #print(f'Detected obstacles:{self.objects_detected}')
-        # obj = filter_by_distance(self.objects_detected, self.goals[self.node_id], self.init_pos)
-        # for yuu in obj:
-        #     print(f'Filtered obstacles: {yuu}')
 
-        # for obst in self.objects_detected:
-        #     pos_obstacle = np.array(obst) if obst is not None else np.array([0.0, 0.0])
-        #     self.obstacles.append(
-        #         [
-        #             ca.vertcat(
-        #                 -((self.s_var.omni[0] - pos_obstacle[0]) ** 2)
-        #                 - (self.s_var.omni[1] - pos_obstacle[1]) ** 2
-        #                 + self.obstacle_size**2
-        #             )
-        #         ]
-        #     )
-        # hardcoding of single object
         self.obstacle_pos = (
             np.array(self.objects_detected)
             if self.objects_detected is not None
@@ -1064,11 +1057,11 @@ class Agent(Node):
                 s_j = [s for s in state_meas[jglobal].pop(0)[1:-2]]
                 s_j = np.array(s_j)
                 self.s.omni[j] = copy.deepcopy(s_j)
-                self.states[jglobal] = copy.deepcopy(s_j[0:2])
+                # self.states[jglobal] = copy.deepcopy(s_j[0:2])
             else:
                 s_j = [s for s in state_meas[jglobal].pop(0)[1:-2]]
-                s_j = np.array(s_j)
-                self.states[jglobal] = copy.deepcopy(s_j[0:2])
+                # s_j = np.array(s_j)
+                # self.states[jglobal] = copy.deepcopy(s_j[0:2])
 
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
         """Update the state of the system using the control input u_star and the time step dt"""
@@ -1142,6 +1135,7 @@ class Agent(Node):
         # --- CONNECT (bidirectional)
         for idx in to_connect:
             self.adjacency_vector[idx] = 1.0
+            print(f'connect to {idx}')
             # i connects to idx
             tasks_i = {
                 f'agent_{self.node_id}': {
@@ -1156,6 +1150,7 @@ class Agent(Node):
         for idx in to_disconnect:
             self.adjacency_vector[idx] = 0.0
             # i disconnects from idx
+            print(f'remove to {idx}')
             self.remove_connection(self.adjacency_vector, f'agent_{idx}', idx)
 
     def create_connection(
@@ -1247,7 +1242,8 @@ class Agent(Node):
                     robot_index=[self.robot_idx[1:]],
                     pos=n[0],
                 )
-            self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
+            if st.experiment_name == 'obst_avoid':
+                self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
             self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
             self.hompc.update_task(
                 name='input_smooth',
@@ -1334,7 +1330,8 @@ class Agent(Node):
             robot_index=[self.robot_idx],
         )
         self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
-        self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
+        if st.experiment_name == 'obst_avoid':
+            self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
         for n, task in enumerate(self.hompc._tasks):
             if task.type == TaskType.Bi and task.prio > 2:
                 if task.name == 'formation':
@@ -1406,7 +1403,7 @@ def main(args=None):
 
     agent = Agent()
     print(f'Agent {agent.node_id} -- Waiting for sync.')
-    sleep(1.0)
+    # sleep(0.25)
     print('GO!')
     try:
         rclpy.spin(agent)

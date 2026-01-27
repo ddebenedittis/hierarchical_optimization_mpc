@@ -23,6 +23,7 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [f'{script} = {package_name}.{script}:main' for script in scripts],
+        'console_scripts': [f'{script} = {package_name}.{script}:main' for script in scripts]
+        + ['coverage_video = scripts.coverage_video:main'],
     },
 )

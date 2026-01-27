@@ -7,6 +7,7 @@ import matplotlib.widgets
 import mpl_toolkits.axes_grid1
 import numpy as np
 from cycler import cycler
+from matplotlib import colors
 from matplotlib.animation import FFMpegWriter, FuncAnimation
 from matplotlib.cm import get_cmap
 from matplotlib.collections import LineCollection
@@ -14,6 +15,14 @@ from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
+
+
+def polygon_area(poly):
+    if poly.size == 0:
+        return 0.0
+    x = poly[:, 0]
+    y = poly[:, 1]
+    return 0.5 * np.abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
 
 
 def gen_arrow_head_marker(rot):
@@ -116,6 +125,11 @@ class MultiRobotArtistFlags:
     past_trajectory: bool = True
     goals: bool = True
     obstacles: bool = True
+    labels: bool = True
+    legend: bool = True
+    time: bool = True
+    grid: bool = True
+    fill_voronoi: bool = False
 
 
 # =========================================================================== #
@@ -278,10 +292,18 @@ class Animation:
 
         self.coloured_trajectory = True
 
+        self.ticks_rotation = 0
+
     # ================================= Init ================================= #
 
     def init(self):
         self.ax.clear()
+
+        if not self.artists_flags.grid:
+            plt.rc('axes', grid=False)
+
+        plt.xticks(rotation=self.ticks_rotation)
+        plt.yticks(rotation=self.ticks_rotation)
 
         self.ax.set_aspect('equal', 'box')
 
@@ -314,7 +336,9 @@ class Animation:
             ]
             self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
 
-        self.ax.set(xlim=self.x_lim, ylim=self.y_lim, xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
+        self.ax.set(xlim=self.x_lim, ylim=self.y_lim)
+        if self.artists_flags.labels:
+            self.ax.set(xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
 
         self.artists.goals = [None for _ in range(2)]
         self.artists.goals[0] = self.ax.scatter(
@@ -372,54 +396,61 @@ class Animation:
 
         # ============================== Legend ============================== #
 
-        marker, scale = gen_arrow_head_marker(0)
-        legend_elements = []
-        if self.n_robots[0] > 0:
-            legend_elements.append(
-                Line2D(
-                    [],
-                    [],
-                    marker=marker,
-                    markersize=20 * scale,
-                    color='C0',
-                    linestyle='None',
-                    label='Unicycle',
-                )
-            )
-        if self.n_robots[1] > 0:
-            legend_elements.append(
-                Line2D(
-                    [], [], marker='o', color='C1', linestyle='None', label='Omnidirectional robot'
-                )
-            )
-        if sum(self.n_robots) > 1 and self.artists_flags.centroid:
-            legend_elements.append(
-                Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
-            )
-        if self.goals is not None:
-            if len(self.goals) > 0:
+        if self.artists_flags.legend:
+            marker, scale = gen_arrow_head_marker(0)
+            legend_elements = []
+            if self.n_robots[0] > 0:
                 legend_elements.append(
-                    Line2D([], [], marker='x', color='k', linestyle='None', label='Goal')
+                    Line2D(
+                        [],
+                        [],
+                        marker=marker,
+                        markersize=20 * scale,
+                        color='C0',
+                        linestyle='None',
+                        label='Unicycle',
+                    )
                 )
-        if self.obstacles is not None:
-            legend_elements.append(
-                plt.Circle([0, 0], [0.1], color='grey', alpha=0.5, label='Obstacle')
-            )
+            if self.n_robots[1] > 0:
+                legend_elements.append(
+                    Line2D(
+                        [],
+                        [],
+                        marker='o',
+                        color='C1',
+                        linestyle='None',
+                        label='Omnidirectional robot',
+                    )
+                )
+            if sum(self.n_robots) > 1 and self.artists_flags.centroid:
+                legend_elements.append(
+                    Line2D([], [], marker='o', color='C2', linestyle='None', label='Fleet centroid')
+                )
+            if self.goals is not None:
+                if len(self.goals) > 0:
+                    legend_elements.append(
+                        Line2D([], [], marker='x', color='k', linestyle='None', label='Goal')
+                    )
+            if self.obstacles is not None:
+                legend_elements.append(
+                    plt.Circle([0, 0], [0.1], color='grey', alpha=0.5, label='Obstacle')
+                )
 
-        self.ax.legend(handles=legend_elements, loc='upper right')
+            self.ax.legend(handles=legend_elements, loc='upper right')
 
         # =========================== Time On Plot =========================== #
 
-        self.fr_number = self.ax.annotate(
-            '$t = 0.00 \, s$',
-            (0, 1),
-            xycoords='axes fraction',
-            xytext=(10, -10),
-            fontsize=self.textsize,
-            textcoords='offset points',
-            ha='left',
-            va='top',
-        )
+        if self.artists_flags.time:
+            self.fr_number = self.ax.annotate(
+                '$t = 0.00 \, s$',
+                (0, 1),
+                xycoords='axes fraction',
+                xytext=(10, -10),
+                fontsize=self.textsize,
+                textcoords='offset points',
+                ha='left',
+                va='top',
+            )
 
         # =================================================================== #
 
@@ -521,7 +552,7 @@ class Animation:
         # Voronoi.
         if self.artists_flags.voronoi:
             towers = np.array([e[0:2] for e in state[0]] + [e[0:2] for e in state[1]])
-            bounding_box = np.array([-20, 20, -20, 20])
+            bounding_box = np.array([self.x_lim[0], self.x_lim[1], self.y_lim[0], self.y_lim[1]])
             vor = BoundedVoronoi(towers, bounding_box)
             for v in self.artists.voronoi:
                 try:
@@ -529,6 +560,28 @@ class Animation:
                 except:
                     v.remove()
             self.artists.voronoi = vor.plot()
+
+            if self.artists_flags.fill_voronoi:
+                for region in vor.regions:
+                    if not -1 in region:
+                        polygon = [vor.vertices[i] for i in region]
+                        area = polygon_area(np.array(polygon))
+                        target_area = (
+                            (bounding_box[1] - bounding_box[0])
+                            * (bounding_box[3] - bounding_box[2])
+                            / len(towers)
+                        )
+                        d = area / target_area
+                        d = d if d > 1.0 else 0.0 if d == 0.0 else 1 / d
+                        d = min(d / 2.0, 1.0)
+
+                        c2 = np.array(colors.to_rgb('C4'))
+                        c3 = np.array(colors.to_rgb('C6'))
+
+                        color = (1.0 - d) * c2 + d * c3
+                        self.artists.voronoi = self.artists.voronoi + plt.fill(
+                            *zip(*polygon), alpha=1, color=color
+                        )
 
         # Past trajectory.
         if self.artists_flags.past_trajectory:
@@ -568,7 +621,8 @@ class Animation:
                 )[0]
 
         # Time on plot.
-        self.fr_number.set_text(f'$t = {frame * self.dt:.2f} \, s$')
+        if self.artists_flags.time:
+            self.fr_number.set_text(f'$t = {frame * self.dt:.2f} \, s$')
 
         return self.artists
 
@@ -585,6 +639,8 @@ def display_animation(
     x_lim=[-20.0, 20.0],
     y_lim=[-20.0, 20.0],
     video_name: str = 'video.mp4',
+    ticks_rotation: int = 0,
+    dpi: int = 100,
     flags: MultiRobotArtistFlags = MultiRobotArtistFlags(),
 ):
     fig, ax = plt.subplots()
@@ -593,6 +649,7 @@ def display_animation(
     anim.artists_flags = flags
     anim.x_lim = x_lim
     anim.y_lim = y_lim
+    anim.ticks_rotation = ticks_rotation
 
     n_steps = len(s_history)
 
@@ -618,7 +675,7 @@ def display_animation(
         plt.show()
     elif method == 'save':
         writervideo = FFMpegWriter(fps=int(1 / dt))
-        ani.save(video_name, writer=writervideo)
+        ani.save(video_name, writer=writervideo, dpi=dpi)
     else:
         raise ValueError(
             'The input method is {method}. Acceptable values are ' + 'plot, save, and none.'

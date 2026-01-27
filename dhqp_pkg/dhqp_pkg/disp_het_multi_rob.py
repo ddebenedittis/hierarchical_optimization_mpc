@@ -602,7 +602,7 @@ def display_animation(
             maxi=n_steps - 1,
             interval=dt * 1000,
         )
-    elif method == 'save':
+    elif method == 'plot_no_buttons' or method == 'save':
         ani = FuncAnimation(
             fig=fig,
             func=anim.update,
@@ -611,7 +611,7 @@ def display_animation(
             interval=dt * 1000,
         )
 
-    if method == 'plot':
+    if method == 'plot' or method == 'plot_no_buttons':
         plt.show()
     elif method == 'save':
         writervideo = FFMpegWriter(fps=int(1 / dt))

@@ -22,7 +22,7 @@ from rclpy.qos import (
     qos_profile_sensor_data,
 )
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray
 from tf_transformations import euler_from_quaternion
 
 import dhqp_pkg.settings as st
@@ -108,6 +108,12 @@ class Agent(Node):
         qos_sync = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        qos_rel = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
@@ -141,6 +147,7 @@ class Agent(Node):
         self.s_kp1 = RobCont(omni=None, uni=None)
 
         self.s = RobCont(omni=None, uni=None)  # current state
+        self.t_0 = np.nan
 
         # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
         self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 15)
@@ -218,7 +225,7 @@ class Agent(Node):
         self.cmd_publisher = self.create_publisher(
             Twist,
             topic_name,
-            qos_sync,
+            1,
         )
         # self.get_logger().info(f'Publisher created for {topic_name}')
 
@@ -246,7 +253,14 @@ class Agent(Node):
             ModelStates,
             '/model_states',  # topic name
             self.states_callback,
-            qos_sync,
+            1,
+        )
+        self.start = False
+        self.subscription_start = self.create_subscription(
+            Bool,
+            '/start',  # topic name
+            self.start_callback,
+            qos_rel,
         )
         # State-QUALYSIS subscriber
         self.subscription = self.create_subscription(
@@ -295,8 +309,11 @@ class Agent(Node):
         print(f'Setup of agent {self.node_id} complete')
 
     def listener_callback(self, msg, node):
-        self.received_data[node].append(list(msg.data))  #! self.index_global_to_local(node)
+        self.received_data[node] = list(msg.data)  #! self.index_global_to_local(node)
         # self.received_data[self.index_global_to_local(node)].append(list(msg.data))
+
+    def start_callback(self, msg):
+        self.start = True
 
     def states_callback(self, msg):
         """Extract the pose from gazebo"""
@@ -340,6 +357,16 @@ class Agent(Node):
                     self.s.omni[0] = np.array([x, y, yaw])  # self state
                 else:
                     self.init_pos = np.array([x, y, yaw])
+            else:
+                for neigh in self.robot_idx_global[1:]:
+                    if body.rigid_body_name == f'limo_{neigh+1}':
+                        x = body.pose.position.x  # msg.pose.pose.position.x
+                        y = body.pose.position.y  # msg.pose.pose.position.y
+                        q = body.pose.orientation  # msg.pose.pose.orientation
+                        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                        nn = self.index_global_to_local(neigh)
+                        self.s.omni[nn] = np.array([x, y, yaw])  # self state"""
+                        self.states[nn] = np.array([x, y])  # self state"""
             # if body.rigid_body_name == 'uomo_enorme':
             #     x = body.pose.position.x  # msg.pose.pose.position.x
             #     y = body.pose.position.y  # msg.pose.pose.position.y
@@ -540,17 +567,15 @@ class Agent(Node):
         msg_mpc = Float32MultiArray()
         command = TwistStamped()
         cmd = Twist()
-        time_start = time.time()
-        if self.step == 0:  # Let the publisher start at the first iteration
+        if not self.start:
             msg.data = [float(self.step)]
             [msg.data.append(float(ss)) for ss in self.s.omni[0]]
             [msg.data.append(float(0)) for _ in range(2)]
             self.publisher_.publish(msg)
-            print(f'timer working \n')
+
             # log files
             # 1) visualize on the terminal
             # self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
-            self.step += 1
         else:  # Have all messages at time t-1 arrived?
             # Check if lists are nonempty
             # all_received = all(
@@ -558,19 +583,21 @@ class Agent(Node):
             # )  # check if all neighbors' have been received
             # #! changed from local to global
 
-            all_received = all(
-                self.received_data[j] for j in self.all_neigh
-            )  # check if all neighbors' have been received
+            # all_received = all(
+            #     self.received_data[j] for j in self.all_neigh
+            # )  # check if all neighbors' have been received
 
-            # Check if messages are from time t-1
-            sync = False
+            # # Check if messages are from time t-1
+            # sync = False
 
-            # Have all messages at time t-1 arrived?
-            if all_received:
-                sync = all(
-                    self.step - 1 == self.received_data[j][0][0] for j in self.all_neigh
-                )  # True if all True
-            if sync:
+            # # Have all messages at time t-1 arrived?
+            # if all_received:
+            #     sync = all(
+            #         self.step - 1 == self.received_data[j][0] for j in self.all_neigh
+            #     )  # True if all True
+            if True:
+                if np.isnan(self.t_0):
+                    self.t_0 = self.get_clock().now().nanoseconds
                 # if not all(self.received_data[j] for j in self.all_neigh):
                 #     return  # wait for missing data
 
@@ -578,6 +605,8 @@ class Agent(Node):
 
                 # wait = (self.step - min_neighbor_step) >= 5
                 # if not wait:
+                if self.step == 0:
+                    self.step = 1
                 if st.variable_connection:
                     self.connecter(self.states)
                 # Reorder the state vector received from the neighbors
@@ -611,7 +640,7 @@ class Agent(Node):
                         ineq_task_ls=task_obs_avoidance[0],
                     )
                 self.u_star, s, u = self.hompc(copy.deepcopy(self.s.tolist()))
-
+                time_round = (self.get_clock().now().nanoseconds - self.t_0) / 1e9
                 # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
 
                 # publish the command
@@ -640,7 +669,7 @@ class Agent(Node):
                 self.publisher_.publish(msg)
 
                 # publish the mpc output
-                msg_mpc.data = [float(self.step)]
+                msg_mpc.data = [time_round]
                 [msg_mpc.data.append(float(ag)) for ag in self.robot_idx_global[1:]]
                 for val in np.array(s).flatten():
                     msg_mpc.data.append(float(val))
@@ -663,7 +692,6 @@ class Agent(Node):
                     self.diff_drive_publisher.publish(command)
                     self.destroy_node()
 
-                time_round = time.time() - time_start
                 # self.get_logger().info(f'Iteration {self.step} time: {time_round:.4f} seconds')
                 # update iteration counter
                 self.step += 1
@@ -1054,14 +1082,14 @@ class Agent(Node):
                 continue
             elif jglobal in self.robot_idx_global:
                 j = self.index_global_to_local(jglobal)
-                s_j = [s for s in state_meas[jglobal].pop(0)[1:-2]]
+                s_j = [s for s in state_meas[jglobal][1:-2]]
                 s_j = np.array(s_j)
                 self.s.omni[j] = copy.deepcopy(s_j)
-                # self.states[jglobal] = copy.deepcopy(s_j[0:2])
-            else:
-                s_j = [s for s in state_meas[jglobal].pop(0)[1:-2]]
-                # s_j = np.array(s_j)
-                # self.states[jglobal] = copy.deepcopy(s_j[0:2])
+            #     self.states[jglobal] = copy.deepcopy(s_j[0:2])
+            # else: # jsut for simulation
+            #     s_j = [s for s in state_meas[jglobal][1:-2]]
+            #     s_j = np.array(s_j)
+            #     self.states[jglobal] = copy.deepcopy(s_j[0:2])
 
     def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
         """Update the state of the system using the control input u_star and the time step dt"""

@@ -11,7 +11,8 @@ from geometry_msgs.msg import Twist
 from matplotlib import pyplot as plt
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray
+from tf_transformations import euler_from_quaternion
 
 import dhqp_pkg.settings as st
 from dhqp_pkg.disp_het_multi_rob import (
@@ -41,12 +42,18 @@ class MinimalSubscriber(Node):
         qos_sync = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        qos_rel = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
         # Get parameters from launcher
-        self.n_steps = self.get_parameter('max_iters').value
-        self.communication_time = self.get_parameter('communication_time').value
+        self.n_steps = self.get_parameter('max_iters').value + 200
+        self.communication_time = 0.1
         self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
         self.dt = self.get_parameter('dt').value  # timestep size
         self.obstacle_pos = st.obstacle_position
@@ -80,6 +87,37 @@ class MinimalSubscriber(Node):
                 header.append(f'inputOM{i}')
 
             writer.writerow(header)
+        self.file_real = f'{self.out_dir}/real_position.csv'
+        with open(self.file_real, mode='w', newline='') as file:
+            writer = csv.writer(file)
+
+            header = ['k']
+            header.append('time')
+            for i in range(st.n_nodes):
+                header.append(f'stateX_{i}')
+                header.append(f'stateY_{i}')
+                header.append(f'stateRHO_{i}')
+            writer.writerow(header)
+
+        # self.filename_mpc = []
+        # for node in range(self.n_nodes):
+        #     self.filename_mpc.append(f'{self.out_dir}/mpc_data_{node}.csv')
+        #     with open(self.filename_mpc[node], mode='w', newline='') as file:
+        #         writer = csv.writer(file)
+        #         header = ['k']
+        #         # header.append('time')
+        #         for _ in range(st.n_connection):
+        #             header.append(f'neighbor')
+        #         for n in range(st.n_connection + 1):
+        #             for k in range(st.n_control):
+        #                 header.append(f'{n}_sx_k{k}')
+        #                 header.append(f'{n}_sy_k{k}')
+        #                 header.append(f'{n}_sth_k{k}')
+        #         for n in range(st.n_connection + 1):
+        #             for k in range(st.n_control):
+        #                 header.append(f'{n}_v_k{k}')
+        #                 header.append(f'{n}_o_k{k}')
+        #         writer.writerow(header)
 
         self.flags = MultiRobotArtistFlags()
         self.flags.voronoi = False
@@ -110,22 +148,32 @@ class MinimalSubscriber(Node):
             self.obst_callback,
             1,
         )
+        self.start = False
+        self.subscription_start = self.create_subscription(
+            Bool,
+            '/start',  # topic name
+            self.start_callback,
+            qos_rel,
+        )
 
         self.timer = self.create_timer(self.communication_time, self.timer_callback)
 
         # initialize a dictionary with the list of received messages from each neighbor j [a queue]
         self.received_data = {j: [] for j in range(self.n_nodes)}
         self.received_data_mpc = {j: [] for j in range(self.n_nodes)}
+        self.real_position = [np.zeros(3) for j in range(self.n_nodes)]
         self.sync = False
-        self.b = progressbar.ProgressBar(maxval=st.n_steps)
+        self.b = progressbar.ProgressBar(maxval=self.n_steps)
         self.b.start()
+        self.start = False
 
         print(f'Setup of agent for graph plotting completed')
 
     def listener_callback(self, msg, node):
-        self.received_data[node].append(list(msg.data))
-        if all(self.received_data[j] for j in range(self.n_nodes)):
-            self.sync = True
+        self.received_data[node] = list(msg.data)
+
+    def start_callback(self, msg):
+        self.start = True
 
     def listener_callback_mpc(self, msg, node):
         # Currently not used, but can be implemented for MPC data handling
@@ -139,12 +187,20 @@ class MinimalSubscriber(Node):
 
                 self.obs = np.array([x, y])
                 msg_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            else:
+                for id in range(self.n_nodes):
+                    if body.rigid_body_name == f'limo_{id+1}':
+                        x = body.pose.position.x  # msg.pose.pose.position.x
+                        y = body.pose.position.y  # msg.pose.pose.position.y
+                        q = body.pose.orientation  # msg.pose.pose.orientation
+                        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                        self.real_position[id] = np.array([x, y, yaw])  # self state"""
 
     def timer_callback(self):
         # Initialize a message of type float
         msg = Float32MultiArray()
 
-        if self.sync:
+        if self.start:
             if np.isnan(self.t_0):
                 self.t_0 = self.get_clock().now().nanoseconds
 
@@ -154,10 +210,13 @@ class MinimalSubscriber(Node):
 
             # self.get_logger().info(f'Iter:{self.step}\n s:{self.s_history[-1][0]}')
             # self.get_logger().info(f'u:{self.u_history[-1]}')
+            with open(self.file_real, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                row = np.concatenate(self.real_position).tolist()
+                row = [self.step] + [self.time[self.step]] + row
+                writer.writerow(row)
 
             # update iteration counter
-            self.sync = False
-
             if self.step % 20 == 0 and self.step > 0:
                 with open(self.filename, mode='a', newline='') as file:
                     for s in range(self.step - self.save_interval, self.step):
@@ -168,6 +227,9 @@ class MinimalSubscriber(Node):
                         flat_u = [v for sub in self.u_history[s][0] for v in sub]  # flatten
                         row = [s] + [self.time[s]] + flat_s + flat_u
                         writer.writerow(row)
+
+                # self.save_mpc_to_csv()
+
             self.step += 1
             self.b.update(self.step)
         # Stop the node if tt exceeds MAXITERS
@@ -215,7 +277,7 @@ class MinimalSubscriber(Node):
         s = []
         u = []
         for j in range(self.n_nodes):
-            s_j = [s for s in state_meas[j].pop(0)[1:]]
+            s_j = [s for s in state_meas[j][1:]]
             u_j = s_j[-2:]
             s.append(s_j[:-2])
             u.append(u_j)
@@ -242,20 +304,20 @@ class MinimalSubscriber(Node):
                 # n_cols = len(data[0])
                 # header = [f"col_{i}" for i in range(n_cols)]
                 # writer.writerow(header)
-                header = ['k']
+                header = ['time']
                 # header.append('time')
-                if st.variable_connection:
-                    for _ in range(st.n_connection):
-                        header.append(f'neighbor')
-                    for n in range(st.n_connection + 1):
-                        for k in range(st.n_control):
-                            header.append(f'{n}_sx_k{k}')
-                            header.append(f'{n}_sy_k{k}')
-                            header.append(f'{n}_sth_k{k}')
-                    for n in range(st.n_connection + 1):
-                        for k in range(st.n_control):
-                            header.append(f'{n}_v_k{k}')
-                            header.append(f'{n}_o_k{k}')
+
+                for _ in range(st.n_nodes - 1):
+                    header.append(f'neighbor')
+                for n in range(st.n_nodes):
+                    for k in range(st.n_control):
+                        header.append(f'{n}_sx_k{k}')
+                        header.append(f'{n}_sy_k{k}')
+                        header.append(f'{n}_sth_k{k}')
+                for n in range(st.n_nodes):
+                    for k in range(st.n_control):
+                        header.append(f'{n}_v_k{k}')
+                        header.append(f'{n}_o_k{k}')
                 writer.writerow(header)
                 # Data
                 writer.writerows(data)

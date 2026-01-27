@@ -238,7 +238,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
 dt = 0.05
-n_steps = 180
+n_steps = 90
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1
@@ -263,7 +263,7 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 3  # mpc control step
+n_control = 4  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 5

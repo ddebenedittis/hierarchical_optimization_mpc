@@ -1453,17 +1453,17 @@ class HOMPCMultiRobot(HOMPC):
         u = [
             [
                 self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
-                for k in range(n_c)
                 for j in range(self.n_robots[c])
+                for k in range(n_c)
             ]
             for c in range(len(self.n_robots))
         ]
 
         s = [
             [
-                self._state_bar[c][j][k].ravel() + x_star[self._get_idx_state_kp1(c, j, k)]
-                for k in range(n_c)
+                self._state_bar[c][j][k + 1].ravel() + x_star[self._get_idx_state_kp1(c, j, k)]
                 for j in range(self.n_robots[c])
+                for k in range(n_c)
             ]
             for c in range(len(self.n_robots))
         ]

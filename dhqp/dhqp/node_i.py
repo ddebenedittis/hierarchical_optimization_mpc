@@ -758,68 +758,8 @@ class Agent(Node):
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-        if st.experiment_name == 'radial_switch':
-            if self.node_id == 0:
-                self.s = RobCont(
-                    omni=[
-                        np.array([1.82051265, 1.55306792, -2.5]) for _ in range(self.n_robots.omni)
-                    ]
-                )
-            elif self.node_id == 1:
-                self.s = RobCont(
-                    omni=[
-                        np.array([0.03835083, 1.23043227, -0.676])
-                        for _ in range(self.n_robots.omni)
-                    ]
-                )
-            elif self.node_id == 2:
-                self.s = RobCont(
-                    omni=[
-                        np.array([0.06541888, -0.46713921, 0.6]) for _ in range(self.n_robots.omni)
-                    ]
-                )
-            elif self.node_id == 3:
-                self.s = RobCont(
-                    omni=[
-                        np.array([1.65001702, -0.90230227, 2.1]) for _ in range(self.n_robots.omni)
-                    ]
-                )
-            elif self.node_id == 4:
-                self.s = RobCont(
-                    omni=[
-                        np.array([2.67261457, 0.51758206, 2.8]) for _ in range(self.n_robots.omni)
-                    ]
-                )
-        elif st.experiment_name == 'coverage':
-            if self.node_id == 0:
-                self.s = RobCont(omni=[np.array([0, 0, -3]) for _ in range(self.n_robots.omni)])
-            elif self.node_id == 1:
-                self.s = RobCont(omni=[np.array([0, 0, 0]) for _ in range(self.n_robots.omni)])
-            elif self.node_id == 2:
-                self.s = RobCont(omni=[np.array([0, 0, -3]) for _ in range(self.n_robots.omni)])
-            elif self.node_id == 3:
-                self.s = RobCont(omni=[np.array([0, 0, 0]) for _ in range(self.n_robots.omni)])
-            elif self.node_id == 4:
-                self.s = RobCont(omni=[np.array([0, 0, 1.4]) for _ in range(self.n_robots.omni)])
-            elif self.node_id == 5:
-                self.s = RobCont(omni=[np.array([0, 0, 1.4]) for _ in range(self.n_robots.omni)])
-        elif st.experiment_name == 'obst_avoid':
-            if self.node_id == 0:
-                self.s = RobCont(
-                    omni=[np.array([-0.437, -0.618, 0.63]) for _ in range(self.n_robots.omni)]
-                )
-            elif self.node_id == 1:
-                self.s = RobCont(
-                    omni=[np.array([-0.582, 1.416, -0.676]) for _ in range(self.n_robots.omni)]
-                )
-            elif self.node_id == 2:
-                self.s = RobCont(
-                    omni=[np.array([1.852, 1.443, -2.5]) for _ in range(self.n_robots.omni)]
-                )
-            elif self.node_id == 3:
-                self.s = RobCont(
-                    omni=[np.array([1.95, -0.498, 2.5]) for _ in range(self.n_robots.omni)]
-                )
+
+        self.s = RobCont(omni=[np.zeros(3) for _ in range(self.n_robots.omni)])
 
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]

@@ -1,14 +1,9 @@
-import copy
 import csv
 import time
-from time import sleep
 
-import casadi as ca
 import numpy as np
 import progressbar
 import rclpy
-from geometry_msgs.msg import Twist
-from matplotlib import pyplot as plt
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Bool, Float32MultiArray
@@ -52,7 +47,7 @@ class MinimalSubscriber(Node):
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
         # Get parameters from launcher
-        self.n_steps = self.get_parameter('max_iters').value + 200
+        self.n_steps = self.get_parameter('max_iters').value
         self.communication_time = 0.1
         self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
         self.dt = self.get_parameter('dt').value  # timestep size
@@ -300,26 +295,33 @@ class MinimalSubscriber(Node):
             with open(self.filename_mpc, mode='w', newline='') as f:
                 writer = csv.writer(f)
 
-                # Optional: header
-                # n_cols = len(data[0])
-                # header = [f"col_{i}" for i in range(n_cols)]
-                # writer.writerow(header)
                 header = ['time']
-                # header.append('time')
+                if not st.variable_connection:
+                    for _ in range(st.n_nodes - 1):
+                        header.append('neighbor')
+                    for n in range(st.n_nodes):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_sx_k{k}')
+                            header.append(f'{n}_sy_k{k}')
+                            header.append(f'{n}_sth_k{k}')
+                    for n in range(st.n_nodes):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_v_k{k}')
+                            header.append(f'{n}_o_k{k}')
+                else:
+                    for _ in range(st.n_connection):
+                        header.append('neighbor')
+                    for n in range(st.n_connection + 1):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_sx_k{k}')
+                            header.append(f'{n}_sy_k{k}')
+                            header.append(f'{n}_sth_k{k}')
+                    for n in range(st.n_connection + 1):
+                        for k in range(st.n_control):
+                            header.append(f'{n}_v_k{k}')
+                            header.append(f'{n}_o_k{k}')
 
-                for _ in range(st.n_nodes - 1):
-                    header.append(f'neighbor')
-                for n in range(st.n_nodes):
-                    for k in range(st.n_control):
-                        header.append(f'{n}_sx_k{k}')
-                        header.append(f'{n}_sy_k{k}')
-                        header.append(f'{n}_sth_k{k}')
-                for n in range(st.n_nodes):
-                    for k in range(st.n_control):
-                        header.append(f'{n}_v_k{k}')
-                        header.append(f'{n}_o_k{k}')
                 writer.writerow(header)
-                # Data
                 writer.writerows(data)
 
             self.get_logger().info(f'Saved MPC data for node {node} to {self.filename_mpc}')

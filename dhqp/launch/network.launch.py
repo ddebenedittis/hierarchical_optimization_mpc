@@ -1,40 +1,18 @@
-import copy
 import os
-import time
 from datetime import datetime
-from itertools import combinations
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from scipy.spatial.distance import pdist
 
 import dhqp.settings as st
-
-# from dhqp.disp_het_multi_rob import (
-#     MultiRobotArtistFlags,
-#     display_animation,
-#     save_snapshots,
-# )
-from hierarchical_optimization_mpc.utils.robot_models import (
-    get_omnidirectional_model,
-    get_unicycle_model,
-)
-
-# from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
     MAXITERS = st.n_steps  # Max iterations
     COMM_TIME = 1e-3  # communication time period
-
-    model = {
-        'unicycle': get_unicycle_model(st.dt),
-        'omnidirectional': get_omnidirectional_model(st.dt),
-    }
 
     # ---------------------------------------------------------------------------- #
     #               Create the network and connection between agents               #
@@ -42,11 +20,12 @@ def generate_launch_description():
 
     # deterministic graphs
     graph_matrix = np.ones((st.n_nodes, st.n_nodes)) - np.eye(st.n_nodes)
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=range(st.n_nodes))
 
     package_name = 'dhqp'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-dhqp/'
+    out_dir = (
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-{st.experiment_name}/'
+    )
     os.makedirs(out_dir, exist_ok=True)
 
     launch_description = []  # append here your nodes
@@ -87,11 +66,7 @@ def generate_launch_description():
                         'n_xi': st.n_xi,
                         'step_size': st.step_size,
                         'n_priority': st.n_priority,
-                        'velocity_limits': st.velocity_limits,
                         'n_connection': st.n_connection,
-                        #'system_tasks' : s_i, #system_tasks[f'agent_{i}'],
-                        #'neigh_tasks' : n_i, #neigh_tasks[f'agent_{i}'],
-                        #'goals' : goals,
                         'out_dir': out_dir,
                         'N_AGENTS': st.n_nodes,
                     }

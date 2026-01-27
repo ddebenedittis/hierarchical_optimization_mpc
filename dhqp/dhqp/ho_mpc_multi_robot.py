@@ -11,7 +11,7 @@ from scipy.special import binom
 import dhqp.settings as st
 from dhqp.hierarchical_qp import HierarchicalQP, QPSolver
 from dhqp.ho_mpc import HOMPC, subs
-from dhqp.voronoi_task import VoronoiTask
+from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 np.set_printoptions(threshold=np.inf)
 

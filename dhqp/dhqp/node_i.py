@@ -1,27 +1,17 @@
 import copy
-import csv
-import math
-import subprocess
-import threading
-import time
-from time import sleep
 
 import casadi as ca
 import numpy as np
 import rclpy
 from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Point, Pose, PoseArray, Twist, TwistStamped
-from matplotlib import pyplot as plt
-from numpy import random
+from geometry_msgs.msg import Twist, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import (
     DurabilityPolicy,
     HistoryPolicy,
     QoSProfile,
     ReliabilityPolicy,
-    qos_profile_sensor_data,
 )
-from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Float32MultiArray
 from tf_transformations import euler_from_quaternion
 
@@ -29,7 +19,6 @@ import dhqp.settings as st
 from dhqp.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
-    TaskIndexes,
     TaskType,
 )
 from dhqp.message import MessageReceiver, MessageSender
@@ -40,62 +29,6 @@ from hierarchical_optimization_mpc.utils.robot_models import (
     get_unicycle_model,
 )
 from mocap_msgs.msg import RigidBodies
-
-
-def writer(filename, string):
-    """
-    inner function for logging
-    """
-    file = open(filename, 'a')  # "a" is for append
-    file.write(string)
-    file.close()
-
-
-def filter_by_distance(obstacles, G, R, max_dist=2.0, width=1.0):
-    """
-    points: list of (x, y) tuples
-    goal:   (gx, gy)
-    max_dist: maximum allowed distance
-    """
-    # gx, gy = goal
-    # result = []
-
-    # for x, y in points:
-    #     dist = math.hypot(x - gx, y - gy)  # Euclidean distance
-    #     if dist <= max_dist:
-    #         result.append((x, y))
-
-    # return result
-    R = np.asarray(R, dtype=float)
-    G = np.asarray(G, dtype=float)
-    O = np.asarray(obstacles, dtype=float)  # shape (N, 2)
-
-    # Vector from R → G
-    RG = G - R[:1]
-    dx, dy = RG
-    L = np.linalg.norm(RG)
-    L2 = L * L
-
-    # Vector from R → each obstacle
-    RO = O - R[:1]  # shape (N, 2)
-
-    # --- Perpendicular distance from each obstacle to the line ---
-    # d = |dx*(Ry - Oy) - (Rx - Ox)*dy| / L
-    d = np.abs(dx * (-RO[:, 1]) - dy * (-RO[:, 0])) / L
-
-    # Condition 1: inside corridor width
-    cond_width = d <= (width / 2)
-
-    # --- Projection factor t to check along the segment ---
-    t = (RO[:, 0] * dx + RO[:, 1] * dy) / L2
-
-    # Condition 2: projection lies within segment
-    cond_segment = (t >= 0) & (t <= 1)
-
-    # Combine both
-    mask = cond_width & cond_segment
-
-    return O[mask]
 
 
 class Agent(Node):
@@ -136,7 +69,6 @@ class Agent(Node):
         self.n_xi = self.get_parameter('n_xi').value
         self.step_size = self.get_parameter('step_size').value
         self.n_priority = self.get_parameter('n_priority').value
-        self.velocity_limits = self.get_parameter('velocity_limits').value
         self.n_connection = self.get_parameter('n_connection').value
 
         self.dt = self.get_parameter('dt').value  # timestep size
@@ -149,8 +81,7 @@ class Agent(Node):
         self.s = RobCont(omni=None, uni=None)  # current state
         self.t_0 = np.nan
 
-        # self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_omnidirectional_model(self.dt)
-        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(self.dt * 15)
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(st.dt_mpc_model)
         if self.node_id == 0:
             self.init_pos = np.array([1.47, -0.2, 0.0])
         else:
@@ -269,19 +200,6 @@ class Agent(Node):
             self.state_callback,
             1,
         )
-        # Scan subscriber
-        self.subscription_laser = self.create_subscription(
-            LaserScan,
-            '/scan',  # f'{self.ns}/scan',  # topic name
-            self.scan_callback,
-            qos_profile_sensor_data,
-        )
-        # self.subscription = self.create_subscription(
-        #     PoseArray,
-        #     f'{self.ns}/detected_objects',  # topic name
-        #     self.scan_callback,
-        #     20,
-        # )
 
         # Sensor configuration parameters
         self.gap_threshold = 5  # samples separating objects
@@ -406,159 +324,6 @@ class Agent(Node):
                         self.states[nn] = np.array([x, y])
 
         # self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
-
-    def scan_callback(self, msg: LaserScan):
-        """Callback when a PoseArray message is received"""
-        # ranges = np.array(msg.ranges)
-
-        # # Replace invalid or out-of-range values with NaN
-        # ranges[(ranges < self.range_min) | (ranges > self.range_max)] = np.nan
-
-        # # Identify valid indices (where the LiDAR sees something)
-        # valid_indices = np.where(~np.isnan(ranges))[0]
-
-        # if len(valid_indices) == 0:
-        #     # self.get_logger().info('No objects detected.')
-        #     return
-
-        # '''# Group detections separated by >= gap_threshold samples
-        # object_groups = []
-        # current_group = [valid_indices[0]]
-
-        # for idx in valid_indices[1:]:
-        #     if idx - current_group[-1] <= self.gap_threshold:
-        #         current_group.append(idx)
-        #     else:
-        #         object_groups.append(current_group)
-        #         current_group = [idx]
-        # object_groups.append(current_group)'''
-        # # ---- Group detections based on distance jump, not index gap ----
-        # window_size = 5
-        # distance_jump_threshold = 0.5
-
-        # object_groups = []
-        # current_group = [valid_indices[0]]
-
-        # # Precompute sliding-window means for speed
-        # ranges_padded = np.pad(ranges, (window_size//2, window_size//2), mode='edge')
-        # window_means = np.array([
-        #     np.nanmean(ranges_padded[i:i+window_size])
-        #     for i in valid_indices
-        # ])
-
-        # for i in range(1, len(valid_indices)):
-        #     idx_prev = valid_indices[i-1]
-        #     idx_curr = valid_indices[i]
-
-        #     mean_prev = window_means[i-1]
-        #     mean_curr = window_means[i]
-
-        #     # If either window is invalid, treat as new object
-        #     if np.isnan(mean_prev) or np.isnan(mean_curr):
-        #         object_groups.append(current_group)
-        #         current_group = [idx_curr]
-        #         continue
-
-        #     # Check distance jump
-        #     if abs(mean_curr - mean_prev) <= distance_jump_threshold:
-        #         current_group.append(idx_curr)
-        #     else:
-        #         # Large jump → new object
-        #         object_groups.append(current_group)
-        #         current_group = [idx_curr]
-
-        # object_groups.append(current_group)
-
-        # # Compute each object's average range and angle
-        # objects_local = []
-        # for group in object_groups:
-        #     group_ranges = ranges[group]
-        #     if np.all(np.isnan(group_ranges)):
-        #         continue
-
-        #     # Minimum range (closest point)
-        #     min_idx_in_group = group[np.nanargmin(group_ranges)]
-        #     min_range = ranges[min_idx_in_group]
-
-        #     # Mean angle for this object (its approximate direction)
-        #     group_angles = msg.angle_min + np.array(group) * msg.angle_increment
-        #     mean_angle = np.mean(group_angles)
-        #     # angle in degree
-        #     mean_angle_deg = math.degrees(mean_angle)
-        #     objects_local.append((min_range, mean_angle))
-
-        # if not objects_local:
-        #     self.get_logger().info('No valid object clusters found.')
-        #     return
-
-        points = []
-
-        # -------- Convert LaserScan → XY points --------
-        angle = msg.angle_min
-        for r in msg.ranges:
-            if not math.isinf(r) and not math.isnan(r) and r < self.range_max:
-                x = r * math.cos(angle)
-                y = r * math.sin(angle)
-                points.append((x, y))
-            angle += msg.angle_increment
-
-        # -------- Perform Euclidean clustering --------
-        clusters = []
-        visited = set()
-
-        for i in range(len(points)):
-            if i in visited:
-                continue
-
-            # start new cluster
-            cluster = [i]
-            queue = [i]
-            visited.add(i)
-
-            while queue:
-                idx = queue.pop()
-                px, py = points[idx]
-
-                # check all other points
-                for j in range(len(points)):
-                    if j in visited:
-                        continue
-
-                    qx, qy = points[j]
-                    dist = math.hypot(px - qx, py - qy)
-
-                    if dist < 0.8:
-                        visited.add(j)
-                        queue.append(j)
-                        cluster.append(j)
-
-            clusters.append(cluster)
-
-        # -------- Output cluster info --------
-
-        for c in clusters:
-            # find minimum distance point inside the cluster
-            min_idx = min(c, key=lambda idx: math.hypot(points[idx][0], points[idx][1]))
-            min_x_r, min_y_r = points[min_idx]
-            min_dist = math.hypot(min_x_r, min_y_r)
-            min_angle = math.atan2(min_y_r, min_x_r)
-
-            # ---- Compute average x,y for the cluster ----
-            xs = [points[idx][0] for idx in c]
-            ys = [points[idx][1] for idx in c]
-
-            avg_x = sum(xs) / len(xs)
-            avg_y = sum(ys) / len(ys)
-            # x = min_dist * math.cos(avg_angle)
-            # y = min_dist * math.sin(avg_angle)
-            # robot world pose
-            X_r, Y_r, YAW_r = self.init_pos
-
-            # world coordinates of the cluster
-            x_w = X_r + math.cos(YAW_r) * avg_x - math.sin(YAW_r) * avg_y
-            y_w = Y_r + math.sin(YAW_r) * avg_x + math.cos(YAW_r) * avg_y
-            print(f'{min_x_r , min_y_r, min_dist, min_angle}\n')
-            self.objects_detected.append([x_w, y_w])
 
     def timer_callback(self):
         # Perform Partitioned optimization
@@ -707,10 +472,10 @@ class Agent(Node):
 
         self.task_input_limits = RobCont(
             omni=ca.vertcat(
-                self.u_var.omni[0] - self.velocity_limits[1],  # v max
-                -self.u_var.omni[0] + self.velocity_limits[0],  # v min
-                self.u_var.omni[1] - self.velocity_limits[3],  # omega max
-                -self.u_var.omni[1] + self.velocity_limits[2],  # omega min
+                self.u_var.omni[0] - st.velocity_limits[1],  # v max
+                -self.u_var.omni[0] + st.velocity_limits[0],  # v min
+                self.u_var.omni[1] - st.velocity_limits[3],  # omega max
+                -self.u_var.omni[1] + st.velocity_limits[2],  # omega min
             )
         )
 
@@ -993,7 +758,7 @@ class Agent(Node):
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-        if st.experiment_name == 'radial_swt':
+        if st.experiment_name == 'radial_switch':
             if self.node_id == 0:
                 self.s = RobCont(
                     omni=[
@@ -1025,7 +790,7 @@ class Agent(Node):
                         np.array([2.67261457, 0.51758206, 2.8]) for _ in range(self.n_robots.omni)
                     ]
                 )
-        elif st.experiment_name == 'form':
+        elif st.experiment_name == 'coverage':
             if self.node_id == 0:
                 self.s = RobCont(omni=[np.array([0, 0, -3]) for _ in range(self.n_robots.omni)])
             elif self.node_id == 1:

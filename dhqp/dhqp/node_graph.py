@@ -14,8 +14,8 @@ from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPo
 from std_msgs.msg import Bool, Float32MultiArray
 from tf_transformations import euler_from_quaternion
 
-import dhqp_pkg.settings as st
-from dhqp_pkg.disp_het_multi_rob import (
+import dhqp.settings as st
+from dhqp.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
     save_snapshots,

@@ -8,10 +8,10 @@ import casadi as ca
 import numpy as np
 from scipy.special import binom
 
-import dhqp_pkg.settings as st
-from dhqp_pkg.hierarchical_qp import HierarchicalQP, QPSolver
-from dhqp_pkg.ho_mpc import HOMPC, subs
-from dhqp_pkg.voronoi_task import VoronoiTask
+import dhqp.settings as st
+from dhqp.hierarchical_qp import HierarchicalQP, QPSolver
+from dhqp.ho_mpc import HOMPC, subs
+from dhqp.voronoi_task import VoronoiTask
 
 np.set_printoptions(threshold=np.inf)
 

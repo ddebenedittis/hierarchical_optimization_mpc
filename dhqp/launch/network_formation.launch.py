@@ -12,9 +12,9 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from scipy.spatial.distance import pdist
 
-import dhqp_pkg.settings as st
+import dhqp.settings as st
 
-# from dhqp_pkg.disp_het_multi_rob import (
+# from dhqp.disp_het_multi_rob import (
 #     MultiRobotArtistFlags,
 #     display_animation,
 #     save_snapshots,
@@ -41,19 +41,61 @@ def generate_launch_description():
     # ---------------------------------------------------------------------------- #
 
     # deterministic graphs
-    graph_matrix = np.ones((st.n_nodes, st.n_nodes)) - np.eye(st.n_nodes)
-    network_graph = nx.from_numpy_array(graph_matrix, nodelist=range(st.n_nodes))
+    if st.n_nodes == 1:
+        graph_matrix = np.array([[0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0])
+    if st.n_nodes == 2:
+        graph_matrix = np.array([[0.0, 1.0], [1.0, 0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1])
+    if st.n_nodes == 3:
+        graph_matrix = np.array([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]])
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2])
+    if st.n_nodes == 4:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
+    if st.n_nodes == 5:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
 
-    package_name = 'dhqp_pkg'
+    if st.n_nodes == 6:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+            ]
+        )
+        network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4, 5])
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+
+    package_name = 'dhqp'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-dhqp_pkg/'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-dhqp/'
     os.makedirs(out_dir, exist_ok=True)
 
     launch_description = []  # append here your nodes
 
     launch_description.append(
         Node(
-            package='dhqp_pkg',
+            package='dhqp',
             namespace='watcher',
             executable='node_graph',
             parameters=[
@@ -66,7 +108,7 @@ def generate_launch_description():
                 }
             ],
             output='screen',
-            # prefix='xterm -title "PLOTTING AGENT" -hold -e',
+            prefix='xterm -title "PLOTTING AGENT" -hold -e',
         )
     )
     # Create an agents of the same type for each node of the system
@@ -74,7 +116,7 @@ def generate_launch_description():
         nn = graph_matrix[i].flatten().tolist()
         launch_description.append(
             Node(
-                package='dhqp_pkg',
+                package='dhqp',
                 namespace=f'node_{i}',
                 executable='node_i',
                 parameters=[
@@ -84,11 +126,6 @@ def generate_launch_description():
                         'communication_time': COMM_TIME,
                         'neigh': nn,
                         'dt': st.dt,
-                        'n_xi': st.n_xi,
-                        'step_size': st.step_size,
-                        'n_priority': st.n_priority,
-                        'velocity_limits': st.velocity_limits,
-                        'n_connection': st.n_connection,
                         #'system_tasks' : s_i, #system_tasks[f'agent_{i}'],
                         #'neigh_tasks' : n_i, #neigh_tasks[f'agent_{i}'],
                         #'goals' : goals,
@@ -97,7 +134,7 @@ def generate_launch_description():
                     }
                 ],
                 output='screen',
-                # prefix=f'xterm -title "agent_{i}" -hold -e',
+                prefix=f'xterm -title "agent_{i}" -hold -e',
             )
         )
 

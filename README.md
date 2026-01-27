@@ -100,7 +100,7 @@ The following scenarios with the relative setting are already settend in the fol
 
 #### With ROS
 The relative pkg are:
-- dhqp_pkg: 
+- dhqp: 
   run in different nodes the d-hqp algorithm
 - limo_simulation
   provide a gazebo simulation for testing the algorithm. It spawns limo robots 
@@ -111,7 +111,7 @@ ros2 launch limo_simulation gazebo_models_diff.launch.py
 ```
 then
 ```shell
-ros2 launch dhqp_pkg network.launch.py
+ros2 launch dhqp network.launch.py
 ```
 
 ## Development

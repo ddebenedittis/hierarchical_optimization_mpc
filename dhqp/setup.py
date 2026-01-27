@@ -3,7 +3,7 @@ from glob import glob
 
 from setuptools import find_packages, setup
 
-package_name = 'dhqp_pkg'
+package_name = 'dhqp'
 scripts = ['node_i', 'node_graph', 'node_scan']
 
 setup(

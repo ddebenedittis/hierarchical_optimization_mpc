@@ -25,15 +25,15 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool, Float32MultiArray
 from tf_transformations import euler_from_quaternion
 
-import dhqp_pkg.settings as st
-from dhqp_pkg.ho_mpc_multi_robot import (
+import dhqp.settings as st
+from dhqp.ho_mpc_multi_robot import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
     TaskType,
 )
-from dhqp_pkg.message import MessageReceiver, MessageSender
-from dhqp_pkg.utils.fading_filter import FadingFilter
+from dhqp.message import MessageReceiver, MessageSender
+from dhqp.utils.fading_filter import FadingFilter
 from hierarchical_optimization_mpc.utils.robot_models import (
     RobCont,
     get_omnidirectional_model,

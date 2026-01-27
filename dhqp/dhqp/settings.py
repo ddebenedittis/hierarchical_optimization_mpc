@@ -238,7 +238,7 @@ I_NN = np.identity(n_nodes, dtype=int)
 R = 0.045
 L = 0.173
 dt = 0.05
-n_steps = 90
+n_steps = 180
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1

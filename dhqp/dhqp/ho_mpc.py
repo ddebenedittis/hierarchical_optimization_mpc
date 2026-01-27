@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import casadi as ca
 import numpy as np
 
-from dhqp_pkg.hierarchical_qp import HierarchicalQP, QPSolver
+from dhqp.hierarchical_qp import HierarchicalQP, QPSolver
 
 
 def subs(f: ca.SX, input: list[ca.SX], input_0: list[ca.SX]) -> np.ndarray:

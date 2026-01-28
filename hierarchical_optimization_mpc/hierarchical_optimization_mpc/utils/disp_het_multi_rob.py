@@ -112,6 +112,7 @@ class MultiRobotArtists:
     centroid: ...
     voronoi: ...
     past_trajectory: ...
+    future_trajectory: ...
     goals: ...
     obstacles: ...
 
@@ -123,6 +124,7 @@ class MultiRobotArtistFlags:
     centroid: bool = True
     voronoi: bool = True
     past_trajectory: bool = True
+    future_trajectory: bool = False
     goals: bool = True
     obstacles: bool = True
     labels: bool = True
@@ -271,12 +273,14 @@ def init_matplotlib():
 
 
 class Animation:
-    def __init__(self, data, goals, obstacles, ax, dt) -> None:
+    def __init__(self, data, goals, obstacles, ax, dt, n_c=4, data_all=None) -> None:
         self.textsize = init_matplotlib()
 
         self.n_history = np.inf
 
         self.data = data
+        self.data_all = data_all  #! to modify
+        self.n_c = n_c
         self.goals = goals
         self.obstacles = obstacles
         self.ax = ax
@@ -336,6 +340,12 @@ class Animation:
             ]
             self.artists.past_trajectory = [e[0] for e in self.artists.past_trajectory]
 
+        if self.artists_flags.future_trajectory:
+            self.artists.future_trajectory = [
+                self.ax.plot([], []) for _ in range(sum(self.n_robots) + 1)
+            ]
+            self.artists.future_trajectory = [e[0] for e in self.artists.future_trajectory]
+
         self.ax.set(xlim=self.x_lim, ylim=self.y_lim)
         if self.artists_flags.labels:
             self.ax.set(xlabel='$x$ [$m$]', ylabel='$y$ [$m$]')
@@ -355,7 +365,7 @@ class Animation:
                 self.artists.goals[1].append(
                     self.ax.annotate(
                         '$\mathcal{T}_{' + str(i + 1) + '}$',
-                        (g_i[0], g_i[1] + 1),
+                        (g_i[0], g_i[1] + 0.2),
                     )
                 )
 
@@ -492,6 +502,20 @@ class Animation:
                     if c == 0:
                         x_history[c][j, k, 2] = s_c_j[2]
 
+        # Future history.
+        if self.artists_flags.future_trajectory:
+            x_future = [
+                np.zeros((self.n_robots[0], self.n_c, 2)),
+                np.zeros((self.n_robots[1], self.n_c, 2)),
+            ]
+            for c in range(len(self.data_all[frame])):
+                for j, s_c_j in enumerate(self.data_all[frame][c]):
+                    for k in range(0, self.n_c):
+                        x_future[c][j, k, 0] = s_c_j[k][0]
+                        x_future[c][j, k, 1] = s_c_j[k][1]
+                        # if c == 0:
+                        #     x_future[c][j, k, 2] = s_c_j[2]
+
         # ========================= Clean Old Artists ======================== #
 
         for i in range(self.n_robots[0]):
@@ -620,6 +644,25 @@ class Animation:
                     alpha=0.75,
                 )[0]
 
+        # Future trajectory.
+        if self.artists_flags.future_trajectory:
+            for f in self.artists.future_trajectory:
+                try:
+                    f.remove()
+                except:
+                    pass
+
+            cnt = 0
+            for c in range(len(self.data_all[frame])):
+                for j, s_c_j in enumerate(state[c]):
+                    x = x_future[c][j, :, 0]
+                    y = x_future[c][j, :, 1]
+
+                    self.artists.future_trajectory[cnt] = plt.plot(
+                        x, y, linestyle='-', color='black', alpha=0.3
+                    )[0]
+                    cnt += 1
+
         # Time on plot.
         if self.artists_flags.time:
             self.fr_number.set_text(f'$t = {frame * self.dt:.2f} \, s$')
@@ -632,6 +675,7 @@ class Animation:
 
 def display_animation(
     s_history,
+    s_history_all,
     goals,
     obstacles,
     dt: float,
@@ -642,10 +686,11 @@ def display_animation(
     ticks_rotation: int = 0,
     dpi: int = 100,
     flags: MultiRobotArtistFlags = MultiRobotArtistFlags(),
+    n_c: int = 4,
 ):
     fig, ax = plt.subplots()
 
-    anim = Animation(s_history, goals, obstacles, ax, dt)
+    anim = Animation(s_history, goals, obstacles, ax, dt, n_c, data_all=s_history_all)
     anim.artists_flags = flags
     anim.x_lim = x_lim
     anim.y_lim = y_lim
@@ -676,6 +721,8 @@ def display_animation(
     elif method == 'save':
         writervideo = FFMpegWriter(fps=int(1 / dt))
         ani.save(video_name, writer=writervideo, dpi=dpi)
+    if method == 'none':
+        return
     else:
         raise ValueError(
             'The input method is {method}. Acceptable values are ' + 'plot, save, and none.'
@@ -725,6 +772,7 @@ def plot_distances(
     d_min: float = None,
     filename: str = 'distances.pdf',
 ):
+    init_matplotlib()
     [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
 
     n_k = len(s_history)

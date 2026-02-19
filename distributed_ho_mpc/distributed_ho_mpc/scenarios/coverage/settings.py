@@ -9,11 +9,11 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.1
-n_steps = 201
+n_steps = 251
 
 communication_range = 14
 
-v_max = 1.8
+v_max = 2.0
 v_min = -0.9
 
 # ---------------------------------------------------------------------------- #
@@ -28,7 +28,7 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 1  # mpc control step
+n_control = 3  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 2

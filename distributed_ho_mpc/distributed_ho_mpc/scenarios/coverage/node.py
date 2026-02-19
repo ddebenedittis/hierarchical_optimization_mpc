@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.coverage.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -38,7 +38,7 @@ class Node:
         self,
         node_id: int,
         adjacency_vector: np.array,
-        model_name: str,
+        model_name: np.array,
         dt: float,
         self_tasks: list,
         neigh_tasks: dict,
@@ -53,14 +53,22 @@ class Node:
         self.neigh = np.nonzero(adjacency_vector)[0].tolist()  # index of neighbours
         self.degree = len(self.neigh)  # numbers of neighbours
 
-        self.model_name = model_name
+        self.fleet = model_name  # robot models
+        self.n_robots = RobCont(omni=0, uni=0)
+
+        if self.fleet[self.node_id] == 'o':
+            self.model_name = 'omni'
+            self.n_robots.omni += 1
+        else:
+            self.model_name = 'unicycle'
+            self.n_robots.uni += 1
 
         self.x_neigh = []  # local buffer to store primal variables to share
         self.x_i = []
         self.n_priority = st.n_priority  # number of priorities
-        self.n_xi = st.n_control * 4  # dimension of primal variables
-        if self.model_name == 'uni':
-            self.n_xi = st.n_control * 5
+        self.n_xi_o = st.n_control * 4  # dimension of primal variables
+        # if self.model_name == 'unicycle':
+        self.n_xi_u = st.n_control * 5
 
         # ======================== Variables updater ======================= #
         self.alpha = st.step_size * np.ones(
@@ -119,18 +127,25 @@ class Node:
         # ======================== Define The System Model ======================= #
 
         # Define the state and input variables, and the discrete-time dynamics model.
+        for j in self.neigh:
+            if self.fleet[j] == 'o':
+                self.n_robots.omni += 1
+            else:
+                self.n_robots.uni += 1
 
-        self.n_robots = RobCont(omni=self.degree + 1)
+        # self.n_robots = RobCont(omni=self.degree + 1)
 
         self.dt = copy.deepcopy(dt)  # timestep size
 
-        self.s = RobCont(omni=None)  # symbolic state variables
-        self.u = RobCont(omni=None)
-        self.s_kp1 = RobCont(omni=None)
-
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 10)
-        if self.model_name == 'uni':
-            self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt * 10)
+        self.s = RobCont(omni=None, uni=None)  # symbolic state variables
+        self.u = RobCont(omni=None, uni=None)
+        self.s_kp1 = RobCont(omni=None, uni=None)
+        """if self.model_name == 'omni':
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 3)
+        elif self.model_name == 'unicycle':
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 2)"""
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 3)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(dt * 2)
 
         self.goals = copy.deepcopy(goals)
 
@@ -177,21 +192,39 @@ class Node:
 
         # =========================== Define The Tasks ========================== #
 
-        self.task_input_limits = RobCont(
-            omni=ca.vertcat(
-                self.u.omni[0] - self.v_max,  # vmax
-                -self.u.omni[0] - 2,  # vmin
-                self.u.omni[1] - 2,  # vmax
-                -self.u.omni[1] - 2,  # vmin
+        if self.model_name == 'omni':
+            self.task_input_limits = RobCont(
+                omni=ca.vertcat(
+                    self.u.omni[0] - self.v_max,  # vmax
+                    -self.u.omni[0] - 2,  # vmin
+                    self.u.omni[1] - 2,  # vmax
+                    -self.u.omni[1] - 2,  # vmin
+                )
             )
-        )
-        if self.model_name == 'uni':
+        elif self.model_name == 'unicycle':
             self.task_input_limits = RobCont(
                 omni=ca.vertcat(
                     self.u.omni[0] - self.v_max,  # vmax
                     -self.u.omni[0] - 0,  # vmin
                     self.u.omni[1] - 2,  # vmax
                     -self.u.omni[1] - 2,  # vmin
+                )
+            )
+        elif self.model_name == 'heterogeneous':
+            self.task_input_limits_o = RobCont(
+                omni=ca.vertcat(
+                    self.u.omni[0] - self.v_max,  # vmax
+                    -self.u.omni[0] - 0,  # vmin
+                    self.u.omni[1] - 2,  # vmax
+                    -self.u.omni[1] - 2,  # vmin
+                )
+            )
+            self.task_input_limits_u = RobCont(
+                uni=ca.vertcat(
+                    self.u.uni[0] - self.v_max,  # vmax
+                    -self.u.uni[0] - 0,  # vmin
+                    self.u.uni[1] - 2,  # vmax
+                    -self.u.uni[1] - 2,  # vmin
                 )
             )
 
@@ -397,33 +430,32 @@ class Node:
             self.create_neigh_tasks(neigh)
 
         # ======================================================================== #
-
-        if self.node_id == 0:
-            self.s = RobCont(
-                omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)],
-            )
-        elif self.node_id == 1:
-            self.s = RobCont(omni=[np.array([1, 1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 2:
-            self.s = RobCont(omni=[np.array([2, 1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 3:
-            self.s = RobCont(omni=[np.array([-1, 1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 4:
-            self.s = RobCont(omni=[np.array([-2, 1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 9:
-            self.s = RobCont(omni=[np.array([2, -1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 6:
-            self.s = RobCont(omni=[np.array([-1, -1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 7:
-            self.s = RobCont(omni=[np.array([-2, -1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([1, -1]) for _ in range(self.n_robots.omni)])
-        elif self.node_id == 5:
-            self.s = RobCont(omni=[np.array([0, -1]) for _ in range(self.n_robots.omni)])
-        else:
-            raise ValueError('Missing agent init on s')
-
-        if self.model_name == 'uni':
+        """if self.model_name == 'omni':
+            if self.node_id == 0:
+                self.s = RobCont(
+                    omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)],
+                )
+            elif self.node_id == 1:
+                self.s = RobCont(omni=[np.array([1, 1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 2:
+                self.s = RobCont(omni=[np.array([2, 1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 3:
+                self.s = RobCont(omni=[np.array([-1, 1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 4:
+                self.s = RobCont(omni=[np.array([-2, 1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 9:
+                self.s = RobCont(omni=[np.array([2, -1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 6:
+                self.s = RobCont(omni=[np.array([-1, -1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 7:
+                self.s = RobCont(omni=[np.array([-2, -1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 8:
+                self.s = RobCont(omni=[np.array([1, -1]) for _ in range(self.n_robots.omni)])
+            elif self.node_id == 5:
+                self.s = RobCont(omni=[np.array([0, -1]) for _ in range(self.n_robots.omni)])
+            else:
+                raise ValueError('Missing agent init on s')
+        elif self.model_name == 'unicycle':
             if self.node_id == 0:
                 self.s = RobCont(
                     omni=[np.array([0, 1, 0]) for _ in range(self.n_robots.omni)],
@@ -447,8 +479,64 @@ class Node:
             elif self.node_id == 9:
                 self.s = RobCont(omni=[np.array([2, -1, 0]) for _ in range(self.n_robots.omni)])
             else:
-                raise ValueError('Missing agent init on s')
+                raise ValueError('Missing agent init on s')"""
 
+        if self.node_id == 0:
+            if self.model_name == 'omni':
+                self.s = RobCont(
+                    omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)],
+                )
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(
+                    uni=[np.array([0, 1, 0]) for _ in range(self.n_robots.uni)],
+                )
+        elif self.node_id == 1:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([1, 1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([1, 1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 2:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([2, 1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([2, 1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 3:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([-1, 1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([-1, 1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 4:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([-2, 1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([-2, 1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 9:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([2, -1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([2, -1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 6:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([-1, -1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([-1, -1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 7:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([-2, -1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([-2, -1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 8:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([1, -1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([1, -1, 0]) for _ in range(self.n_robots.uni)])
+        elif self.node_id == 5:
+            if self.model_name == 'omni':
+                self.s = RobCont(omni=[np.array([0, -1]) for _ in range(self.n_robots.omni)])
+            elif self.model_name == 'unicycle':
+                self.s = RobCont(uni=[np.array([0, -1, 0]) for _ in range(self.n_robots.uni)])
+        else:
+            raise ValueError('Missing agent init on s')
         self.s_history = [None for _ in range(self.n_steps)]
         self.s_history_p = [None for _ in range(self.n_steps)]
         self.s_init = copy.deepcopy(self.s)
@@ -492,7 +580,7 @@ class Node:
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
         if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
+            # self.rho_j = self.receiver.process_messages('D')
 
             task_coverage_coeff = self.hompc.get_task_coverage(
                 copy.deepcopy(self.s.tolist())
@@ -507,23 +595,16 @@ class Node:
             )
 
         if self.step < self.n_steps:
-            print(self.step)
+            # print(self.step)
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
-            self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
-            self.y_i = copy.deepcopy(self.y)
+            # self.y_i = copy.deepcopy(self.y)
 
             # put in message u and s
-            if self.step % self.a == 0:
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
-                # self.a = self.a * 2
-                self.counter.append(self.step)
-            else:
-                self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+            self.s = self.evolve(copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot:
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -552,7 +633,7 @@ class Node:
                     plt.legend()
                     plt.show()
 
-            print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
+            # print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
 
             self.s_history[self.step] = copy.deepcopy(self.s.tolist())
             self.s_history_p[self.step] = copy.deepcopy([self.s.omni[0]])
@@ -562,6 +643,9 @@ class Node:
 
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
+
+        self.save_data()
+        return
 
         # if self.step > 0:
         #     self.save_data()
@@ -596,7 +680,7 @@ class Node:
                             u_star.omni[j][1],
                         ]
                     )
-                elif self.model_name == 'uni':
+                elif self.model_name == 'unicycle':
                     s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                         [
                             u_star.omni[j][0] * np.cos(s.omni[j][2]),

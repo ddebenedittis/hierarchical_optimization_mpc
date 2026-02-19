@@ -5,6 +5,7 @@ from datetime import datetime
 
 import networkx as nx
 import numpy as np
+import progressbar
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
@@ -23,10 +24,16 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 def main(model_name='omni'):
     model = None
+    print(f'model name: {model_name}')
     if model_name == 'omni':
         model = get_omnidirectional_model(dt=st.dt)
     elif model_name == 'unicycle':
         model = get_unicycle_model(dt=st.dt)
+    elif model_name == 'heterogeneous':
+        model = [get_unicycle_model(dt=st.dt), get_omnidirectional_model(dt=st.dt)]
+    np.random.seed(1)
+    b = progressbar.ProgressBar(maxval=st.n_steps)
+    b.start()
 
     def neigh_connection(states, nodes, graph_matrix, communication_range):
         """
@@ -96,7 +103,7 @@ def main(model_name='omni'):
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
-
+    fleet = ['u', 'u', 'u', 'o', 'o', 'o', 'u', 'o', 'u', 'o']
     goals = [np.array([0, 0]), np.array([0, 0]), np.array([0, 0])]
 
     time_start = time.time()
@@ -244,7 +251,7 @@ def main(model_name='omni'):
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model_name,  # robot model
+            fleet,  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -287,42 +294,23 @@ def main(model_name='omni'):
 
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-    for j in range(st.n_nodes):
-        nodes[j].reorder_s_init(state)
-        nodes[j].update()  # Update primal solution and state evolution
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-            nodes[ij].receive_data(msg)  # neighbour receives the message
-    for j in range(st.n_nodes):
-        nodes[j].dual_update()  # linear update of dual problem
-
     for i in range(st.n_steps):
-        # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
-        #     last_step = i
-        #     break
-        if i == 37:
-            None
         if i == st.n_steps - 1:
             last_step = i + 1
-        neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
+        if i > 0:
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        # for rr in range(st.inner_loop):
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update()  # Update primal solution and state evolution
         for j in range(st.n_nodes):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)
+            # for ij in nodes[j].neigh:  # select my neighbours
+            #     msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+            #     nodes[ij].receive_data(msg)  # neighbour receives the message
+            # for j in range(st.n_nodes):
+            nodes[j].dual_update()
+        b.update(i)
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop
@@ -355,22 +343,24 @@ def main(model_name='omni'):
         if model_name == 'unicycle':
             s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
         elif model_name == 'omni':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
 
         flags = MultiRobotArtistFlags()
         flags.centroid = False
+        flags.future_trajectory = False
 
         save_snapshots(
             s_hist_merged,
             None,
             None,
             st.dt,
-            [20],
+            [(last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
             flags=flags,
         )
 
         display_animation(
+            s_hist_merged,
             s_hist_merged,
             None,
             None,
@@ -379,6 +369,7 @@ def main(model_name='omni'):
             video_name=f'{out_dir}/video.mp4',
             flags=flags,
         )
+    b.finish()
 
 
 if __name__ == '__main__':

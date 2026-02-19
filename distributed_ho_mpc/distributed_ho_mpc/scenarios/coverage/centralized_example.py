@@ -75,9 +75,9 @@ def main():
     task_input_limits = RobCont(
         omni=ca.vertcat(
             u.omni[0] - v_max,
-            -u.omni[0] + 0,  # v_min,
-            u.omni[1] - 1.5,  # 1v_max,
-            -u.omni[1] - 1.5,  # v_min
+            -u.omni[0] + 2,  # v_min,
+            u.omni[1] - 2,  # 1v_max,
+            -u.omni[1] - 2,  # v_min
         )
     )
 

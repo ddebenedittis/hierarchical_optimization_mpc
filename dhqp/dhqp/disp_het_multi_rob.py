@@ -612,7 +612,7 @@ def display_animation(
         )
 
     if method == 'plot' or method == 'plot_no_buttons':
-        plt.show()
+        plt.show(block=True)
     elif method == 'save':
         writervideo = FFMpegWriter(fps=int(1 / dt))
         ani.save(video_name, writer=writervideo)

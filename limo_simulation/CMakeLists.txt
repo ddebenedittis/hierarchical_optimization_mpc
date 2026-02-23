@@ -15,7 +15,7 @@ find_package(geometry_msgs REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 install(
-  DIRECTORY launch model meshes config world
+  DIRECTORY launch model meshes config rviz world
   DESTINATION share/${PROJECT_NAME}
 )
 

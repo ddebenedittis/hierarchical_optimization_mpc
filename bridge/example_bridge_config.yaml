@@ -18,3 +18,7 @@ topics:
       type: mocap_msgs/msg/RigidBodies
       # Reverse 'from' and 'to' domains 
       reversed: True
+  # /robot_4/cmd_vel:
+  #     type: geometry_msgs/msg/Twist
+  #     qos:
+  #       reliability: reliable

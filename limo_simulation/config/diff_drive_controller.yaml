@@ -1,6 +1,6 @@
 /**/controller_manager:
   ros__parameters:
-    update_rate: 200  # Hz
+    update_rate: 1000  # Hz
     use_sim_time: true
 
     joint_state_broadcaster:
@@ -16,7 +16,7 @@
     num_wheels_pair: 2
     left_wheel_names: ["front_left_wheel", "rear_left_wheel"]
     right_wheel_names: ["front_right_wheel", "rear_right_wheel"]
-    wheel_separation: 0.172
+    wheel_separation: 0.175
     wheel_radius: 0.045 #0.045  # From 0.09 diameter
 
     # Odometry and frames
@@ -34,18 +34,7 @@
     odom_topic: "/odom"
     cmd_vel_timeout: 0.25
 
-    # Controller limits
-    max_wheel_torque: 20.0 #sim 30
-    max_wheel_acceleration: 2.0 #sim 15
-    torque: 40.0 # sim 60
-
-    # Covariances (optional but recommended)
-    pose_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
-    twist_covariance_diagonal: [0.0001, 0.0001, 0.0, 0.0, 0.0, 0.0]
-
-    # TF publishing
-    broadcast_tf: true
-
+   
     # Command and odometry filters
     linear.x.has_velocity_limits: true
     linear.x.max_velocity: 3.0

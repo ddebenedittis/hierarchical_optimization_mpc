@@ -8,6 +8,7 @@ from itertools import combinations
 import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
+import progressbar
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
@@ -40,24 +41,26 @@ def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
     return s
 
 
-def main():
+def main(num_robots, steps):
     np.random.seed(1)
+    b = progressbar.ProgressBar(maxval=steps)
+    b.start()
 
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-narrow_gap/'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-narrow_gap_cntr_{num_robots}A/'
     os.makedirs(out_dir, exist_ok=True)
 
     time_start = time.time()
 
     # ============================== Parameters ============================= #
 
-    dt = 0.08
+    dt = 0.05
 
-    n_robots = RobCont(omni=4)
+    n_robots = RobCont(omni=num_robots)
 
-    v_max = 1.5
-    v_min = -1
+    v_max = 2.0
+    v_min = -2.0
 
     # ======================= Define The System Model ======================= #
 
@@ -65,14 +68,45 @@ def main():
     u = RobCont(omni=None)
     s_kp1 = RobCont(omni=None)
 
-    s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 10)
+    s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 2)
+
+    time_start = time.time()
+
+    # n_robots = num_robots
+
+    # --- obstacles ---
+    obs_centers = [np.array([0.0, 8.0]), np.array([0.0, -8.0])]
+
+    R_obs = 6 - 0.5 * (n_robots.omni // 10)
+
+    s_init = []
+    goals = []
+    placed = 0
+    # radius from straight-line (chord) distance = 0.8
+
+    line_n = [6, 10, 6, 3]
+    line = [3.5, 5, 6.5, 8]
+    h = [2.5, 2, 3, 1]
+
+    while placed != n_robots.omni:
+        for j in range(len(line_n)):
+            if placed == n_robots.omni:
+                continue
+            for i in range(line_n[j]):
+                if placed == n_robots.omni:
+                    continue
+                goals.append(np.array([line[len(line) - j - 1], (h[j] - i * 1.2)]))
+                goals.append(np.array([-line[len(line) - j - 1], (h[j] - i * 1.2)]))
+                s_init.append(np.array([-line[j], (h[j] - i * 1.2), 0]))
+                s_init.append(np.array([line[j], (h[j] - i * 1.2), np.pi]))
+                placed += 2
 
     # ========================== Prepare The Data ========================== #
     filename = f'{out_dir}/cntr_data.csv'
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
 
-        header = ['Time']
+        header = ['k', 'Time']
         for i in range(n_robots.omni):
             header.append(f'stateX_{i}')
             header.append(f'stateY_{i}')
@@ -87,16 +121,30 @@ def main():
     task_input_limits = RobCont(
         omni=ca.vertcat(
             u.omni[0] - v_max,
-            -u.omni[0] + v_min,  # v_min,
-            u.omni[1] - 1.4,  # 1v_max,
-            -u.omni[1] - 1.4,  # v_min
+            -u.omni[0] + 0,  # v_min,
+            u.omni[1] - 2.0,  # 1v_max,
+            -u.omni[1] - 2.0,  # v_min
         )
     )
 
+    task_input_smooth = RobCont(
+        omni=ca.vertcat(
+            u.omni[0],
+            -u.omni[0],
+            u.omni[1],
+            -u.omni[1],
+        )
+    ).tolist()
+
+    task_input_smooth_coeffs = [
+        [[np.array([0.95, 0.95, 0.9, 0.9])] for j in range(n_robots.omni)],
+        [[]],
+    ]
+
     # ===============================
-    obstacle_pos_1 = np.array([0, 6])
-    obstacle_pos_2 = np.array([0, -6])
-    obstacle_size = 4.5
+    obstacle_pos_1 = np.array([0, obs_centers[0][1]])
+    obstacle_pos_2 = np.array([0, obs_centers[1][1]])
+    obstacle_size = R_obs
     task_obs_avoidance = [None, None]
     task_obs_avoidance[0] = [
         ca.vertcat(
@@ -115,79 +163,7 @@ def main():
 
     # ======================================================================= #
 
-    task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_1_coeff = RobCont(
-        omni=[[np.array([3, 2])] for _ in range(n_robots.omni)],
-    )
-
-    # ======================================================================= #
-
-    task_pos_ref_2 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_2_coeff = RobCont(omni=[[np.array([-3, 2])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_3 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_3_coeff = RobCont(omni=[[np.array([3, -2])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_4 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_4_coeff = RobCont(omni=[[np.array([-3, -2])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-
-    task_pos_ref_5 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_5_coeff = RobCont(omni=[[np.array([4, -1])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_6 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_6_coeff = RobCont(omni=[[np.array([-4, -1])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-
-    task_pos_ref_7 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_7_coeff = RobCont(omni=[[np.array([4, 1])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_8 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_8_coeff = RobCont(omni=[[np.array([-4, 1])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_9 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_9_coeff = RobCont(omni=[[np.array([5, 0])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_10 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_10_coeff = RobCont(omni=[[np.array([-5, 0])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_11 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_11_coeff = RobCont(omni=[[np.array([-4, 0])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_12 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_12_coeff = RobCont(omni=[[np.array([4, 0])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_13 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_13_coeff = RobCont(omni=[[np.array([6, 1])] for _ in range(n_robots.omni)])
-
-    # ======================================================================= #
-
-    task_pos_ref_14 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_14_coeff = RobCont(omni=[[np.array([-6, 1])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_15 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_15_coeff = RobCont(omni=[[np.array([6, -1])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_16 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_16_coeff = RobCont(omni=[[np.array([-6, -1])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_17 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_17_coeff = RobCont(omni=[[np.array([7, -2])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
-    task_pos_ref_18 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_18_coeff = RobCont(omni=[[np.array([-7, -2])] for _ in range(n_robots.omni)])
-
-    threshold = 0.5
+    threshold = 0.6
     aux_avoid_collision = ca.SX.sym('aux', 2, 2)
     mapping_avoid_collision = RobCont(omni=ca.vertcat(s.omni[0], s.omni[1]))
     task_avoid_collision = ca.vertcat(
@@ -208,8 +184,18 @@ def main():
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 1
+    hompc.n_control = 3
     hompc.n_pred = 0
+
+    task_pos_ref = []
+    task_pos_ref_coeff = []
+    for nn in range(n_robots.omni):
+        task_pos_ref.append(RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1])))
+        task_pos_ref_coeff.append(
+            RobCont(
+                omni=[[goals[nn]] for _ in range(n_robots.omni)],
+            )
+        )
 
     hompc.create_task(
         name='input_limits',
@@ -217,151 +203,14 @@ def main():
         type=TaskType.Same,
         ineq_task_ls=task_input_limits.tolist(),
     )
+
     hompc.create_task(
-        name='pos_ref_1',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_1.tolist(),
-        eq_task_coeff=task_pos_ref_1_coeff.tolist(),
-        robot_index=[[0]],
+        name='input_smooth',
+        prio=2,
+        type=TaskType.SameTimeDiff,
+        ineq_task_ls=task_input_smooth,
+        ineq_task_coeff=task_input_smooth_coeffs,
     )
-    hompc.create_task(
-        name='pos_ref_2',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_2.tolist(),
-        eq_task_coeff=task_pos_ref_2_coeff.tolist(),
-        robot_index=[[1]],
-    )
-    hompc.create_task(
-        name='pos_ref_3',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_3.tolist(),
-        eq_task_coeff=task_pos_ref_3_coeff.tolist(),
-        robot_index=[[2]],
-    )
-    hompc.create_task(
-        name='pos_ref_4',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_4.tolist(),
-        eq_task_coeff=task_pos_ref_4_coeff.tolist(),
-        robot_index=[[3]],
-    )
-    """hompc.create_task(
-        name='pos_ref_5',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_5.tolist(),
-        eq_task_coeff=task_pos_ref_5_coeff.tolist(),
-        robot_index=[[4]],
-    )
-    hompc.create_task(
-        name='pos_ref_6',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_6.tolist(),
-        eq_task_coeff=task_pos_ref_6_coeff.tolist(),
-        robot_index=[[5]],
-    )
-    hompc.create_task(
-        name='pos_ref_7',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_7.tolist(),
-        eq_task_coeff=task_pos_ref_7_coeff.tolist(),
-        robot_index=[[6]],
-    )
-    hompc.create_task(
-        name='pos_ref_8',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_8.tolist(),
-        eq_task_coeff=task_pos_ref_8_coeff.tolist(),
-        robot_index=[[7]],
-    )
-    hompc.create_task(
-        name='pos_ref_9',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_9.tolist(),
-        eq_task_coeff=task_pos_ref_9_coeff.tolist(),
-        robot_index=[[8]],
-    )
-    hompc.create_task(
-        name='pos_ref_10',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_10.tolist(),
-        eq_task_coeff=task_pos_ref_10_coeff.tolist(),
-        robot_index=[[9]],
-    )
-    
-    hompc.create_task(
-        name='pos_ref_11',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_11.tolist(),
-        eq_task_coeff=task_pos_ref_11_coeff.tolist(),
-        robot_index=[[10]],
-    )
-    hompc.create_task(
-        name='pos_ref_12',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_12.tolist(),
-        eq_task_coeff=task_pos_ref_12_coeff.tolist(),
-        robot_index=[[11]],
-    )
-    hompc.create_task(
-        name='pos_ref_13',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_13.tolist(),
-        eq_task_coeff=task_pos_ref_13_coeff.tolist(),
-        robot_index=[[12]],
-    )
-    hompc.create_task(
-        name='pos_ref_14',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_14.tolist(),
-        eq_task_coeff=task_pos_ref_14_coeff.tolist(),
-        robot_index=[[13]],
-    )
-    hompc.create_task(
-        name='pos_ref_15',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_15.tolist(),
-        eq_task_coeff=task_pos_ref_15_coeff.tolist(),
-        robot_index=[[14]],
-    )
-    hompc.create_task(
-        name='pos_ref_16',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_16.tolist(),
-        eq_task_coeff=task_pos_ref_16_coeff.tolist(),
-        robot_index=[[15]],
-    )
-    hompc.create_task(
-        name='pos_ref_17',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_17.tolist(),
-        eq_task_coeff=task_pos_ref_17_coeff.tolist(),
-        robot_index=[[16]],
-    )
-    hompc.create_task(
-        name='pos_ref_18',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_18.tolist(),
-        eq_task_coeff=task_pos_ref_18_coeff.tolist(),
-        robot_index=[[17]],
-    )"""
 
     hompc.create_task_bi(
         name='collision_avoidance',
@@ -380,105 +229,52 @@ def main():
             type=TaskType.Same,
             ineq_task_ls=task_obs,
         )
+    for nn in range(n_robots.omni):
+        hompc.create_task(
+            name=f'pos_ref_{nn}',
+            prio=4,
+            type=TaskType.Same,
+            eq_task_ls=task_pos_ref[nn].tolist(),
+            eq_task_coeff=task_pos_ref_coeff[nn].tolist(),
+            # time_index=[2],
+            robot_index=[[nn]],
+        )
 
     # ======================================================================= #
 
-    s = RobCont(
-        omni=[
-            np.array([-5, 2, -0.3]),
-            np.array([5, 2, -3]),
-            np.array([-5, -2, 0.1]),
-            np.array([5, -2, 2.8]),
-        ]
-    )
-    # np.array([-6.5, -1, 0]),
-    # np.array([6.5, -1, -3]),
-    # np.array([-6.5, 1, -0.1]),
-    # np.array([6.5, 1, 3.14]),
-    # np.array([-5, 0, 0]),
-    # np.array([5, 0, 3.14]),
-    # np.array([7, 0, 3.14]),
-    # np.array([-7, 0, 0.0]),
-    # np.array([-7.5, 1, -0.04]),
-    # np.array([7.5, 1, -3.11]),
-    # np.array([-7.5, -1, 0.04]),
-    # np.array([7.5, -1, 3.11]),
-    # np.array([-8, 0, 0.04]),
-    # np.array([8, 0, -3.11]),
+    s = RobCont(omni=s_init)
 
-    def agents_distance(state, pairwise_distances):
-        """
-        Plot the distance between the agents at each time step
-        """
-        positions_over_time = np.array(state)
-        distances = pdist(positions_over_time, metric='euclidean')  # shape: (num_pairs,)
-        for i, d in enumerate(distances):
-            pairwise_distances[i].append(d)
-        return pairwise_distances
-
-    num_robots = n_robots.omni
-    num_pairs = int(num_robots * (num_robots - 1) / 2)
-
-    # Initialize one list per robot pair
-    pairwise_distances = [[] for _ in range(num_pairs)]
-
-    n_steps = 3500
+    n_steps = steps
 
     s_history = [None for _ in range(n_steps)]
+    time_goal = 0
+    step_goal = 0
 
-    goals = np.array(
-        [
-            [3, 2],
-            [-3, 2],
-            [3, -2],
-            [-3, -2],
-            # [4, -1],
-            # [-4, -1],
-            # [4, 1],
-            # [-4, 1],
-            # [5, 0],
-            # [-5, 0],
-            # [-4, 0],
-            # [4, 0],
-            # [6, 1],
-            # [-6, 1],
-            # [6, -1],
-            # [-6, -1],
-            # [7, -2],
-            # [-7, -2],
-        ]
-    )
     last_step = n_steps
     for k in range(n_steps):
-        if np.all(np.abs(np.array(s.omni)[:, :2] - goals) < 10e-3):
-            last_step = k
-            break
+        if np.all(np.abs(np.array(s.omni)[:, :2] - goals) < 10e-3) and step_goal == 0:
+            time_goal = time.time() - time_start
+            step_goal = k
+            print(f'scored a goal at {k}: {time_goal}')
 
         time_coord_start = time.time()
-        print(k)
+        time_round = time_start - time.time()
 
         u_star = hompc(copy.deepcopy(s.tolist()))
 
-        print(f's: {s}')
-        print(f'u_star: {u_star}')
-        print()
-
-        s = evolve(s, RobCont(omni=u_star[0]), dt)
-        for theta in s.omni:
-            theta[2] = (theta[2] % (2 * np.pi) + 2 * np.pi) % (2 * np.pi)
+        s = evolve(copy.deepcopy(s), RobCont(omni=u_star[0]), dt)
 
         with open(filename, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [k]
+            row = [k, time_round]
 
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
 
             writer.writerow(row)
-
+        b.update(k)
         s_history[k] = copy.deepcopy(s)
-        pairwise_distances = agents_distance(s.tolist()[0], pairwise_distances)
         last_step = k + 1
 
     time_elapsed = time.time() - time_start
@@ -491,23 +287,28 @@ def main():
     for key, value in hompc.solve_times.items():
         key_len = len(key)
         print(f'{key}: {" " * (max_key_len - key_len)}{value}')
+        time_solution = value
+    with open(f'{out_dir}time.txt', 'w') as file:
+        file.write(
+            f'dt: {dt}\n n_c: {hompc.n_control}\n time to goal {time_goal} at {step_goal}\ntime elapsed: {time_elapsed}s\ntotal solving {time_solution}\n'
+        )
 
     # ========================= Visualization Options ======================== #
 
-    robot_pairs = list(combinations(range(num_robots), 2))
-    x = np.arange(1, last_step + 1) * dt
-    # plt.figure(figsize=(10, 6))
-    for i, dist_list in enumerate(pairwise_distances):
-        plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
-    plt.axhline(y=0.5, color='green', lw=4, linestyle='--')
-    plt.title('Time Evolution of Pairwise Robot Distances')
-    plt.xlabel('Time Step')
-    plt.ylabel('Distance')
-    # plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(f'{out_dir}/distances_cntr.pdf', bbox_inches='tight', format='pdf')
-    plt.close()
+    # robot_pairs = list(combinations(range(num_robots), 2))
+    # x = np.arange(1, last_step + 1) * dt
+    # # plt.figure(figsize=(10, 6))
+    # for i, dist_list in enumerate(pairwise_distances):
+    #     plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+    # plt.axhline(y=0.5, color='green', lw=4, linestyle='--')
+    # plt.title('Time Evolution of Pairwise Robot Distances')
+    # plt.xlabel('Time Step')
+    # plt.ylabel('Distance')
+    # # plt.legend()
+    # plt.grid(True)
+    # plt.tight_layout()
+    # plt.savefig(f'{out_dir}/distances_cntr.pdf', bbox_inches='tight', format='pdf')
+    # plt.close()
 
     visual_method = 'None'
 
@@ -518,57 +319,55 @@ def main():
     flags.unicycle = True
     flags.voronoi = False
 
-    goal = [
-        [6, -6],
-        [-6, -6],
-        [-6, 6],
-        [6, 6],
-        [8, 3],
-        [-8, 3],
-        [8, -3],
-        [-8, -3],
-        [8, 0],
-        [-8, 0],
-        [0, 6],
-        [0, -6],
-    ]
+    # goal = [
+    #     [6, -6],
+    #     [-6, -6],
+    #     [-6, 6],
+    #     [6, 6],
+    #     [8, 3],
+    #     [-8, 3],
+    #     [8, -3],
+    #     [-8, -3],
+    #     [8, 0],
+    #     [-8, 0],
+    #     [0, 6],
+    #     [0, -6],
+    # ]
 
-    save_snapshots(
-        s_history,
-        None,
-        [[0, 6, 4.5], [0, -6, 4.5]],
-        dt,
-        [(last_step - 1) * dt],
-        f'{out_dir}/snapshot_cntr',
-        x_lim=[-7, 7],
-        y_lim=[-5, 5],
-        flags=flags,
-    )
+    # save_snapshots(
+    #     s_history,
+    #     None,
+    #     [[0, 6, 4.5], [0, -6, 4.5]],
+    #     dt,
+    #     [(last_step - 1) * dt],
+    #     f'{out_dir}/snapshot_cntr',
+    #     x_lim=[-7, 7],
+    #     y_lim=[-5, 5],
+    #     flags=flags,
+    # )
 
-    if visual_method is not None and visual_method != 'None':
-        display_animation(
-            s_history,
-            None,
-            [[0, 6, 4.5], [0, -6, 4.5]],
-            dt,
-            visual_method,
-            x_lim=[-7.5, 7.5],
-            y_lim=[-5, 5],
-            video_name=f'{out_dir}/video_central.mp4',
-            flags=flags,
-        )
+    # if visual_method is not None and visual_method != 'None':
+    #     display_animation(
+    #         s_history,
+    #         None,
+    #         [[0, 6, 4.5], [0, -6, 4.5]],
+    #         dt,
+    #         visual_method,
+    #         x_lim=[-7.5, 7.5],
+    #         y_lim=[-5, 5],
+    #         video_name=f'{out_dir}/video_central.mp4',
+    #         flags=flags,
+    #     )
 
-    print(f'The time elapsed is {time_elapsed} seconds')
-    print(f'The time elapsed for coordination is {time_coord} seconds')
-
-    print('The time was used in the following phases:')
-    max_key_len = max(map(len, hompc.solve_times.keys()))
-    for key, value in hompc.solve_times.items():
-        key_len = len(key)
-        print(f'{key}: {" " * (max_key_len - key_len)}{value}')
+    b.finish()
 
     return time_elapsed
 
 
 if __name__ == '__main__':
-    main()
+    for _ in range(1):
+        n_robots = 20
+        steps = 1200
+        for i in range(1):
+            main(n_robots, steps)
+            n_robots += 10

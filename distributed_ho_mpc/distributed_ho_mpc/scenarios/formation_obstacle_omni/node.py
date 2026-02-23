@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.formation_obstacle_omni.settings as st
-from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot import (
+from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
     TaskIndexes,
@@ -125,7 +125,7 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
 
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 10)
+        self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(dt * 5)
         # self.s.uni, self.u.uni, self.s_kp1.uni = get_unicycle_model(dt*10)
 
         self.goals = copy.deepcopy(goals)
@@ -185,7 +185,7 @@ class Node:
         self.task_input_min = RobCont(omni=ca.vertcat(self.u.omni[0], self.u.omni[1]))
 
         # ===========================Velocity Reference================================== #
-        
+
         self.task_vel_ref = RobCont(
             omni=ca.vertcat(
                 (self.s_kp1.omni[0] - self.s.omni[0]) / self.dt - 1,
@@ -194,9 +194,9 @@ class Node:
         )
 
         self.task_vel_ref_coeff = RobCont(
-            omni = [np.array([2, 2])],
+            omni=[np.array([2, 2])],
         )
-                
+
         # ===========================Go-to-Goal====================================== #
         self.task_pos = [None for i in range(len(self.goals))]
         self.task_pos_coeff = [None for i in range(len(self.goals))]
@@ -227,7 +227,7 @@ class Node:
 
         # =====================Obstacle Avoidance===================================== #
         self.obstacle_pos = np.array([7, 7])
-        self.obstacle_size = 2
+        self.obstacle_size = 2.1
         self.task_obs_avoidance = [
             ca.vertcat(
                 -((self.s.omni[0] - self.obstacle_pos[0]) ** 2)
@@ -338,13 +338,13 @@ class Node:
                 )
             elif task['name'] == 'vel_ref':
                 self.hompc.create_task(
-                    name = "vel_ref", 
-                    prio = task['prio'],
-                    type = TaskType.Same,
-                    eq_task_ls = self.task_vel_ref.tolist(),
-                    eq_task_coeff = self.task_vel_ref_coeff.tolist(),
-                    time_index = [0],
-                    robot_index=[[0]]
+                    name='vel_ref',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_vel_ref.tolist(),
+                    eq_task_coeff=self.task_vel_ref_coeff.tolist(),
+                    time_index=[0],
+                    robot_index=[[0]],
                 )
         for neigh in self.neigh_tasks:
             self.create_neigh_tasks(neigh)
@@ -416,9 +416,6 @@ class Node:
     def update(self, round):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        if self.step != 0:
-            self.rho_j = self.receiver.process_messages('D')
-
         if self.step == 30:
             # self.goals = [
             #     np.array([5, 5]),
@@ -442,24 +439,22 @@ class Node:
                     # )
 
         if self.step < self.n_steps:
-            print(self.step)
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y, self.w = self.hompc(copy.deepcopy(self.s.tolist()), rho_delta)
-            self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
+            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
-            self.y_i = copy.deepcopy(self.y)
+            # self.y_i = copy.deepcopy(self.y)
 
             # put in message u and s
             if round == '2':
-                if self.step % self.a == 0:
-                    self.s = self.evolve(
-                        copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                    )
-                    # self.a = self.a * 2
-                    self.counter.append(self.step)
-                else:
-                    self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
+                self.s = self.evolve(
+                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
+                )
+                # self.a = self.a * 2
+                self.counter.append(self.step)
+            else:
+                self.s = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
 
             if st.inner_plot:
                 self.s_ = self.evolve(self.s, RobCont(omni=self.u_star[0]), self.dt)
@@ -488,7 +483,7 @@ class Node:
                     plt.legend()
                     plt.show()
 
-            print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
+            # print(f's:\t{self.s.tolist()}\nu:\t{self.u_star}\n')
 
             if round == '2':
                 self.s_history[self.step] = copy.deepcopy(self.s.tolist())
@@ -500,9 +495,8 @@ class Node:
     def dual_update(self):
         """Update the dual variables rho_i and rho_j using the received messages from neighbours"""
 
-        if self.step > 0:
-            self.save_data()
-
+        self.save_data()
+        return
         self.y_j = self.receiver.process_messages('P')
 
         # linear update of rho_i
@@ -591,14 +585,14 @@ class Node:
                 )
             elif task['name'] == 'vel_ref':
                 self.hompc.create_task(
-                    name = "vel_ref", 
-                    prio = task['prio'],
-                    type = TaskType.Same,
-                    eq_task_ls = self.task_vel_ref.tolist(),
-                    eq_task_coeff = self.task_vel_ref_coeff.tolist(),
-                    time_index = [0],
-                    robot_index=[[robot_idx]]
-                )    
+                    name='vel_ref',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_vel_ref.tolist(),
+                    eq_task_coeff=self.task_vel_ref_coeff.tolist(),
+                    time_index=[0],
+                    robot_index=[[robot_idx]],
+                )
             elif task['name'] == 'formation':
                 for t in task['agents']:
                     if is_formation_with_neigh(t, self.robot_idx_global):

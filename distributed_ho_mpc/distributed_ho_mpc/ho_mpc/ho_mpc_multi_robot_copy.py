@@ -187,6 +187,8 @@ class HOMPCMultiRobot(HOMPC):
             'Solve Problem': 0,
         }
 
+        self.max_iter = 0
+
     # =========================== Class Properties =========================== #
 
     @property
@@ -207,7 +209,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
         self._input_bar = [
             [
-                [np.zeros(self._n_inputs[i]) + np.array([1, 1]) for _ in range(self.n_control)]
+                [np.zeros(self._n_inputs[i]) + np.array([-1, -1]) for _ in range(self.n_control)]
                 for _ in range(self.n_robots[i])
             ]
             for i in range(len(self.n_robots))
@@ -419,12 +421,12 @@ class HOMPCMultiRobot(HOMPC):
             ValueError: _description_
         """
 
-        for c, n_r in enumerate(self.n_robots):
+        for c, n_r in enumerate(n_robots):
             if n_robots[c] < 0:
                 raise ValueError(f'The {c}-th class of robots has a negative number of robots.')
-            n_r += n_robots[c]
+            # n_r += n_robots[c]
             _state_bar_new = [
-                [[None] * (self.n_control + self.n_pred)] * n_robots[c]
+                [[None] * (self.n_control + self.n_pred)] * n_robots[i]
                 for i in range(len(self._states))
             ]
             _input_bar_new = [
@@ -432,10 +434,11 @@ class HOMPCMultiRobot(HOMPC):
                 for i in range(len(self._inputs))
             ]
 
-            self._state_bar[c].extend(_state_bar_new)
-            self._input_bar[c].extend(_input_bar_new)
+            if n_r > 0:
+                self._state_bar[c].extend(_state_bar_new)
+                self._input_bar[c].extend(_input_bar_new)
 
-            self.n_robots[c] = n_r
+            self.n_robots[c] += n_r
 
     # ============================== Create_task ============================= #
 
@@ -748,11 +751,15 @@ class HOMPCMultiRobot(HOMPC):
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,
     ):
+        # for i, t in enumerate(self._tasks):
+        #     if t.name == name:
+        #         if pos is not None and i == pos:
+        #             id = i
+        #             break
         for i, t in enumerate(self._tasks):
             if t.name == name:
-                if pos is not None and i == pos:
-                    id = i
-                    break
+                id = i
+                break
 
         if prio is None:
             prio = self._tasks[id].prio
@@ -1444,7 +1451,10 @@ class HOMPCMultiRobot(HOMPC):
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
             x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, we, wi)
-        self.solve_times['Solve Problem'] += time.time() - start_time
+        st = time.time() - start_time
+        if st > self.max_iter or self.max_iter == 0.0:
+            self.max_iter = st
+        self.solve_times['Solve Problem'] += st
 
         u_0 = [
             [
@@ -1459,14 +1469,15 @@ class HOMPCMultiRobot(HOMPC):
                     for k in range(n_c)
                 for j in range(self.n_robots[c])]
             for c in range(len(self.n_robots))
-        ]
-        
-        s = [
-            [self._state_bar[c][j][k] + x_star[self._get_idx_state_kp1(c, j, k)]
-                    for k in range(n_c)
-                for j in range(self.n_robots[c])]
-            for c in range(len(self.n_robots))
         ]"""
+
+        # s = [
+        #     [
+        #         self._state_bar[c][0][k + 1].ravel() + x_star[self._get_idx_state_kp1(c, 0, k)]
+        #         for k in range(n_c)
+        #     ]
+        #     for c in range(len(self.n_robots))
+        # ]
 
         # # prepare vector to share with the neighbours
         # x_neigh = []
@@ -1477,7 +1488,7 @@ class HOMPCMultiRobot(HOMPC):
         #             for k in range(n_c)]
         #     x_neigh.append((j, [s_j, u_j]))
 
-        y = self._y_extraction(x_star_p, n_c)
+        # y = self._y_extraction(x_star_p, n_c)
 
         for c, n_r in enumerate(self.n_robots):
             for j in range(n_r):
@@ -1486,7 +1497,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0, y
+        return u_0, 0
 
     # ======================================================================== #
 
@@ -1611,11 +1622,14 @@ class HOMPCMultiRobot(HOMPC):
 
     def get_task_coverage(self, state_meas, robot_idx: list[list[int]] = None):
         if robot_idx is None:
-            towers = np.array([e[0:2] for e in state_meas[0]])
+            towers = np.array([e[0:2] for e in state_meas[0]] + [e[0:2] for e in state_meas[1]])
 
             n_cov = self.n_robots
         else:
-            towers = np.array([state_meas[0][j][0:2] for j in robot_idx[0]])
+            towers = np.array(
+                [state_meas[0][j][0:2] for j in robot_idx[0]]
+                + [state_meas[1][j][0:2] for j in robot_idx[1]]
+            )
             n_cov = [len(robot_idx[0]), len(robot_idx[1])]
 
         vor_task = VoronoiTask(towers, self.bounding_box)

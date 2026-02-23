@@ -22,7 +22,7 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 )
 
 
-def main(model_name='omni'):
+def main(model_name):
     model = None
     print(f'model name: {model_name}')
     if model_name == 'omni':
@@ -54,7 +54,7 @@ def main(model_name='omni'):
 
             # Sort and select up to 6 nearest within range
             distances.sort(key=lambda x: x[1])
-            closest_neighbors = set(idx for idx, _ in distances[:7])
+            closest_neighbors = set(idx for idx, _ in distances[:5])
 
             current_connections = set(np.nonzero(graph_matrix[i])[0])
 
@@ -103,7 +103,7 @@ def main(model_name='omni'):
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
-    fleet = ['u', 'u', 'u', 'o', 'o', 'o', 'u', 'o', 'u', 'o']
+    fleet = ['o', 'u', 'o', 'u', 'o', 'u', 'o', 'u', 'o', 'u']
     goals = [np.array([0, 0]), np.array([0, 0]), np.array([0, 0])]
 
     time_start = time.time()
@@ -122,52 +122,62 @@ def main(model_name='omni'):
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_7': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_4': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_5': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_6': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_8': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_9': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
     }
@@ -186,10 +196,10 @@ def main(model_name='omni'):
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 1.0, 0.0, 0.0],
-                [1.0, 0.0, 1.0, 0.0],
-                [0.0, 1.0, 0.0, 1.0],
-                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
@@ -204,6 +214,24 @@ def main(model_name='omni'):
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
+    if st.n_nodes == 10:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0],
+            ]
+        )
+
+        graph_matrix = np.ones((10, 10)) - np.eye(10)
+        # network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
     graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
@@ -292,24 +320,28 @@ def main(model_name='omni'):
 
     start_time_coop = time.time()
 
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+    for idx, j in enumerate(fleet):
+        state[idx] = nodes[idx].s.omni[0] if j == 'o' else nodes[idx].s.uni[0]
     for i in range(st.n_steps):
         if i == st.n_steps - 1:
             last_step = i + 1
+        if i == 30:
+            None
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        # for rr in range(st.inner_loop):
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update()  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+        for idx, j in enumerate(fleet):
+            if j == 'o':
+                state[idx] = nodes[idx].s.omni[0]
+            else:
+                state[idx] = nodes[idx].s.uni[0]
             # for ij in nodes[j].neigh:  # select my neighbours
             #     msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
             #     nodes[ij].receive_data(msg)  # neighbour receives the message
             # for j in range(st.n_nodes):
-            nodes[j].dual_update()
+            nodes[idx].dual_update()
         b.update(i)
 
     time_elapsed = time.time() - time_start
@@ -335,15 +367,25 @@ def main(model_name='omni'):
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
-        s_hist_merged = [
-            sum(([node.s_history[i][0][0]] for node in nodes), [])
-            for i in range(len(nodes[0].s_history))
-        ]
+        # s_hist_merged = [
+        #     sum(([node.s_history[i][0][0]] for node in nodes), [])
+        #     for i in range(len(nodes[0].s_history))
+        # ]
 
-        if model_name == 'unicycle':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
-        elif model_name == 'omni':
-            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+        # if model_name == 'unicycle':
+        #     s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        # elif model_name == 'omni':
+        #     s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+
+        s_hist_merged = []
+        for n in range(len(nodes[0].s_history)):
+            row = [[], []]
+            for j, node in enumerate(nodes):
+                if fleet[j] == 'o':
+                    row[1].append(node.s_history[n])
+                else:
+                    row[0].append(node.s_history[n])
+            s_hist_merged.append(row)
 
         flags = MultiRobotArtistFlags()
         flags.centroid = False
@@ -354,7 +396,7 @@ def main(model_name='omni'):
             None,
             None,
             st.dt,
-            [(last_step - 1) * st.dt],
+            [(last_step - 1) * st.dt, (last_step - 1) / 2 * st.dt],
             f'{out_dir}/snapshot',
             flags=flags,
         )
@@ -379,8 +421,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--model',
         type=str,
-        choices=['omni', 'unicycle'],
-        default='omni',
+        choices=['omni', 'unicycle', 'heterogeneous'],
+        default='heterogeneous',
         help='Model type to use for simulation',
     )
     args = parser.parse_args()

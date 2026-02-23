@@ -25,7 +25,7 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 )
 
 
-def main():
+def main(n_robot):
     np.random.seed(1)
     b = progressbar.ProgressBar(maxval=st.n_steps)
     b.start()
@@ -120,10 +120,10 @@ def main():
             raise ValueError('Time instant for snapshot out of simulation lenght')
 
     center = np.array([0, 0])  # choose the center
-    num_points = st.n_nodes
+    num_points = n_robot
 
     # radius from straight-line (chord) distance = 0.8
-    radius = 1 / (2 * np.sin(np.pi / num_points))
+    radius = 3 / (2 * np.sin(np.pi / num_points))
 
     goals = []
     s_init = []
@@ -137,7 +137,10 @@ def main():
         theta = 2 * np.pi * i / num_points - np.pi
         x = center[0] + radius * np.cos(theta)
         y = center[1] + radius * np.sin(theta)
-        s_init.append(np.array([x, y, theta + np.pi]))
+        if st.type == 'uni':
+            s_init.append(np.array([x, y, theta + np.pi]))
+        if st.type == 'omni':
+            s_init.append(np.array([x, y]))
 
     system_tasks = {}
 
@@ -208,7 +211,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    graph_matrix = np.zeros((n_robot, n_robot))
 
     # random graph 🎲
     while st.random_graph:
@@ -227,7 +230,7 @@ def main():
 
     # update task manifold with the neighbours tasks
     neigh_tasks = {}
-    for i in range(st.n_nodes):
+    for i in range(n_robot):
         id = 0
         neigh_tasks[f'agent_{i}'] = {}
         for j in graph_matrix[i]:
@@ -245,13 +248,11 @@ def main():
 
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = (
-        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
-    )
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching_{n_robot}A/'
     os.makedirs(out_dir, exist_ok=True)
     time_start = time.time()
     # Create an agents of the same type for each node of the system
-    for i in range(st.n_nodes):
+    for i in range(n_robot):
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
@@ -275,19 +276,23 @@ def main():
     # ---------------------------------------------------------------------------- #
 
     # DISTANCES BETWEEN AGENTS
-    state = [None] * st.n_nodes  # list of x for inizialization of optimization
+    state = [None] * n_robot  # list of x for inizialization of optimization
 
-    num_robots = st.n_nodes
+    num_robots = n_robot
     num_pairs = int(num_robots * (num_robots - 1) / 2)
 
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
-    gg = np.array(goals[: st.n_nodes])
+    gg = np.array(goals[:n_robot])
 
+    flags = MultiRobotArtistFlags()
+    flags.voronoi = False
+    flags.future_trajectory = False
+    time_goal = 0
     start_time_coop = time.time()
-
-    for j in range(st.n_nodes):
+    step_goal = 0
+    for j in range(n_robot):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
         if i == st.n_steps - 1:
@@ -295,10 +300,10 @@ def main():
         if i > 0:
             neigh_connection(state, nodes, graph_matrix, st.communication_range)
         # for rr in range(st.inner_loop):
-        for j in range(st.n_nodes):
+        for j in range(n_robot):
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
+        for j in range(n_robot):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             # for ij in nodes[j].neigh:  # select my neighbours
             #     msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
@@ -312,34 +317,59 @@ def main():
         # for j in range(st.n_nodes):
         #     nodes[j].reorder_s_init(state)
         #     nodes[j].update('2')  # Update primal solution and state evolution
-        pairwise_distances = agents_distance(state, pairwise_distances)
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
+        # if i%100 == 0 and i > 0:
+        #     s_hist_merged = [
+        #         sum(([node.s_history[i][0][0]] for node in nodes), [])
+        #         for ll in range(len(nodes[0].s_history))
+        #     ]
+        #     s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+        #     save_snapshots(
+        #         s_hist_merged,
+        #         goals,
+        #         None,
+        #         st.dt,
+        #         [(i - 1) * st.dt],
+        #         f'{out_dir}/snapshot_{i}',
+        #         x_lim=[-10, 10],
+        #         y_lim=[-10, 10],
+        #         flags=flags,
+        #     )
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 1e-2) and step_goal == 0:
             last_step = i + 1
-            for j in range(st.n_nodes):
+            for j in range(n_robot):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
+            time_goal = time.time() - time_start
+            step_goal = i
             break
-        b.update(i + 1)
+        b.update(i)
 
     time_elapsed = time.time() - time_start
-    with open(f'{out_dir}time.txt', 'w') as file:
-        file.write(f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s')
     time_coop = time.time() - start_time_coop
     print(f'The time elapsed is {time_elapsed} seconds')
     print(f'Time used to coordinate the network is {time_coop}')
     print('The time was used in the following phases:')
     tot_creation = 0
     tot_solve = 0
+    max_value = []
+    creation = []
     for n, agent in enumerate(nodes):
         max_key_len = max(map(len, agent.hompc.solve_times.keys()))
         for key, value in agent.hompc.solve_times.items():
             key_len = len(key)
             if key == 'Create Problem':
                 tot_creation += value
+                creation.append(value)
             if key == 'Solve Problem':
                 tot_solve += value
+                max_value.append(value)
             # print(f"agent{n} {key}: {' '*(max_key_len-key_len)}{value}")
     print(f'Total creation time is {tot_creation}s')
     print(f'Total solving time is {tot_solve}s')
+    max_a = max(max_value)
+    with open(f'{out_dir}time.txt', 'w') as file:
+        file.write(
+            f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s\ntotal solving {tot_solve}\n time to goal: {time_goal} at iter {step_goal} \nmax {max_a}\nall max {max_value}\n cr {creation}'
+        )
 
     if st.simulation:
         """robot_pairs = list(combinations(range(num_robots), 2))
@@ -364,33 +394,23 @@ def main():
             sum(([node.s_history[i][0][0]] for node in nodes), [])
             for i in range(len(nodes[0].s_history))
         ]
-        centr_sol = [
-            np.array(
-                [
-                    4.9898842,
-                    5.00256918,
-                ]
-            ),  # -6.53116671
-            np.array(
-                [
-                    -4.99971935,
-                    -4.99998281,
-                ]
-            ),  # -3.08082181
-            np.array(
-                [
-                    -5.00003737,
-                    4.99967845,
-                ]
-            ),  # 1.45475049
-            np.array(
-                [
-                    4.99974921,
-                    -4.99747047,
-                ]
-            ),
-        ]  # 4.8113406
-        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        if st.type == 'omni':
+            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+        elif st.type == 'uni':
+            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+
+        s_history_all = []
+        for r in range(len(nodes[0].state_k)):
+            s = []
+            for i in range(num_robots):
+                s_k = []
+                for k in range(1, st.n_control):
+                    s_k.append(nodes[i].state_k[r][k])
+                s.append(s_k)
+            if st.type == 'omni':
+                s_history_all.append([[], s])
+            elif st.type == 'uni':
+                s_history_all.append([s, []])
 
         """distances = [[] for n in range(st.n_nodes)]
         for iter in s_hist_merged:
@@ -412,40 +432,61 @@ def main():
         plt.close()"""
 
         flags = MultiRobotArtistFlags()
+        flags.future_trajectory = False
         flags.voronoi = False
+        flags.legend = False
         # flags.centroid = False
 
-        save_snapshots(
-            s_hist_merged,
-            goals,
-            None,
-            st.dt,
-            [(last_step - 1) * st.dt],
-            f'{out_dir}/snapshot',
-            x_lim=[-9, 9],
-            y_lim=[-9, 9],
-            flags=flags,
-        )
+        # save_snapshots(
+        #     s_hist_merged,
+        #     goals,
+        #     None,
+        #     st.dt,
+        #     [(last_step/2 - 1) * st.dt],
+        #     f'{out_dir}/snapshot',
+        #     x_lim=[-7, 7],
+        #     y_lim=[-7, 7],
+        #     flags=flags,
+        # )
+
+        # save_snapshots(
+        #     s_hist_merged,
+        #     goals,
+        #     None,
+        #     st.dt,
+        #     [(last_step - 1) * st.dt],
+        #     f'{out_dir}/snapshot',
+        #     x_lim=[-7, 7.5],
+        #     y_lim=[-7, 7.5],
+        #     flags=flags,
+        # )
 
         display_animation(
             s_hist_merged,
+            s_history_all,
             goals,
             None,
             st.dt,
             st.visual_method,
             video_name=f'{out_dir}/video.mp4',
-            x_lim=[-9, 9],
-            y_lim=[-9, 9],
+            x_lim=[-10, 10],
+            y_lim=[-10, 10],
             flags=flags,
         )
-        plot_distances(
-            s_hist_merged,
-            0.05,  # dt
-            0.6,  # dmin
-            f'{out_dir}/distances.pdf',
-        )
+        # plot_distances(
+        #     s_hist_merged,
+        #     0.05,  # dt
+        #     2,  # dmin
+        #     f'{out_dir}/distances.pdf',
+        #     to_obj=False,
+        #     form=False,
+        # )
     b.finish()
 
 
 if __name__ == '__main__':
-    main()
+    for i in range(1):
+        n_robot = 20
+        for i in range(1):
+            main(n_robot)
+            n_robot += 10

@@ -1,5 +1,6 @@
 import copy
 import csv
+import time
 
 import casadi as ca
 import numpy as np
@@ -82,7 +83,7 @@ class Node:
         )  # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
         # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
         # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
-
+        self.state_k = []
         self.sender = MessageSender(
             self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority
         )
@@ -93,24 +94,39 @@ class Node:
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 
-            header = ['Time']
-            for i in range(st.n_nodes):
-                if i == self.node_id:
-                    continue
-                for j in range(self.n_xi):
-                    header.append(f'rho_(i{i})_p3_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_(i{i})_p4_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_({i}i)_p3_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_({i}i)_p4_{j}')
-            for i in range(st.n_nodes):
-                header.append(f'stateX_{i}')
-                header.append(f'stateY_{i}')
-                header.append(f'stateRHO_{i}')
-                header.append(f'inputV{i}')
-                header.append(f'inputOM{i}')
+            header = ['iter']
+            header.append('time')
+            # for i in range(st.n_nodes):
+            #     if i == self.node_id:
+            #         continue
+            #     for j in range(self.n_xi):
+            #         header.append(f'rho_(i{i})_p3_{j}')
+            #     for j in range(self.n_xi):
+            #         header.append(f'rho_(i{i})_p4_{j}')
+            #     for j in range(self.n_xi):
+            #         header.append(f'rho_({i}i)_p3_{j}')
+            #     for j in range(self.n_xi):
+            #         header.append(f'rho_({i}i)_p4_{j}')
+            if st.type == 'uni':
+                for i in range(st.n_nodes):
+                    header.append(f'stateX_{i}')
+                    header.append(f'stateY_{i}')
+                    header.append(f'stateRHO_{i}')
+                    header.append(f'inputV{i}')
+                    header.append(f'inputOM{i}')
+                for i in range(st.n_control):
+                    header.append(f'stateX0_k{i}')
+                    header.append(f'stateY0_k{i}')
+                    header.append(f'stateRHO0_k{i}')
+            elif st.type == 'omni':
+                for i in range(st.n_nodes):
+                    header.append(f'stateX_{i}')
+                    header.append(f'stateY_{i}')
+                    header.append(f'inputV{i}')
+                    header.append(f'inputOM{i}')
+                for i in range(st.n_control):
+                    header.append(f'stateX0_k{i}')
+                    header.append(f'stateY0_k{i}')
 
             writer.writerow(header)
 
@@ -125,9 +141,10 @@ class Node:
         self.s = RobCont(omni=None, uni=None)  # symbolic state variables
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
-
-        # self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10*dt)
-        self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(10 * dt)
+        if st.type == 'omni':
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10 * dt)
+        elif st.type == 'uni':
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(2 * dt)
 
         self.goals = copy.deepcopy(goals)
 
@@ -152,6 +169,7 @@ class Node:
         self.delta_hist = [[], [], [], [], [], [], [], []]
         self.counter = []
         self.u_star_prev = None
+        self.time_start = time.time()
 
     def index_local_to_global(self, r) -> int:
         """
@@ -238,7 +256,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.6
+        self.threshold = 0.9
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -421,7 +439,8 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.u_star, s = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.state_k.append(s[0])
 
             self.counter.append(self.step)
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
@@ -494,15 +513,25 @@ class Node:
         """Update the state of the system using the control input u_star and the time step dt"""
 
         n_intervals = 10
-        for j, _ in enumerate(s.omni):
-            for _ in range(n_intervals):
-                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
-                    [
-                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
-                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
-                        u_star.omni[j][1],
-                    ]
-                )
+        if st.type == 'uni':
+            for j, _ in enumerate(s.omni):
+                for _ in range(n_intervals):
+                    s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                        [
+                            u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                            u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                            u_star.omni[j][1],
+                        ]
+                    )
+        if st.type == 'omni':
+            for j, _ in enumerate(s.omni):
+                for _ in range(n_intervals):
+                    s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                        [
+                            u_star.omni[j][0],
+                            u_star.omni[j][1],
+                        ]
+                    )
 
         return s
 
@@ -529,22 +558,24 @@ class Node:
 
 
             writer.writerow(row)"""
+        time_round = time.time() - self.time_start
         if not st.save_data:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
-            row = [self.step_plot]
-            for i in range(st.n_nodes):
-                if i == self.node_id:
-                    continue
-                if i in self.neigh:
-                    ii = self.neigh.index(i)
-                    row.extend(self.rho_i[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_i[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                else:
-                    row.extend([None] * (self.n_xi * 4))
+            row = [self.step_plot, time_round]
+            # row.extend(time_round)
+            # for i in range(st.n_nodes):
+            #     if i == self.node_id:
+            #         continue
+            #     if i in self.neigh:
+            #         ii = self.neigh.index(i)
+            #         row.extend(self.rho_i[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
+            #         row.extend(self.rho_i[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
+            #         row.extend(self.rho_j[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
+            #         row.extend(self.rho_j[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
+            #     else:
+            #         row.extend([None] * (self.n_xi * 4))
             for i in range(st.n_nodes):
                 if (self.step_plot % st.inner_loop) == 0:
                     if i in self.robot_idx_global:
@@ -555,6 +586,8 @@ class Node:
                         row.extend([None] * 5)
                 else:
                     row.extend([None] * 5)
+            for k in range(st.n_control):
+                row.extend(self.state_k[-1][k])
             # row.extend(self.cost.tolist())
 
             writer.writerow(row)
@@ -758,36 +791,6 @@ class Node:
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
-
-            # self.filename = f"node_{self.node_id}_data.csv"
-            # with open(self.filename, mode='w', newline='') as file:
-            #     writer = csv.writer(file)
-            #     # Write the header
-            #     header = ['Time']
-            #     for j in self.neigh:
-            #         for i in range(self.n_xi):
-            #             header.append(f'rho_(i{j})_i_p3_{i}')
-            #     for j in self.neigh:
-            #         for i in range(self.n_xi):
-            #             header.append(f'rho_(i{j})_i_p4_{i}')
-            #     for j in self.neigh:
-            #         for i in range(self.n_xi):
-            #             header.append(f'rho_({j}i)_i_p3_{i}')
-            #     for j in self.neigh:
-            #         for i in range(self.n_xi):
-            #             header.append(f'rho_({j}i)_i_p4_{i}')
-            #     header.append(f'stateX_{self.node_id}')
-            #     header.append(f'stateY_{self.node_id}')
-            #     for j in self.neigh:
-            #         header.append(f'stateX_{j}')
-            #         header.append(f'stateY_{j}')
-            #     header.append(f'inputX_{self.node_id}')
-            #     header.append(f'inputY_{self.node_id}')
-            #     for j in self.neigh:
-            #         header.append(f'inputX_{j}')
-            #         header.append(f'inputY_{j}')
-            #     # Write the header
-            #     writer.writerow(header)
 
     def remove_connection(self, adjacency_vector: np.array, neigh_tasks: str, neigh_id: int):
         """

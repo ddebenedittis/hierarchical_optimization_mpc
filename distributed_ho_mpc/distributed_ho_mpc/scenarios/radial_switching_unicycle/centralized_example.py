@@ -58,7 +58,7 @@ def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
 
 def main(n_robot):
     np.random.seed(1)
-    n_steps = 500
+    n_steps = 200
 
     time_start = time.time()
     b = progressbar.ProgressBar(maxval=n_steps)
@@ -88,6 +88,10 @@ def main(n_robot):
             # header.append(f'stateRHO_{i}')
             header.append(f'inputV_{i}')
             header.append(f'inputOH_{i}')
+        for i in range(4):
+            header.append(f'lambdA_{i}')
+        for i in range(4):
+            header.append(f'tau_{i}')
 
         writer.writerow(header)
 
@@ -98,7 +102,7 @@ def main(n_robot):
     s_kp1 = RobCont(omni=None)
 
     # s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt*10)
-    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(10 * dt)
+    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(5 * dt)
 
     # =========================== Define The Tasks ========================== #
 
@@ -136,7 +140,7 @@ def main(n_robot):
     num_points = n_robots.omni
 
     # radius from straight-line (chord) distance = 0.8
-    radius = 1.5 / (2 * np.sin(np.pi / num_points))
+    radius = 5 / (2 * np.sin(np.pi / num_points))
 
     goals = []
     s_init = []
@@ -183,7 +187,7 @@ def main(n_robot):
         s_kp1.tolist(),
         n_robots.tolist(),
     )
-    hompc.n_control = 4
+    hompc.n_control = 3
     hompc.n_pred = 0
 
     hompc.create_task(
@@ -211,7 +215,7 @@ def main(n_robot):
     for nn in range(n_robots.omni):
         hompc.create_task(
             name=f'pos_ref_{nn}',
-            prio=3,
+            prio=4,
             type=TaskType.Same,
             eq_task_ls=task_pos_ref[nn].tolist(),
             eq_task_coeff=task_pos_ref_coeff[nn].tolist(),
@@ -253,7 +257,8 @@ def main(n_robot):
 
         time_coord_start = time.time()
 
-        u_star = hompc(copy.deepcopy(s.tolist()))
+        # u_star, mu = hompc(copy.deepcopy(s.tolist()))
+        u_star, lambdA, mu = hompc(copy.deepcopy(s.tolist()))
 
         # print(f's: {s}')
         # print(f'u_star: {u_star}')
@@ -268,6 +273,10 @@ def main(n_robot):
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
+            for i in range(1, 5):
+                row.extend([np.linalg.norm(lambdA[i], ord=1)])
+            for i in range(1, 5):
+                row.extend([np.linalg.norm(mu[i], ord=1)])
 
             writer.writerow(row)
         s_history[k] = copy.deepcopy(s)
@@ -288,7 +297,7 @@ def main(n_robot):
         time_solution = value
     with open(f'{out_dir}time.txt', 'w') as file:
         file.write(
-            f'dt: {dt}\n n_c: {4}\ntime elapsed: {time_elapsed}s\n time solution: {time_solution}'
+            f'dt: {dt}\n n_c: {3}\ntime elapsed: {time_elapsed}s\n time solution: {time_solution}'
         )
 
     # ========================= Visualization Options ======================== #
@@ -308,7 +317,7 @@ def main(n_robot):
     # plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
     # plt.close()
 
-    visual_method = 'none'
+    visual_method = 'plot'
 
     s_history = [[[]] + s.tolist() for s in s_history[:last_step]]
 
@@ -365,8 +374,8 @@ def main(n_robot):
 
 
 if __name__ == '__main__':
-    for i in range(3):
-        n_robot = 10
-        for i in range(4):
+    for i in range(1):
+        n_robot = 8
+        for i in range(1):
             main(n_robot)
             n_robot += 10

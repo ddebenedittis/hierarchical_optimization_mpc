@@ -804,3 +804,193 @@ def plot_distances(
     ax.set_ylabel('Inter-robot dist. [$m$]')
 
     plt.savefig(filename, bbox_inches='tight', format='pdf')
+
+
+def plot_distances2(
+    s_history,
+    dt: float,
+    d_min: float = None,
+    filename: str = 'distances.pdf',
+    to_obj: bool = False,
+    form: bool = False,
+    slack: list = None,
+):
+    init_matplotlib()
+    [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
+
+    n_k = len(s_history)
+    n_c = len(s_history[0])
+    n_j = [len(s_history[0][c]) for c in range(n_c)]
+    n_coord = 2
+
+    x_hist = np.zeros([n_k, sum(n_j), n_coord])
+
+    # slack
+    l_hist = slack[0]
+    m_hist = slack[1]
+    slack_v = [l_hist[0], m_hist[1], m_hist[2], l_hist[3], l_hist[4]]
+
+    for k, c in np.ndindex(n_k, n_c):
+        for j in range(n_j[c]):
+            x_hist[k, sum(n_j[:c]) + j] = s_history[k][c][j][:n_coord]
+
+    fig = plt.figure(figsize=(x_size_def, y_size_def / 2))
+    fig, (ax2, ax) = plt.subplots(2, sharex=True, gridspec_kw={'height_ratios': [0.5, 0.8]})
+
+    pairwise_distances = []
+    dist_to_obj = []
+    for i, j in itertools.combinations(range(sum(n_j)), 2):
+        pairwise_distances.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1)
+        )
+        dist_to_obj.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - np.array([5.50, 4.50]), axis=1), 0.0)
+        )
+        # dist_to_obj.append(np.maximum(np.linalg.norm(x_hist[:, i] - np.array([0,-8]), axis=1), 0.1))
+
+    # Shape: (num_pairs, num_timesteps)
+    pairwise_distances = np.vstack(pairwise_distances)
+    # Minimum distance at each time step across all agent pairs
+
+    if to_obj:
+        # Shape: (num_pairs, num_timesteps)
+        dist_to_obj = np.vstack(dist_to_obj)
+        # Minimum distance at each time step across all agent pairs
+        min_distance_to_obj_per_timestep = np.min(dist_to_obj, axis=0)
+        # ax11 = ax.twinx()  # second y-axis on the right
+
+        ax.plot(
+            np.arange(0, n_k * dt, dt),
+            min_distance_to_obj_per_timestep,
+            linewidth=1.1,
+            label='dist to object',
+            linestyle='-',
+            color='#0072BD',
+        )
+        ax.set_ylabel('Object distance [$m$]', color='#0072BD')
+        ax.tick_params(axis='y', labelcolor='#0072BD')
+
+    if form:
+        ax11 = ax.twinx()  # second y-axis on the right
+        s_matrix = np.zeros((x_hist.shape[0], 9, 9))
+        s_matrix[0] = np.array(
+            [
+                [0, 1, 0, 0, 0, 0, 0, 1, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 1, 0, 0, 0, 0, 1],
+                [0, 0, 1, 0, 1, 0, 0, 0, 1],
+                [0, 0, 0, 1, 0, 1, 0, 0, 1],
+                [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                [0, 0, 0, 0, 0, 1, 0, 1, 1],
+                [1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 0],
+            ]
+        )
+        for i in range(n_j[0]):
+            for j in range(n_j[0]):
+                if s_matrix[0, i, j] != 0:
+                    s_matrix[:, i, j] = np.maximum(
+                        np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1
+                    )
+        f_score = shape_similarity(s_matrix)
+        ax11.plot(
+            np.arange(0, n_k * dt, dt),
+            f_score,
+            label='Shape-similarity',
+            color='r',
+            linestyle='--',
+            linewidth=1.1,
+        )
+        # ax11.set_ylabel("$\frac{||D-D*||_f}{||D*||_f}$")
+        ax11.set_ylabel('$S_f$', color='r')
+        ax11.tick_params(axis='y', labelcolor='r')
+
+    ax.set(xlim=[0.0, dt * n_k])
+    ax.set_ylim(ymin=1.95)
+    ax11.set_ylim(ymin=0.0)
+    ax.set_xlabel('Time [$s$]')
+    ax.set_ylabel('Object distance [$m$]', color='#0072BD')
+    # ax.set_ylabel('Min. inter-robot dist. [$m$]', color='#0072BD')
+    # ax.yaxis.set_label_coords(-0.12, 0.35)
+    ax.tick_params(axis='y', labelcolor='#0072BD')
+
+    segments = []
+    colors = []
+
+    bar_height = 2
+    gap = 1
+
+    for row_idx, arr in enumerate(slack_v):
+        segments = build_segments(arr)
+
+        y = row_idx * (bar_height + gap)
+
+        for start, width, color in segments:
+            ax2.broken_barh([(start * dt, width * dt)], (y, bar_height), facecolors=color)
+
+    ax2.set_yticks([i * (bar_height + gap) + bar_height / 2 for i in range(len(l_hist))])
+
+    ax2.set_yticklabels([f'$p_{i}$' for i in range(len(l_hist))])
+    # ax2.set(xlim=[0.0, dt * n_k])
+    ax2.set_xlabel('Time [$s$]')
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['left'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    # ax2.set_title("Colored Timeline Bars",)
+
+    # plt.tight_layout()
+    fig.subplots_adjust(hspace=0.03)
+    fig.autofmt_xdate()
+
+    plt.savefig(filename, bbox_inches='tight', format='pdf')
+
+
+def shape_similarity(M):
+    Md = np.array(
+        [
+            [0, 3.84, 0, 0, 0, 0, 0, 3.84, 5.0],
+            [3.84, 0, 3.84, 0, 0, 0, 0, 0, 5.0],
+            [0, 3.84, 0, 3.84, 0, 0, 0, 0, 5.0],
+            [0, 0, 3.84, 0, 3.84, 0, 0, 0, 5.0],
+            [0, 0, 0, 3.84, 0, 3.84, 0, 0, 5.0],
+            [0, 0, 0, 0, 3.84, 0, 3.84, 0, 5.0],
+            [0, 0, 0, 0, 0, 3.84, 0, 3.84, 5.0],
+            [3.84, 0, 0, 0, 0, 0, 3.84, 0, 5.0],
+            [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0],
+        ]
+    )
+    return np.linalg.norm(M[:] - Md, 'fro', axis=(1, 2)) / (np.linalg.norm(Md, 'fro'))
+
+
+def value_to_color(v):
+    if v <= 7 and v >= 0:
+        return 'green'
+    elif v <= 30 and v > 7:
+        return 'yellow'
+    elif v > 30:
+        return 'red'
+    elif v <= -3:
+        return 'black'
+
+
+def build_segments(arr):
+    """
+    Convert array -> [(start, width, color), ...]
+    by grouping consecutive same-color values.
+    """
+    segments = []
+
+    start = 0
+    current_color = value_to_color(arr[0])
+
+    for i in range(1, len(arr)):
+        c = value_to_color(arr[i])
+        if c != current_color:
+            segments.append((start, i - start, current_color))
+            start = i
+            current_color = c
+
+    # last segment
+    segments.append((start, len(arr) - start, current_color))
+
+    return segments

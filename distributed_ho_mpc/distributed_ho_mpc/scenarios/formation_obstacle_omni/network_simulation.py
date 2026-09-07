@@ -60,6 +60,105 @@ def main():
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
+        ],
+        'agent_1': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
+            # {'prio'34, 'name':"formation", 'agents': [[1,5]], 'distance': 10},
+        ],
+        'agent_2': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 2]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
+        ],
+        'agent_3': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 3]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
+            # {'prio'34, 'name':"formation", 'agents': [[1,3]], 'distance': 7.07},
+            # {'prio'34, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+        ],
+        'agent_4': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[8, 4]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 4]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
+        ],
+        'agent_5': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[4, 5]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
+        ],
+        'agent_6': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[5, 6]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
+        ],
+        'agent_7': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            # {'prio':3, 'name':"position", 'goal': goals[2],'goal_index':2},
+            {'prio': 4, 'name': 'formation', 'agents': [[6, 7]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 7]], 'distance': 3.84},
+            {'prio': 4, 'name': 'formation', 'agents': [[8, 7]], 'distance': 5},
+            # {'prio'34, 'name':"formation", 'agents': [[7,5]], 'distance': 7.07},
+            # {'prio'34, 'name':"formation", 'agents': [[7,3]], 'distance': 10},
+            # {'prio':3, 'name':"position", 'goal': goals[1],'goal_index':1},
+        ],
+        'agent_8': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'obstacle_avoidance'},
+            {'prio': 3, 'name': 'vel_ref'},
+            # {'prio': 3, 'name': 'vel_ref'},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[2, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[3, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[4, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[6, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
+            {'prio': 4, 'name': 'formation', 'agents': [[7, 8]], 'distance': 5},
+        ],
+    }
+
+    """system_tasks = {
+        'agent_0': [
+            {'prio': 1, 'name': 'input_limits'},
+            {'prio': 2, 'name': 'input_smooth'},
             # {'prio':3, 'name':"obstacle_avoidance"},
             {'prio': 3, 'name': 'formation', 'agents': [[0, 8]], 'distance': 5},
             {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 3.84},
@@ -146,7 +245,7 @@ def main():
             {'prio': 4, 'name': 'formation', 'agents': [[5, 8]], 'distance': 5},
             {'prio': 4, 'name': 'formation', 'agents': [[7, 8]], 'distance': 5},
         ],
-    }
+    }"""
 
     # ---------------------------------------------------------------------------- #
     #               Create the network and connection between agents               #
@@ -317,37 +416,37 @@ def main():
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
         flags.future_trajectory = False
-        save_snapshots(
-            s_hist_merged,
-            None,
-            [[7, 7, 2.0]],
-            st.dt,
-            [4, 11],
-            f'{out_dir}/snapshot',
-            x_lim=[-6, 20],
-            y_lim=[-6, 20],
-            flags=flags,
-        )
-        plot_distances(
-            s_hist_merged,
-            0.05,  # dt 012
-            2.0,  # 0.5, #1.8,  # dmin 0.6
-            to_obj=True,
-            form=True,
-        )
-
-        # display_animation(
-        #     s_hist_merged,
+        # save_snapshots(
         #     s_hist_merged,
         #     None,
-        #     [[7, 7, 2.0]],
+        #     [[7, 7, 1.95]],
         #     st.dt,
-        #     st.visual_method,
-        #     video_name=f'{out_dir}/video.mp4',
+        #     [16, 26],
+        #     f'{out_dir}/snapshot',
         #     x_lim=[-6, 20],
         #     y_lim=[-6, 20],
         #     flags=flags,
         # )
+        # plot_distances(
+        #     s_hist_merged,
+        #     0.05,  # dt 012
+        #     2.0,  # 0.5, #1.8,  # dmin 0.6
+        #     to_obj=True,
+        #     form=True,
+        # )
+
+        display_animation(
+            s_hist_merged,
+            s_hist_merged,
+            None,
+            [[5.5, 4.5, 2.0]],
+            st.dt,
+            st.visual_method,
+            video_name=f'{out_dir}/video.mp4',
+            x_lim=[-6, 20],
+            y_lim=[-6, 20],
+            flags=flags,
+        )
 
 
 if __name__ == '__main__':

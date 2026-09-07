@@ -89,6 +89,8 @@ class Node:
         )
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
+        self.lambda_p = None
+        self.mu_p = None
 
         self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
@@ -96,18 +98,11 @@ class Node:
 
             header = ['iter']
             header.append('time')
-            # for i in range(st.n_nodes):
-            #     if i == self.node_id:
-            #         continue
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_(i{i})_p3_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_(i{i})_p4_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_({i}i)_p3_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_({i}i)_p4_{j}')
             if st.type == 'uni':
+                for i in range(5):
+                    header.append(f'lambda_{i}')
+                for i in range(5):
+                    header.append(f'mu_{i}')
                 for i in range(st.n_nodes):
                     header.append(f'stateX_{i}')
                     header.append(f'stateY_{i}')
@@ -119,6 +114,10 @@ class Node:
                     header.append(f'stateY0_k{i}')
                     header.append(f'stateRHO0_k{i}')
             elif st.type == 'omni':
+                for i in range(5):
+                    header.append(f'lambda_{i}')
+                for i in range(5):
+                    header.append(f'mu_{i}')
                 for i in range(st.n_nodes):
                     header.append(f'stateX_{i}')
                     header.append(f'stateY_{i}')
@@ -256,7 +255,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.9
+        self.threshold = 2.0
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -439,7 +438,9 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, s = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.u_star, s, self.lambda_p, self.mu_p = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
             self.state_k.append(s[0])
 
             self.counter.append(self.step)
@@ -540,50 +541,21 @@ class Node:
 
     def save_data(self):
         # TODO: partizionare vettori e mettere none
-        """if not st.save_data or self.step <= 20:
-            return
-        with open(self.filename, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # Write the data
-            row = [self.step]
-            row.extend(self.rho_i[0, 0, :])
-            row.extend(self.rho_i[0, 1, :])
-            row.extend(self.rho_j[0, 0, :])
-            row.extend(self.rho_j[0, 1, :])
-            for s in self.s.tolist():
-                for ss in s:
-                    row.extend(ss)
-            for u in self.u_star[0]:
-                row.extend(list(u))
-
-
-            writer.writerow(row)"""
         time_round = time.time() - self.time_start
         if not st.save_data:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             row = [self.step_plot, time_round]
-            # row.extend(time_round)
-            # for i in range(st.n_nodes):
-            #     if i == self.node_id:
-            #         continue
-            #     if i in self.neigh:
-            #         ii = self.neigh.index(i)
-            #         row.extend(self.rho_i[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_i[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_j[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_j[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #     else:
-            #         row.extend([None] * (self.n_xi * 4))
+            for i in range(5):
+                row.extend([self.lambda_p[i]])
+            for i in range(5):
+                row.extend([self.mu_p[i]])
             for i in range(st.n_nodes):
-                if (self.step_plot % st.inner_loop) == 0:
-                    if i in self.robot_idx_global:
-                        ii = self.index_global_to_local(i)
-                        row.extend(self.s.omni[ii])
-                        row.extend(self.u_star[0][ii])
-                    else:
-                        row.extend([None] * 5)
+                if i in self.robot_idx_global:
+                    ii = self.index_global_to_local(i)
+                    row.extend(self.s.omni[ii])
+                    row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 5)
             for k in range(st.n_control):

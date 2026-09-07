@@ -1,5 +1,4 @@
 import copy
-import itertools
 import json
 import os
 import time
@@ -129,52 +128,6 @@ def agents_distance(state, pairwise_distances):
     return pairwise_distances
 
 
-def count_collisions(x_hist, safety_distance=2):
-    """Count distinct collision events per robot pair.
-
-    A collision event is a maximal contiguous run of timesteps where a
-    pair's distance stays below safety_distance; a single prolonged
-    collision counts once, not once per timestep.
-
-    Returns (total_events, per_pair_events) where per_pair_events maps
-    (i, j) -> event count.
-    """
-    n_robots = x_hist.shape[1]
-    per_pair_events = {}
-
-    for i, j in itertools.combinations(range(n_robots), 2):
-        dist = np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1)
-        in_collision = dist < safety_distance
-        # Count rising edges (False/absent -> True).
-        events = np.sum(in_collision[1:] & ~in_collision[:-1]) + int(in_collision[0])
-        per_pair_events[(i, j)] = int(events)
-
-    total_events = sum(per_pair_events.values())
-    return total_events, per_pair_events
-
-
-def compute_violation_stats(x_hist, safety_distance=2):
-    """Compute how deep collisions cut into the safety distance.
-
-    For every robot pair and timestep where distance < safety_distance, the
-    violation is (safety_distance - distance). Returns (max_violation,
-    mean_violation) across all such pair-timestep samples; both are 0.0 if
-    there was never a collision.
-    """
-    n_robots = x_hist.shape[1]
-    violations = []
-
-    for i, j in itertools.combinations(range(n_robots), 2):
-        dist = np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1)
-        in_collision = dist < safety_distance
-        violations.append(safety_distance - dist[in_collision])
-
-    violations = np.concatenate(violations) if violations else np.array([])
-    if violations.size == 0:
-        return 0.0, 0.0
-    return float(np.max(violations)), float(np.mean(violations))
-
-
 def main(n_robot, comm_range, limit_conn, root, cycle):
     # np.random.seed(1)
     # b = progressbar.ProgressBar(maxval=st.n_steps, prefix=f'Simulation {cycle}: ', redirect_stdout=True)
@@ -187,7 +140,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
 
     communication_range = comm_range
     limit_connection = limit_conn
-    safety_distance = 2
+
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
@@ -252,8 +205,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         y_init = center[1] + radius * np.sin(theta_init)
 
         if st.type == 'uni':
-            perturbation = np.random.uniform(-np.pi / 6, np.pi / 6)  # ±45°
-            s_init.append(np.array([x_init, y_init, theta_init + np.pi + perturbation]))
+            s_init.append(np.array([x_init, y_init, np.random.uniform(0, 2 * np.pi)]))
         if st.type == 'omni':
             s_init.append(np.array([x_init, y_init]))
 
@@ -452,7 +404,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         #         y_lim=[-10, 10],
         #         flags=flags,
         #     )
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 2e-2) and step_goal == 0:
+        if np.all(np.abs(np.array(state)[:, :2] - gg) < 1e-2) and step_goal == 0:
             last_step = i + 1
             for j in range(n_robot):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
@@ -462,9 +414,6 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         # b.update(i)
 
     time_elapsed = time.time() - time_start
-    if time_goal == 0:
-        time_goal = time_elapsed
-        step_goal = st.n_steps
     time_coop = time.time() - start_time_coop
     # print(f'The time elapsed is {time_elapsed} seconds')
     # print(f'Time used to coordinate the network is {time_coop}')
@@ -487,6 +436,31 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     # print(f'Total creation time is {tot_creation}s')
     # print(f'Total solving time is {tot_solve}s')
     max_a = max(max_value)
+
+    # Unique subfolder per iteration
+    run_label = f'n{n}_neig{limit_conn}_r{comm_range}'
+
+    # ── Save config for THIS iteration ────────────────────────
+    save_run_info(
+        output_dir=out_dir,
+        config={
+            'n_robot': n_robot,
+            'comm_range': comm_range,
+            'limit_conn': limit_conn,
+            'id': cycle,
+            'dt': st.dt,
+            'max_steps': st.n_steps,
+            'n_control': st.n_control,
+            'time_elapsed': time_elapsed,
+            'total_solve': tot_solve,
+            'time_to_goal': time_goal,
+            'iter_to_goal': step_goal,
+            'max_solve_time': max_a,
+            'all_max_solve_times': max_value,
+            'creation_times': creation,
+        },
+        run_id=run_label,
+    )
 
     # with open(f'{out_dir}time.txt', 'w') as file:
     #     file.write(
@@ -534,21 +508,6 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
             elif st.type == 'uni':
                 s_history_all.append([s, []])
 
-        # n_k = len(s_history_all)
-        # n_c = len(s_history_all[0])
-        # n_j = [len(s_history_all[0][c]) for c in range(n_c)]
-        # n_coord = 2
-        # x_hist = np.zeros([n_k, sum(n_j), n_coord])
-
-        # for k, c in np.ndindex(n_k, n_c):
-        #     for j in range(n_j[c]):
-        #         x_hist[k, sum(n_j[:c]) + j] = s_history_all[k][c][j][:n_coord]
-        # for i, j in itertools.combinations(range(sum(n_j)), 2):
-        #     pairwise_distances.append(np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1))
-
-        # total_events, _ = count_collisions(x_hist, safety_distance)
-        # max_violation, mean_violation = compute_violation_stats(x_hist, safety_distance)
-
         """distances = [[] for n in range(st.n_nodes)]
         for iter in s_hist_merged:
             for nn, ag in enumerate(iter[0]):
@@ -579,24 +538,25 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
             goals,
             None,
             st.dt,
-            [(last_step - 1) * st.dt],
+            [(last_step / 2 - 1) * st.dt, (last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
             x_lim=[-11, 11],
             y_lim=[-11, 11],
             flags=flags,
         )
-        # display_animation(
-        #     s_hist_merged,
-        #     s_history_all,
-        #     goals,
-        #     None,
-        #     st.dt,
-        #     st.visual_method,
-        #     video_name=f'{out_dir}/video.mp4',
-        #     x_lim=[-11, 11],
-        #     y_lim=[-11, 11],
-        #     flags=flags,
-        # )
+
+        display_animation(
+            s_hist_merged,
+            s_history_all,
+            goals,
+            None,
+            st.dt,
+            st.visual_method,
+            video_name=f'{out_dir}/video.mp4',
+            x_lim=[-11, 11],
+            y_lim=[-11, 11],
+            flags=flags,
+        )
         # plot_distances(
         #     s_hist_merged,
         #     0.05,  # dt
@@ -605,36 +565,6 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         #     to_obj=False,
         #     form=False,
         # )
-
-    # Unique subfolder per iteration
-    run_label = f'n{cycle}_neig{limit_conn}_r{comm_range}'
-
-    # ── Save config for THIS iteration ────────────────────────
-    save_run_info(
-        output_dir=out_dir,
-        config={
-            'n_robot': n_robot,
-            'comm_range': comm_range,
-            'limit_conn': limit_conn,
-            'id': cycle,
-            'dt': st.dt,
-            'max_steps': st.n_steps,
-            'n_control': st.n_control,
-            'time_elapsed': time_elapsed,
-            'total_solve': tot_solve,
-            'time_to_goal': time_goal,
-            'iter_to_goal': step_goal,
-            'max_solve_time': max_a,
-            'safety_distance': 2,
-            # "total_collisions": total_events,
-            # "max_violation": max_violation,
-            # "mean_violation": mean_violation,
-            # "all_max_solve_times": max_value,
-            # "creation_times": creation,
-        },
-        run_id=run_label,
-    )
-
     # b.finish()
 
 
@@ -645,11 +575,11 @@ if __name__ == '__main__':
     root = f'{workspace_dir}/out/{date_str}'
     os.makedirs(root, exist_ok=True)
     n_robot = 8
-    n_neig = [1, 2, 3, 4, 5, 6, 7]
-    comm_radius = [2.5, 5, 10]
-    cycles = 51
+    n_neig = [2]
+    comm_radius = [2.5]
+    cycles = 1
 
-    for nn in tqdm(range(20, cycles), desc='Cycles', position=0, colour='blue'):
+    for nn in tqdm(range(cycles), desc='Cycles', position=0, colour='blue'):
         for ii, jj in tqdm(
             product(n_neig, comm_radius),
             desc='  Simulation',

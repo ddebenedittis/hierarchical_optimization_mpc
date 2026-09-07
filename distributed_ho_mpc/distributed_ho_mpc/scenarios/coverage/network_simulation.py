@@ -396,21 +396,21 @@ def main(model_name):
             None,
             None,
             st.dt,
-            [(last_step - 1) * st.dt, (last_step - 1) / 2 * st.dt],
+            [25.0],
             f'{out_dir}/snapshot',
             flags=flags,
         )
 
-        display_animation(
-            s_hist_merged,
-            s_hist_merged,
-            None,
-            None,
-            st.dt,
-            st.visual_method,
-            video_name=f'{out_dir}/video.mp4',
-            flags=flags,
-        )
+        # display_animation(
+        #     s_hist_merged,
+        #     s_hist_merged,
+        #     None,
+        #     None,
+        #     st.dt,
+        #     st.visual_method,
+        #     video_name=f'{out_dir}/video.mp4',
+        #     flags=flags,
+        # )
     b.finish()
 
 

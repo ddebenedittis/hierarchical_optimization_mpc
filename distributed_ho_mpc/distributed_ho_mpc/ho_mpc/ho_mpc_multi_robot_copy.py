@@ -174,7 +174,7 @@ class HOMPCMultiRobot(HOMPC):
         # Inputs around which the linearization is performed.
         # _input_bar[class c][robot j][timestep k]
         self._input_bar = [
-            [[np.zeros(self._n_inputs[i])] * self.n_control] * n_robots[i]
+            [[np.zeros(self._n_inputs[i]) + np.array([0, 0.5])] * self.n_control] * n_robots[i]
             for i in range(len(states))
         ]
 
@@ -209,7 +209,7 @@ class HOMPCMultiRobot(HOMPC):
         ]
         self._input_bar = [
             [
-                [np.zeros(self._n_inputs[i]) + np.array([-1, -1]) for _ in range(self.n_control)]
+                [np.zeros(self._n_inputs[i]) for _ in range(self.n_control)]
                 for _ in range(self.n_robots[i])
             ]
             for i in range(len(self.n_robots))
@@ -1444,9 +1444,7 @@ class HOMPCMultiRobot(HOMPC):
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star, x_star_p, self.sol_old = self.hqp(
-                A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio
-            )
+            x_star, lamb_P, w_P = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
@@ -1471,13 +1469,13 @@ class HOMPCMultiRobot(HOMPC):
             for c in range(len(self.n_robots))
         ]"""
 
-        # s = [
-        #     [
-        #         self._state_bar[c][0][k + 1].ravel() + x_star[self._get_idx_state_kp1(c, 0, k)]
-        #         for k in range(n_c)
-        #     ]
-        #     for c in range(len(self.n_robots))
-        # ]
+        s = [
+            [
+                self._state_bar[c][0][k + 1].ravel() + x_star[self._get_idx_state_kp1(c, 0, k)]
+                for k in range(n_c)
+            ]
+            for c in range(len(self.n_robots))
+        ]
 
         # # prepare vector to share with the neighbours
         # x_neigh = []
@@ -1496,8 +1494,8 @@ class HOMPCMultiRobot(HOMPC):
                     self._input_bar[c][j][k] = copy.deepcopy(
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
-
-        return u_0, 0
+        return u_0, s, lamb_P, w_P
+        # return u_0, s
 
     # ======================================================================== #
 

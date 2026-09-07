@@ -1446,9 +1446,29 @@ class HOMPCMultiRobot(HOMPC):
         if self.hierarchical:
             x_star, lamb_P, w_P = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
         else:
-            we = [np.inf] + [t.eq_weight for t in self._tasks]
-            wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, we, wi)
+            # A/b/C/d are stacked per priority LEVEL (index 0 = dynamics consistency,
+            # then one entry per unique task priority, in the same ascending order
+            # used by the stacking loop above). Build we/wi with the same indexing,
+            # taking the max weight among tasks sharing a level (inf wins, i.e. hard).
+            levels = sorted({t.prio for t in self._tasks})
+            we = [np.inf]
+            wi = [np.inf]
+            for lvl in levels:
+                tasks_lvl = [t for t in self._tasks if t.prio == lvl]
+                we.append(
+                    np.inf
+                    if any(t.eq_weight == np.inf for t in tasks_lvl)
+                    else max(t.eq_weight for t in tasks_lvl)
+                )
+                wi.append(
+                    np.inf
+                    if any(t.ineq_weight == np.inf for t in tasks_lvl)
+                    else max(t.ineq_weight for t in tasks_lvl)
+                )
+            assert len(we) == len(A)
+            x_star = self.hqp(A, b, C, d, we=we, wi=wi)
+            lamb_P = np.ones(5) * -10
+            w_P = np.ones(5) * -10
         st = time.time() - start_time
         if st > self.max_iter or self.max_iter == 0.0:
             self.max_iter = st

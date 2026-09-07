@@ -22,7 +22,7 @@ class BenchmarkConfig:
 
     n_robots: int = 8
     radius: float = 10.0
-    min_chord: float = 2.0
+    min_chord: float = 2.6
     heading_perturbation: float = np.pi / 6
     dt: float = 0.05
     max_steps: int = 600
@@ -33,7 +33,7 @@ class BenchmarkConfig:
     omega_max: float = 2.0
     goal_tol: float = 0.1
     comm_range: float = 5.0
-    limit_connection: int = 3
+    limit_connection: int = 7
 
 
 @dataclass

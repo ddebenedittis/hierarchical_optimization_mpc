@@ -261,6 +261,22 @@ def sanity_checks(runs: dict[str, dict[int, dict]]) -> list[str]:
     return warnings_list
 
 
+def _holm_bonferroni(pvalues: list[float]) -> list[float]:
+    """Holm-Bonferroni step-down adjusted p-values, preserving input order.
+
+    Standard step-down procedure: sort ascending, adjust p_(i) by
+    (m - i), then enforce monotonicity by a running max, clipped to 1.0.
+    """
+    m = len(pvalues)
+    order = sorted(range(m), key=lambda i: pvalues[i])
+    adjusted = [0.0] * m
+    running_max = 0.0
+    for rank, idx in enumerate(order):
+        running_max = max(running_max, min(1.0, (m - rank) * pvalues[idx]))
+        adjusted[idx] = running_max
+    return adjusted
+
+
 def compute_paired_stats(
     rows: list[dict], method_tags: list[str], baseline: str
 ) -> list[dict[str, Any]]:
@@ -304,6 +320,7 @@ def compute_paired_stats(
                 'median_baseline': float(np.median(base_vals)) if n else float('nan'),
                 'median_method': float(np.median(meth_vals)) if n else float('nan'),
                 'p_value': '',
+                'p_value_holm': '',
                 'note': '',
             }
             if n < 5:
@@ -338,14 +355,32 @@ def compute_paired_stats(
                 'median_baseline': float(np.mean(succ_base)) if succ_base else float('nan'),
                 'median_method': float(np.mean(succ_meth)) if succ_meth else float('nan'),
                 'p_value': '',
+                'p_value_holm': '',
                 'note': 'rate comparison only',
             }
         )
+
+    # Holm-Bonferroni correction across every numeric p-value reported here.
+    numeric_idxs = [i for i, r in enumerate(results) if isinstance(r['p_value'], float)]
+    if numeric_idxs:
+        adjusted = _holm_bonferroni([results[i]['p_value'] for i in numeric_idxs])
+        for i, p_holm in zip(numeric_idxs, adjusted):
+            results[i]['p_value_holm'] = p_holm
+
     return results
 
 
 def write_stats_csv(results: list[dict[str, Any]], out_path: Path) -> None:
-    fieldnames = ['method_tag', 'kpi', 'n', 'median_baseline', 'median_method', 'p_value', 'note']
+    fieldnames = [
+        'method_tag',
+        'kpi',
+        'n',
+        'median_baseline',
+        'median_method',
+        'p_value',
+        'p_value_holm',
+        'note',
+    ]
     with out_path.open('w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -368,11 +403,13 @@ def plot_boxplots(rows: list[dict], method_tags: list[str], out_path: Path) -> N
             labels.append(mt)
         try:
             bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
-            for i, box in enumerate(bp['boxes']):
-                box.set_facecolor(_color(i))
-                box.set_alpha(0.6)
-        except Exception as exc:
-            print(f'WARN: could not draw boxplot for {key}: {exc}')
+        except TypeError:
+            # matplotlib < 3.9 (e.g. the target container ships 3.5): `tick_labels`
+            # was added in 3.9; fall back to the deprecated-but-working `labels`.
+            bp = ax.boxplot(data, labels=labels, patch_artist=True)
+        for i, box in enumerate(bp['boxes']):
+            box.set_facecolor(_color(i))
+            box.set_alpha(0.6)
         ax.set_title(key)
         ax.tick_params(axis='x', rotation=45)
         if key == 'solve_time_mean':
@@ -575,10 +612,26 @@ def write_report(
 
     lines.append(f'## Paired statistics vs. baseline `{baseline}`')
     lines.append('')
+    lines.append(
+        'Note: makespan is only defined for a run where the robot reaches its goal, so '
+        'makespan comparisons are implicitly conditioned on both the baseline and the '
+        'method succeeding on that seed (see `n`, the number of matched seeds feeding '
+        'each test).'
+    )
+    lines.append('')
     if stats_results:
         lines.append(
             markdown_table(
-                ['method_tag', 'kpi', 'n', 'median_baseline', 'median_method', 'p_value', 'note'],
+                [
+                    'method_tag',
+                    'kpi',
+                    'n',
+                    'median_baseline',
+                    'median_method',
+                    'p_value',
+                    'p_value_holm',
+                    'note',
+                ],
                 stats_results,
             )
         )

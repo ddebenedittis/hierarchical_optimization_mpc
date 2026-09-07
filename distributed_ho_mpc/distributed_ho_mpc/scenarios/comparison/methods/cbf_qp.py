@@ -83,11 +83,17 @@ class CBFQPAgent(BaseAgent):
             self.w_omega = self.l**2
         self.slack_penalty = p.get('slack_penalty', 1e6)
         self.infeasible_count = 0
+        self._rng = np.random.default_rng(node_id)
 
     def compute_input(self, neighbor_states: dict[int, np.ndarray]) -> np.ndarray:
         """Solve the per-step CBF-QP and return `[v, omega]`."""
         cfg = self.config
-        d_safe = cfg.safety_distance
+        # The barrier guards the offset points p_hat (l ahead of center), whose
+        # separation can exceed the center-to-center distance by up to 2*l
+        # depending on heading. Inflate the barrier radius by 2*l so that
+        # ||p_hat_i - p_hat_j|| >= d_cbf guarantees ||p_i - p_j|| >= safety_distance
+        # for any heading (Robotarium single-integrator-to-unicycle convention).
+        d_cbf = cfg.safety_distance + 2.0 * self.l
 
         x, y, theta = self.s
         c, sn = np.cos(theta), np.sin(theta)
@@ -111,9 +117,9 @@ class CBFQPAgent(BaseAgent):
             diff = p_hat - p_hat_j
             dist = np.linalg.norm(diff)
             if dist < 1e-6:
-                diff = diff + np.random.uniform(-1e-3, 1e-3, size=2)
+                diff = diff + self._rng.uniform(-1e-3, 1e-3, size=2)
                 dist = np.linalg.norm(diff)
-            h = dist**2 - d_safe**2
+            h = dist**2 - d_cbf**2
             G_cbf.append(-2.0 * (diff @ J))
             h_cbf.append(0.5 * self.gamma * h**3)
 

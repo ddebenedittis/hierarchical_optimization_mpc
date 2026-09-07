@@ -27,8 +27,8 @@ def _wrap_to_pi(angle: float) -> float:
 
 def _orca_u(
     rel_pos: np.ndarray, rel_vel: np.ndarray, r: float, tau: float, dt: float
-) -> np.ndarray:
-    """Compute the RVO2 ORCA correction vector for one neighbor.
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the RVO2 ORCA correction vector and half-plane normal for one neighbor.
 
     Case analysis (mirrors RVO2's `Agent::computeNewVelocity`):
 
@@ -45,9 +45,17 @@ def _orca_u(
        fall back to a disc of radius ``r/dt`` centered at ``rel_pos/dt``
        (a one-time-step cutoff) so the pair can still separate.
 
-    In both cases the returned vector ``u`` is the minimal change to
-    ``rel_vel`` that places it exactly on the VO boundary; the ORCA
-    half-plane normal is ``u`` normalized.
+    In both cases ``u`` is the minimal change to ``rel_vel`` that places it
+    exactly on the VO boundary. The feasible-side normal ``n`` is *not*
+    simply ``u`` normalized -- that only coincides with the correct normal
+    when ``rel_vel`` starts out inside the VO; when it starts outside
+    (``u`` points inward, back toward the VO) the sign is flipped. Following
+    RVO2's convention exactly: for the two disc branches (cutoff-circle
+    projection and the colliding fallback) ``n = w / ||w||``; for the leg
+    branches ``n`` is the *left* normal of the leg direction (RVO2 stores
+    ``line.direction`` as the leg direction -- left leg as computed, right
+    leg negated -- and the feasible set is the left half-plane of that
+    direction, i.e. ``n = [-dir[1], dir[0]]``).
 
     Parameters
     ----------
@@ -64,8 +72,9 @@ def _orca_u(
 
     Returns
     -------
-    np.ndarray
-        Correction vector `u`, shape (2,).
+    tuple[np.ndarray, np.ndarray]
+        Correction vector `u` and feasible-side half-plane normal `n`,
+        each shape (2,).
     """
     dist_sq = float(rel_pos @ rel_pos)
     r_sq = r * r
@@ -81,6 +90,7 @@ def _orca_u(
             w_len = math.sqrt(w_len_sq) if w_len_sq > 1e-18 else 1e-9
             unit_w = w / w_len
             u = (r * inv_tau - w_len) * unit_w
+            n = unit_w
         else:
             # Closest exit is through one of the two legs.
             leg = math.sqrt(max(dist_sq - r_sq, 0.0))
@@ -106,6 +116,7 @@ def _orca_u(
                     / dist_sq
                 )
             u = float(rel_vel @ direction) * direction - rel_vel
+            n = np.array([-direction[1], direction[0]])
     else:
         # Already colliding: use the time-step cutoff disc.
         inv_dt = 1.0 / dt
@@ -113,23 +124,27 @@ def _orca_u(
         w_len = float(np.linalg.norm(w))
         unit_w = w / w_len if w_len > 1e-9 else np.array([1.0, 0.0])
         u = (r * inv_dt - w_len) * unit_w
+        n = unit_w
 
-    return u
+    return u, n
 
 
 class NHORCAAgent(BaseAgent):
     """Reciprocal collision avoidance for a nonholonomic (unicycle) robot.
 
     Solves a 2-D QP for a preferred holonomic velocity `v_h` subject to
-    ORCA half-planes against visible neighbors and a speed-disc bound,
-    then tracks `v_h` with a heading-alignment + capped-forward-speed
-    unicycle controller.
+    ORCA half-planes against visible neighbors, a speed-disc bound, and a
+    hard trackability cone around the current heading, then tracks `v_h`
+    with a heading-alignment + capped-forward-speed unicycle controller.
     """
 
     def __init__(self, node_id, s0, goal, config, params=None):
         super().__init__(node_id, s0, goal, config, params)
         self.v_h = np.zeros(2)
-        self._prev_neighbor_pos: dict[int, np.ndarray] = {}
+        # Per-neighbor (step, position) at last sighting, used to gate
+        # finite-differenced neighbor velocities against staleness.
+        self._prev_neighbor: dict[int, tuple[int, np.ndarray]] = {}
+        self._step = 0
         self.infeasible_count = 0
 
     def compute_input(self, neighbor_states: dict[int, np.ndarray]) -> np.ndarray:
@@ -140,6 +155,10 @@ class NHORCAAgent(BaseAgent):
         v_h_max = params.get('v_h_max', 0.95 * self.config.v_max)
         k_pref = params.get('k_pref', 1.0)
         n_disc = params.get('n_disc', 16)
+
+        # This call's step index; used below to detect stale neighbor sightings.
+        current_step = self._step
+        self._step += 1
 
         p = self.s[:2]
         theta = self.s[2]
@@ -156,19 +175,23 @@ class NHORCAAgent(BaseAgent):
         orca_offsets = []
         for j, s_j in neighbor_states.items():
             p_j = s_j[:2]
-            if j in self._prev_neighbor_pos:
-                v_j = (p_j - self._prev_neighbor_pos[j]) / self.config.dt
+            prev = self._prev_neighbor.get(j)
+            # Only finite-difference against a sighting from exactly the
+            # previous call; a neighbor that just re-entered comm range
+            # (or was skipped a step) has no reliable prior sample, so
+            # fall back to v_j = 0 rather than a spurious huge velocity.
+            if prev is not None and prev[0] == current_step - 1:
+                v_j = (p_j - prev[1]) / self.config.dt
             else:
                 v_j = np.zeros(2)
-            self._prev_neighbor_pos[j] = p_j.copy()
+            self._prev_neighbor[j] = (current_step, p_j.copy())
 
             rel_pos = p_j - p
             rel_vel = self.v_h - v_j
-            u = _orca_u(rel_pos, rel_vel, r, tau, self.config.dt)
+            u, n = _orca_u(rel_pos, rel_vel, r, tau, self.config.dt)
             u_norm = float(np.linalg.norm(u))
             if u_norm < 1e-9:
                 continue
-            n = u / u_norm
             point = self.v_h + 0.5 * u
             orca_normals.append(n)
             orca_offsets.append(float(n @ point))
@@ -185,8 +208,33 @@ class NHORCAAgent(BaseAgent):
         disc_G = np.vstack(disc_normals) if disc_normals else np.zeros((0, 2))
         disc_h = np.full(n_disc, v_h_max)
 
-        G = np.vstack([orca_G, disc_G])
-        h = np.concatenate([orca_h, disc_h])
+        # Trackability cone: restrict v_h to a cone of half-angle e_max around
+        # the current heading theta, hard (never relaxed by the ORCA slack
+        # fallback below). The unicycle tracking law steers omega = k_omega*e
+        # (e = heading error), so the heading realigns with time constant
+        # 1/k_omega; while realigning, the lateral velocity error is
+        # ||v_h||*sin(e), so the drift accumulated is at most
+        # ||v_h||*sin(e)/k_omega. Bounding that by epsilon and solving for e
+        # gives sin(e) <= epsilon*k_omega/||v_h||; using v_h_max in place of
+        # ||v_h|| gives a conservative, velocity-independent e_max.
+        ratio = epsilon * k_omega / v_h_max if v_h_max > 1e-9 else 1.0
+        e_max = math.asin(min(1.0, ratio))
+        cone_G = np.zeros((0, 2))
+        cone_h = np.zeros(0)
+        if e_max < math.pi / 2.0 - 1e-9:
+            # Cone edges are at theta +/- e_max; the inward normal of each
+            # edge ray is that ray's direction rotated by -/+ 90 deg, i.e.
+            # the heading rotated by +/-(pi/2 - e_max).
+            half_span = math.pi / 2.0 - e_max
+            n_plus = np.array([math.cos(theta + half_span), math.sin(theta + half_span)])
+            n_minus = np.array([math.cos(theta - half_span), math.sin(theta - half_span)])
+            cone_G = np.vstack([-n_plus, -n_minus])
+            cone_h = np.zeros(2)
+        # else: e_max >= pi/2, the cone covers a full half-plane or more, so
+        # it imposes no additional restriction beyond the speed disc.
+
+        G = np.vstack([orca_G, disc_G, cone_G])
+        h = np.concatenate([orca_h, disc_h, cone_h])
 
         P = 2.0 * np.eye(2)
         q = -2.0 * v_pref
@@ -194,7 +242,10 @@ class NHORCAAgent(BaseAgent):
 
         if v is None:
             # Infeasible (dense scenario): relax ORCA half-planes with a shared
-            # slack d >= 0, keep the speed-disc bound hard.
+            # slack d >= 0, keep the speed-disc bound and trackability cone
+            # hard. If this relaxed QP is still infeasible (e.g. the cone
+            # and disc, which both always contain v=0, somehow conflict),
+            # fall back to v_h = 0 below.
             self.infeasible_count += 1
             n_vars = 3
             P2 = np.diag([2e-3, 2e-3, 2e6])
@@ -209,6 +260,9 @@ class NHORCAAgent(BaseAgent):
             for n in disc_normals:
                 rows.append([n[0], n[1], 0.0])
                 rhs.append(v_h_max)
+            for i in range(cone_G.shape[0]):
+                rows.append([cone_G[i, 0], cone_G[i, 1], 0.0])
+                rhs.append(float(cone_h[i]))
             rows.append([0.0, 0.0, -1.0])
             rhs.append(0.0)
 

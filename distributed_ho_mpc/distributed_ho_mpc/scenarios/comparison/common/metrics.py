@@ -98,6 +98,10 @@ def compute_kpis(run_info: dict, arrays: dict) -> dict:
         mean_violation, n_reached, success, makespan, time_to_goal_mean,
         path_length_ratio, control_effort, smoothness, solve_time_mean,
         solve_time_max, infeasible_count, sim_steps.
+
+        control_effort is a per-robot per-step mean (total squared-input
+        energy divided by n_robots * sim_steps), so it is comparable across
+        runs with different robot counts or horizon lengths.
     """
     x_hist = arrays['x_hist']
     u_hist = arrays['u_hist']
@@ -150,7 +154,13 @@ def compute_kpis(run_info: dict, arrays: dict) -> dict:
         ratio = np.where(straight > 0, path_lengths / straight, np.nan)
     path_length_ratio = float(np.nanmean(ratio))
 
-    control_effort = float(np.sum(u_hist[..., 0] ** 2 + u_hist[..., 1] ** 2) * dt)
+    sim_steps = u_hist.shape[0]
+    if n_robots > 0 and sim_steps > 0:
+        control_effort = float(
+            np.sum(u_hist[..., 0] ** 2 + u_hist[..., 1] ** 2) * dt / (n_robots * sim_steps)
+        )
+    else:
+        control_effort = float('nan')
 
     if u_hist.shape[0] > 1:
         smoothness = float(np.mean(np.linalg.norm(np.diff(u_hist, axis=0), axis=2)))
@@ -186,8 +196,12 @@ def compute_kpis(run_info: dict, arrays: dict) -> dict:
         'smoothness': smoothness,
         'solve_time_mean': solve_time_mean,
         'solve_time_max': solve_time_max,
-        'infeasible_count': run_info.get('infeasible_count', 0),
-        'sim_steps': int(u_hist.shape[0]),
+        'infeasible_count': (
+            float('nan')
+            if meta.get('infeasible_measured') is False
+            else run_info.get('infeasible_count', 0)
+        ),
+        'sim_steps': int(sim_steps),
     }
 
     for name, value in (run_info.get('params') or {}).items():

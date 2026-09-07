@@ -733,6 +733,7 @@ class Node:
                     mapping=self.mapping_avoid_collision.tolist(),
                     ineq_task_ls=self.task_avoid_collision,
                     ineq_task_coeff=self.task_avoid_collision_coeff,
+                    ineq_weight=st.kappa ** (st.n_priority - 3),
                     robot_index=[self.robot_idx[1:]],
                 )
             else:
@@ -746,6 +747,7 @@ class Node:
                     # mapping = self.mapping_avoid_collision.tolist(),
                     # ineq_task_ls= self.task_avoid_collision,
                     ineq_task_coeff=self.task_avoid_collision_coeff,
+                    ineq_weight=st.kappa ** (st.n_priority - 3),
                     robot_index=[self.robot_idx[1:]],
                     pos=n[0],
                 )
@@ -773,7 +775,9 @@ class Node:
             #     eq_task_coeff = task_formation_coeff,
             # )
 
-            self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='input_limits', prio=1, ineq_weight=np.inf, robot_index=[self.robot_idx]
+            )
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
@@ -840,7 +844,9 @@ class Node:
                 or task.name == 'collision'
             ]
 
-        self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='input_limits', prio=1, ineq_weight=np.inf, robot_index=[self.robot_idx]
+        )
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
 
         for n, task in enumerate(self.hompc._tasks):
@@ -862,6 +868,7 @@ class Node:
                         robot_index=f_robot_idx,
                         eq_task_ls=task_formation,
                         eq_task_coeff=task_formation_coeff,
+                        eq_weight=st.kappa ** (st.n_priority - task.prio),
                         pos=n,
                     )
                 elif task.name == 'collision':
@@ -882,6 +889,7 @@ class Node:
                         prio=task.prio,
                         robot_index=[self.robot_idx[1:]],
                         ineq_task_coeff=self.task_avoid_collision_coeff,
+                        ineq_weight=st.kappa ** (st.n_priority - task.prio),
                         pos=n,
                     )
 
@@ -901,6 +909,7 @@ class Node:
                     prio=task.prio,
                     robot_index=[[id]],
                     # eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
+                    eq_weight=st.kappa ** (st.n_priority - task.prio),
                     pos=n,
                 )
 

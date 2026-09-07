@@ -40,6 +40,8 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     st.omega_min = config.omega_min
     st.n_nodes = config.n_robots
     st.kappa = float(params.get('kappa', st.kappa))
+    st.n_steps = config.max_steps
+    st.save_data = False
 
     out = sim.main(
         config.n_robots,
@@ -52,15 +54,20 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         max_steps=config.max_steps,
         out_dir_override=str(out_dir / 'scenario_out'),
         media=False,
+        goal_tol=config.goal_tol,
     )
 
     steps = out['steps']
-    solve_times = np.zeros((steps, config.n_robots))
+    solve_times = out.get('solve_times')
+    if solve_times is None:
+        solve_times = np.zeros((steps, config.n_robots))
     meta = {
         'solve_time_total': out['solve_time_total'],
         'solve_time_max': out['solve_time_max'],
         'n_solves': out['n_solves'],
         'kappa': st.kappa,
+        'creation_time_total': out.get('creation_time_total', 0.0),
+        'infeasible_measured': False,
     }
 
     return RunResult(

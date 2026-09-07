@@ -564,8 +564,10 @@ class HOMPCMultiRobot(HOMPC):
         type: TaskType | None = None,
         eq_task_ls: list[ca.SX] | None = None,
         eq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        eq_weight: float | None = None,
         ineq_task_ls: list[ca.SX] | None = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        ineq_weight: float | None = None,
         time_index: TaskIndexes | None = None,
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,
@@ -618,6 +620,10 @@ class HOMPCMultiRobot(HOMPC):
             ineq_task_ls = self._tasks[id].ineq_task_ls
         if ineq_task_coeff is None:
             ineq_task_coeff = self._tasks[id].ineq_coeff
+        if eq_weight is None:
+            eq_weight = self._tasks[id].eq_weight
+        if ineq_weight is None:
+            ineq_weight = self._tasks[id].ineq_weight
         if time_index is None:
             time_index = self._tasks[id].time_index
         if robot_index is None:
@@ -647,6 +653,7 @@ class HOMPCMultiRobot(HOMPC):
                 ]
                 for c in range(len(self.n_robots))
             ],
+            eq_weight=eq_weight,
             ineq_task_ls=ineq_task_ls,
             ineq_J_T_s=[
                 ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))
@@ -667,6 +674,7 @@ class HOMPCMultiRobot(HOMPC):
                 ]
                 for c in range(len(self.n_robots))
             ],
+            ineq_weight=ineq_weight,
             time_index=time_index,
             robot_index=robot_index,
         )
@@ -743,10 +751,10 @@ class HOMPCMultiRobot(HOMPC):
         mapping: list[ca.SX] | None = None,
         eq_task_ls: ca.SX | None = None,
         eq_task_coeff: list[np.ndarray] | None = None,
-        eq_weight: float = 1.0,
+        eq_weight: float | None = None,
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
-        ineq_weight: float = 1.0,
+        ineq_weight: float | None = None,
         time_index: TaskIndexes = TaskIndexes.All,
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,

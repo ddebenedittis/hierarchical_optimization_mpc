@@ -187,6 +187,7 @@ def main(
     max_steps=None,
     out_dir_override=None,
     media=True,
+    goal_tol=None,
 ):
     # np.random.seed(1)
     # b = progressbar.ProgressBar(maxval=st.n_steps, prefix=f'Simulation {cycle}: ', redirect_stdout=True)
@@ -432,6 +433,7 @@ def main(
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     x_hist_list = [np.array(state, dtype=float)]
     u_hist_list = []
+    solve_times_arr = np.zeros((n_steps_eff, n_robot))
     for i in tqdm(range(n_steps_eff), desc='iteration', position=2, colour='red', leave=False):
         #    for i in range(n_steps_eff):
         if i == n_steps_eff - 1:
@@ -443,7 +445,9 @@ def main(
         # for rr in range(st.inner_loop):
         for j in range(n_robot):
             nodes[j].reorder_s_init(state)
+            _t0 = time.perf_counter()
             nodes[j].update('2')  # Update primal solution and state evolution
+            solve_times_arr[i, j] = time.perf_counter() - _t0
         u_hist_list.append(np.array([nodes[j].u_star[0][0] for j in range(n_robot)], dtype=float))
         for j in range(n_robot):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
@@ -477,7 +481,11 @@ def main(
         #         flags=flags,
         #     )
         x_hist_list.append(np.array(state, dtype=float))
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 2e-2) and step_goal == 0:
+        if goal_tol is None:
+            goal_reached = np.all(np.abs(np.array(state)[:, :2] - gg) < 2e-2)
+        else:
+            goal_reached = np.all(np.linalg.norm(np.array(state)[:, :2] - gg, axis=1) <= goal_tol)
+        if goal_reached and step_goal == 0:
             last_step = i + 1
             for j in range(n_robot):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
@@ -669,6 +677,8 @@ def main(
         'solve_time_max': max(agent.hompc.max_iter for agent in nodes),
         'n_solves': len(u_hist_list) * n_robot,
         'steps': len(u_hist_list),
+        'solve_times': solve_times_arr[: len(u_hist_list)],
+        'creation_time_total': tot_creation,
     }
 
 

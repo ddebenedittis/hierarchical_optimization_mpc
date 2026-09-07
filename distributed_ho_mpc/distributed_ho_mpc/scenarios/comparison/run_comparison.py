@@ -122,7 +122,7 @@ def main() -> None:
     all_params = json.loads(args.params)
     out_root = Path(args.out) if args.out else default_out_root()
 
-    instances = [('sym', symmetric_instance())] if args.symmetric else []
+    instances = [('-1', symmetric_instance())] if args.symmetric else []
     instances += [(str(seed), generate_instance(seed)) for seed in seeds]
 
     for base_method, tag in methods:

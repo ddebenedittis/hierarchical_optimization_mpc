@@ -175,7 +175,19 @@ def compute_violation_stats(x_hist, safety_distance=2):
     return float(np.max(violations)), float(np.mean(violations))
 
 
-def main(n_robot, comm_range, limit_conn, root, cycle):
+def main(
+    n_robot,
+    comm_range,
+    limit_conn,
+    root,
+    cycle,
+    *,
+    s_init=None,
+    goals=None,
+    max_steps=None,
+    out_dir_override=None,
+    media=True,
+):
     # np.random.seed(1)
     # b = progressbar.ProgressBar(maxval=st.n_steps, prefix=f'Simulation {cycle}: ', redirect_stdout=True)
     # b.start()
@@ -188,6 +200,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     communication_range = comm_range
     limit_connection = limit_conn
     safety_distance = 2
+    n_steps_eff = max_steps if max_steps is not None else st.n_steps
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
@@ -199,7 +212,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     #     ]
     snap = [0]  # time for snapshot
     for tt in snap:
-        if tt > st.n_steps * st.dt:
+        if tt > n_steps_eff * st.dt:
             raise ValueError('Time instant for snapshot out of simulation lenght')
 
     center = np.array([0, 0])  # choose the center
@@ -226,36 +239,41 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
             s_init.append(np.array([x, y, theta + np.pi]))
         if st.type == 'omni':
             s_init.append(np.array([x, y]))"""
-    radius = 10
-    min_chord = 2
-    min_angle_sep = 2 * np.arcsin(min_chord / (2 * radius))  # ≈ 0.167 rad
+    if s_init is None or goals is None:
+        radius = 10
+        min_chord = 2
+        min_angle_sep = 2 * np.arcsin(min_chord / (2 * radius))  # ≈ 0.167 rad
 
-    # Sample 8 random angles with minimum angular separation
-    angles = []
-    while len(angles) < 8:
-        candidate = np.random.uniform(0, 2 * np.pi)
-        if all(
-            min(abs(candidate - a), 2 * np.pi - abs(candidate - a)) >= min_angle_sep for a in angles
-        ):
-            angles.append(candidate)
+        # Sample 8 random angles with minimum angular separation
+        angles = []
+        while len(angles) < 8:
+            candidate = np.random.uniform(0, 2 * np.pi)
+            if all(
+                min(abs(candidate - a), 2 * np.pi - abs(candidate - a)) >= min_angle_sep
+                for a in angles
+            ):
+                angles.append(candidate)
 
-    goals = []
-    s_init = []
+        goals = []
+        s_init = []
 
-    for theta in angles:
-        x = center[0] + radius * np.cos(theta)
-        y = center[1] + radius * np.sin(theta)
-        goals.append(np.array([x, y]))
+        for theta in angles:
+            x = center[0] + radius * np.cos(theta)
+            y = center[1] + radius * np.sin(theta)
+            goals.append(np.array([x, y]))
 
-        theta_init = theta - np.pi
-        x_init = center[0] + radius * np.cos(theta_init)
-        y_init = center[1] + radius * np.sin(theta_init)
+            theta_init = theta - np.pi
+            x_init = center[0] + radius * np.cos(theta_init)
+            y_init = center[1] + radius * np.sin(theta_init)
 
-        if st.type == 'uni':
-            perturbation = np.random.uniform(-np.pi / 6, np.pi / 6)  # ±45°
-            s_init.append(np.array([x_init, y_init, theta_init + np.pi + perturbation]))
-        if st.type == 'omni':
-            s_init.append(np.array([x_init, y_init]))
+            if st.type == 'uni':
+                perturbation = np.random.uniform(-np.pi / 6, np.pi / 6)  # ±45°
+                s_init.append(np.array([x_init, y_init, theta_init + np.pi + perturbation]))
+            if st.type == 'omni':
+                s_init.append(np.array([x_init, y_init]))
+    else:
+        goals = [np.array(g) for g in goals]
+        s_init = [np.array(s) for s in s_init]
 
     system_tasks = {}
 
@@ -361,9 +379,12 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
 
     nodes = []  # list of agents of the system
 
-    package_name = 'distributed_ho_mpc'
-    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = f'{workspace_dir}/out/{root}{limit_conn}/{comm_range}/{cycle}/'
+    if out_dir_override is not None:
+        out_dir = str(out_dir_override)
+    else:
+        package_name = 'distributed_ho_mpc'
+        workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+        out_dir = f'{workspace_dir}/out/{root}{limit_conn}/{comm_range}/{cycle}/'
     os.makedirs(out_dir, exist_ok=True)
     time_start = time.time()
     # Create an agents of the same type for each node of the system
@@ -376,7 +397,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
             goals,  # goals to be reached
-            st.n_steps,  # max simulation steps
+            n_steps_eff,  # max simulation steps
             out_dir=out_dir,
             init_s=s_init[i],
         )
@@ -409,9 +430,11 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     step_goal = 0
     for j in range(n_robot):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    for i in tqdm(range(st.n_steps), desc='iteration', position=2, colour='red', leave=False):
-        #    for i in range(st.n_steps):
-        if i == st.n_steps - 1:
+    x_hist_list = [np.array(state, dtype=float)]
+    u_hist_list = []
+    for i in tqdm(range(n_steps_eff), desc='iteration', position=2, colour='red', leave=False):
+        #    for i in range(n_steps_eff):
+        if i == n_steps_eff - 1:
             last_step = i + 1
         if i > 0:
             neigh_connection(
@@ -421,6 +444,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         for j in range(n_robot):
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
+        u_hist_list.append(np.array([nodes[j].u_star[0][0] for j in range(n_robot)], dtype=float))
         for j in range(n_robot):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             # for ij in nodes[j].neigh:  # select my neighbours
@@ -452,6 +476,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
         #         y_lim=[-10, 10],
         #         flags=flags,
         #     )
+        x_hist_list.append(np.array(state, dtype=float))
         if np.all(np.abs(np.array(state)[:, :2] - gg) < 2e-2) and step_goal == 0:
             last_step = i + 1
             for j in range(n_robot):
@@ -464,7 +489,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     time_elapsed = time.time() - time_start
     if time_goal == 0:
         time_goal = time_elapsed
-        step_goal = st.n_steps
+        step_goal = n_steps_eff
     time_coop = time.time() - start_time_coop
     # print(f'The time elapsed is {time_elapsed} seconds')
     # print(f'Time used to coordinate the network is {time_coop}')
@@ -493,7 +518,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     #         f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s\ntotal solving {tot_solve}\n time to goal: {time_goal} at iter {step_goal} \nmax {max_a}\nall max {max_value}\n cr {creation}'
     #     )
 
-    if st.simulation:
+    if media and st.simulation:
         """robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, last_step + 1) * st.dt
         plt.figure(figsize=(10, 6))
@@ -618,7 +643,7 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
             'limit_conn': limit_conn,
             'id': cycle,
             'dt': st.dt,
-            'max_steps': st.n_steps,
+            'max_steps': n_steps_eff,
             'n_control': st.n_control,
             'time_elapsed': time_elapsed,
             'total_solve': tot_solve,
@@ -636,6 +661,15 @@ def main(n_robot, comm_range, limit_conn, root, cycle):
     )
 
     # b.finish()
+
+    return {
+        'x_hist': np.array(x_hist_list),
+        'u_hist': np.array(u_hist_list),
+        'solve_time_total': tot_solve,
+        'solve_time_max': max(agent.hompc.max_iter for agent in nodes),
+        'n_solves': len(u_hist_list) * n_robot,
+        'steps': len(u_hist_list),
+    }
 
 
 if __name__ == '__main__':

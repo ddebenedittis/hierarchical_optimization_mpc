@@ -407,6 +407,8 @@ class HierarchicalQP:
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
         sol_old = []
+        lamb_P = np.ones(5) * -10
+        w_P = np.ones(5) * -10
         # ==================================================================== #
 
         if self.x is None or len(self.x) != n_tasks:
@@ -550,7 +552,7 @@ class HierarchicalQP:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])
-                return x_star_bar, x_star_bar_p, sol_old
+                return x_star_bar, lamb_P, w_P
 
             # ======================== Post-processing ======================= #
 
@@ -559,6 +561,13 @@ class HierarchicalQP:
             sol_old.append(sol)
             Z_list.append(Z)
 
+            lamb = np.linalg.norm((Ap @ x_star - bp), ord=2)
+            if n_tasks == 4 and priority == 3:
+                lamb_P[priority + 1] = lamb
+                w_P[priority + 1] = np.linalg.norm(sol[nx:], ord=2)
+            else:
+                lamb_P[priority] = lamb
+                w_P[priority] = np.linalg.norm(sol[nx:], ord=2)
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
             if priority > 0:
@@ -587,9 +596,9 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p, sol_old
+                return x_star_bar, lamb_P, w_P
                 # w_star_bar
-        return x_star_bar, x_star_bar_p, sol_old
+        return x_star_bar, lamb_P, w_P
 
     def rho_vector(self, rho, degree, n_c):
         x_i = rho[1].shape[0] // degree

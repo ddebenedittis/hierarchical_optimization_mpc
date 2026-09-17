@@ -205,6 +205,22 @@ def _apply_canonical_settings(settings_module, method_key, scenario):
         settings_module.orca_radius = cst.d_safe / 2.0
         settings_module.orca_max_speed = cst.v_max
 
+    # Hand every method the SAME random start/goal layout for the
+    # 'asymmetric' scenario (see `cst._build_asymmetric_layout`), instead of
+    # letting each method's own `network_simulation.run()` draw its own
+    # random layout -- those disagree across methods even when each seeds
+    # `np.random` the same way, since they differ in sampling algorithm and
+    # in how many RNG draws happen before the layout is built. Reset to None
+    # for the other scenarios since settings modules are cached across the
+    # scenario loop in `run_all()` and would otherwise leak a stale
+    # asymmetric layout into a later 'uniform'/'priority_conflict' run.
+    if scenario == 'asymmetric':
+        settings_module.fixed_starts = [np.array(p) for p in cst.asymmetric_starts]
+        settings_module.fixed_goals = [np.array(g) for g in cst.asymmetric_goals]
+    else:
+        settings_module.fixed_starts = None
+        settings_module.fixed_goals = None
+
 
 def _converged(
     scenario: str,

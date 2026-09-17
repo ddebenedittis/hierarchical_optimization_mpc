@@ -79,13 +79,18 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
 
     dt = 0.02
 
-    layout = 'random' if st.scenario == 'asymmetric' else 'symmetric'
-    starts, goals = build_radial_configuration(
-        st.n_nodes,
-        st.radius,
-        layout=layout,
-        min_spawn_distance=getattr(st, 'min_spawn_distance', 0.0),
-    )
+    fixed_starts = getattr(st, 'fixed_starts', None)
+    fixed_goals = getattr(st, 'fixed_goals', None)
+    if fixed_starts is not None and fixed_goals is not None:
+        starts, goals = fixed_starts, fixed_goals
+    else:
+        layout = 'random' if st.scenario == 'asymmetric' else 'symmetric'
+        starts, goals = build_radial_configuration(
+            st.n_nodes,
+            st.radius,
+            layout=layout,
+            min_spawn_distance=getattr(st, 'min_spawn_distance', 0.0),
+        )
 
     formation_targets = {i: [] for i in range(st.n_nodes)}
     weights = {i: {'w_goal': st.w_goal, 'w_form': 0.0} for i in range(st.n_nodes)}

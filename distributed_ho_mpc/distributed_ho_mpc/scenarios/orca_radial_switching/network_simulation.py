@@ -78,10 +78,15 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     np.random.seed(1)
 
     scenario = getattr(st, 'scenario', 'uniform')
-    layout = 'random' if scenario == 'asymmetric' else st.layout
-    starts, goals = build_radial_configuration(
-        st.n_nodes, st.radius, layout=layout, min_spawn_distance=st.min_spawn_distance
-    )
+    fixed_starts = getattr(st, 'fixed_starts', None)
+    fixed_goals = getattr(st, 'fixed_goals', None)
+    if fixed_starts is not None and fixed_goals is not None:
+        starts, goals = fixed_starts, fixed_goals
+    else:
+        layout = 'random' if scenario == 'asymmetric' else st.layout
+        starts, goals = build_radial_configuration(
+            st.n_nodes, st.radius, layout=layout, min_spawn_distance=st.min_spawn_distance
+        )
 
     agents = [
         Agent(

@@ -191,42 +191,57 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             s_init.append(np.array([x, y]))"""
     radius = st.radius
 
-    if st.goal_placement == 'random' or st.scenario == 'asymmetric':
-        min_chord = 3
-        min_angle_sep = 2 * np.arcsin(min_chord / (2 * radius))  # ≈ 0.167 rad
+    fixed_starts = getattr(st, 'fixed_starts', None)
+    fixed_goals = getattr(st, 'fixed_goals', None)
 
-        # Sample n random angles with minimum angular separation
-        angles = []
-        while len(angles) < num_points:
-            candidate = np.random.uniform(0, 2 * np.pi)
-            if all(
-                min(abs(candidate - a), 2 * np.pi - abs(candidate - a)) >= min_angle_sep
-                for a in angles
-            ):
-                angles.append(candidate)
-    elif st.goal_placement == 'symmetric':
-        angles = [2 * np.pi * i / num_points for i in range(num_points)]
+    if fixed_starts is not None and fixed_goals is not None:
+        # Same benchmark instance as every other method in the comparison
+        # (see `comparison/run_comparison.py`), instead of this scenario's
+        # own (differently-distributed) random angle sampling below.
+        goals = [np.array(g) for g in fixed_goals]
+        s_init = []
+        for p in fixed_starts:
+            if st.type == 'uni':
+                s_init.append(np.array([p[0], p[1], np.random.uniform(0, 2 * np.pi)]))
+            if st.type == 'omni':
+                s_init.append(np.array([p[0], p[1]]))
     else:
-        raise ValueError(
-            f"st.goal_placement must be 'symmetric' or 'random', got {st.goal_placement!r}"
-        )
+        if st.goal_placement == 'random' or st.scenario == 'asymmetric':
+            min_chord = 3
+            min_angle_sep = 2 * np.arcsin(min_chord / (2 * radius))  # ≈ 0.167 rad
 
-    goals = []
-    s_init = []
+            # Sample n random angles with minimum angular separation
+            angles = []
+            while len(angles) < num_points:
+                candidate = np.random.uniform(0, 2 * np.pi)
+                if all(
+                    min(abs(candidate - a), 2 * np.pi - abs(candidate - a)) >= min_angle_sep
+                    for a in angles
+                ):
+                    angles.append(candidate)
+        elif st.goal_placement == 'symmetric':
+            angles = [2 * np.pi * i / num_points for i in range(num_points)]
+        else:
+            raise ValueError(
+                f"st.goal_placement must be 'symmetric' or 'random', got {st.goal_placement!r}"
+            )
 
-    for theta in angles:
-        x = center[0] + radius * np.cos(theta)
-        y = center[1] + radius * np.sin(theta)
-        goals.append(np.array([x, y]))
+        goals = []
+        s_init = []
 
-        theta_init = theta - np.pi
-        x_init = center[0] + radius * np.cos(theta_init)
-        y_init = center[1] + radius * np.sin(theta_init)
+        for theta in angles:
+            x = center[0] + radius * np.cos(theta)
+            y = center[1] + radius * np.sin(theta)
+            goals.append(np.array([x, y]))
 
-        if st.type == 'uni':
-            s_init.append(np.array([x_init, y_init, np.random.uniform(0, 2 * np.pi)]))
-        if st.type == 'omni':
-            s_init.append(np.array([x_init, y_init]))
+            theta_init = theta - np.pi
+            x_init = center[0] + radius * np.cos(theta_init)
+            y_init = center[1] + radius * np.sin(theta_init)
+
+            if st.type == 'uni':
+                s_init.append(np.array([x_init, y_init, np.random.uniform(0, 2 * np.pi)]))
+            if st.type == 'omni':
+                s_init.append(np.array([x_init, y_init]))
 
     system_tasks = {}
 

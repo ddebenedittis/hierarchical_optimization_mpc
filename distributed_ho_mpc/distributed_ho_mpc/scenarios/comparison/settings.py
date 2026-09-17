@@ -7,6 +7,9 @@ settings module to these canonical values before calling its `run()`, so
 all methods are evaluated on the literal same benchmark instance.
 """
 
+import numpy as np
+from scipy.spatial.distance import pdist
+
 n_nodes = 6
 radius = 6.0  # circle radius for the radial start/goal layout
 
@@ -36,6 +39,53 @@ formation_pairs = [(0, 1, d_form)]  # (agent_a, agent_b, target_distance)
 # `build_radial_configuration(..., layout='random', ...)` in each method's
 # `network_simulation.py`.
 min_spawn_distance = 1.5 * d_safe
+
+
+def _build_asymmetric_layout(
+    n_nodes: int,
+    radius: float,
+    min_spawn_distance: float,
+    seed: int = 1,
+    max_attempts: int = 1000,
+):
+    """Draw the ONE random radial start/goal layout used for the
+    'asymmetric' scenario across every method. Uses its own RNG stream
+    (`np.random.default_rng`, not the global `np.random` state each
+    method's `run()` separately seeds) so it is computed once here,
+    independent of call order, and handed to every method identically via
+    `run_comparison._apply_canonical_settings` -- rather than letting each
+    method redraw its own random layout (which, since methods differ in
+    layout algorithm and number of RNG draws before this point, do not
+    generally agree even when each seeds `np.random` the same way).
+    """
+    rng = np.random.default_rng(seed)
+    if n_nodes > 1:
+        max_feasible = 2 * radius * np.sin(np.pi / n_nodes)
+        if min_spawn_distance > max_feasible:
+            raise ValueError(
+                f'min_spawn_distance={min_spawn_distance} is infeasible for '
+                f'{n_nodes} agents on a circle of radius={radius} '
+                f'(max possible separation is {max_feasible:.3f})'
+            )
+    for _ in range(max_attempts):
+        thetas = rng.uniform(0.0, 2 * np.pi, n_nodes)
+        starts = [radius * np.array([np.cos(t), np.sin(t)]) for t in thetas]
+        if n_nodes < 2 or pdist(np.array(starts)).min() >= min_spawn_distance:
+            break
+    else:
+        raise RuntimeError(
+            f'Could not find a random layout with min_spawn_distance='
+            f'{min_spawn_distance} after {max_attempts} attempts'
+        )
+    goals = [-s for s in starts]
+    return starts, goals
+
+
+# The single canonical 'asymmetric'-scenario start/goal layout, computed
+# once at import time and handed to every method identically -- see
+# `_build_asymmetric_layout`'s docstring for why each method can't just be
+# trusted to (re)generate this on its own.
+asymmetric_starts, asymmetric_goals = _build_asymmetric_layout(n_nodes, radius, min_spawn_distance)
 
 scenarios = ['uniform', 'asymmetric', 'priority_conflict']
 

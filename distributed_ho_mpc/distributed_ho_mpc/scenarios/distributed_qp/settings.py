@@ -60,9 +60,15 @@ goal_tol = 1e-2  # stop tolerance
 #   QP solve instead of a raw heuristic vector sum, and with hard safety
 #   constraints guaranteed regardless of the weight choice. Agent 0 is
 #   weighted to favour formation; agent 1 is weighted to favour its own goal.
-scenario = 'priority_conflict'  # 'uniform' or 'priority_conflict'
+# 'asymmetric':
+#   Same task set as 'uniform' (no formation), but start angles are drawn
+#   randomly on the circle instead of evenly spaced (goal is still the
+#   antipodal point of wherever the agent actually starts).
+scenario = 'priority_conflict'  # 'uniform', 'asymmetric', or 'priority_conflict'
 
 formation_pairs = [(0, 1, d_form)]  # (agent_a, agent_b, target_distance)
+
+min_spawn_distance = 1.5 * d_safe  # used only when scenario == 'asymmetric'
 
 # Per-agent overrides of (w_goal, w_form) used when scenario == 'priority_conflict'.
 weight_overrides = {

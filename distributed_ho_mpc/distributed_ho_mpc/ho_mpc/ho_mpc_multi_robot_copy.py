@@ -424,17 +424,13 @@ class HOMPCMultiRobot(HOMPC):
         for c, n_r in enumerate(n_robots):
             if n_robots[c] < 0:
                 raise ValueError(f'The {c}-th class of robots has a negative number of robots.')
-            # n_r += n_robots[c]
-            _state_bar_new = [
-                [[None] * (self.n_control + self.n_pred)] * n_robots[i]
-                for i in range(len(self._states))
-            ]
-            _input_bar_new = [
-                [np.zeros(self._n_inputs[i])] * self.n_control * n_robots[c]
-                for i in range(len(self._inputs))
-            ]
 
             if n_r > 0:
+                _state_bar_new = [[None] * (self.n_control + self.n_pred + 1) for _ in range(n_r)]
+                _input_bar_new = [
+                    [np.zeros(self._n_inputs[c]) for _ in range(self.n_control)] for _ in range(n_r)
+                ]
+
                 self._state_bar[c].extend(_state_bar_new)
                 self._input_bar[c].extend(_input_bar_new)
 
@@ -759,15 +755,14 @@ class HOMPCMultiRobot(HOMPC):
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,
     ):
-        # for i, t in enumerate(self._tasks):
-        #     if t.name == name:
-        #         if pos is not None and i == pos:
-        #             id = i
-        #             break
         for i, t in enumerate(self._tasks):
             if t.name == name:
-                id = i
-                break
+                if pos is not None and i == pos:
+                    id = i
+                    break
+                elif pos is None:
+                    id = i
+                    break
 
         if prio is None:
             prio = self._tasks[id].prio
@@ -794,7 +789,7 @@ class HOMPCMultiRobot(HOMPC):
         if robot_index is None:
             robot_index = self._tasks[id].robot_index
 
-        self._tasks[i] = self.Task(
+        self._tasks[id] = self.Task(
             name=name,
             prio=prio,
             type=type,

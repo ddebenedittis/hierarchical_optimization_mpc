@@ -4,7 +4,7 @@ Implements a per-step control barrier function (CBF) quadratic program for
 differential-drive (unicycle) robots, following the Georgia Tech Robotarium
 formulation: the unicycle is mapped to a single-integrator offset point via
 a near-identity diffeomorphism, a nominal single-integrator controller drives
-that point toward the goal, and pairwise CBF constraints (cubic class-K,
+that point toward the goal, and pairwise CBF constraints (linear class-K,
 reciprocal responsibility split) enforce collision avoidance as hard
 constraints in the QP.
 """
@@ -35,7 +35,7 @@ class CBFQPAgent(BaseAgent):
          robot center via a near-identity diffeomorphism (parameter `l`).
       2. A nominal single-integrator controller drives `p_hat` toward the
          goal (proportional gain `k_goal`, speed-capped).
-      3. Pairwise CBF constraints (cubic class-K, gain `gamma`) enforce
+      3. Pairwise CBF constraints (linear class-K, gain `gamma`) enforce
          `||p_hat_i - p_hat_j|| >= d_safe` as hard linear constraints on the
          unicycle input `[v, omega]`. The 1/2 factor on the barrier gain is
          the reciprocal responsibility split: both agents run the same
@@ -55,7 +55,12 @@ class CBFQPAgent(BaseAgent):
     l : float, default 0.3
         Near-identity projection distance (offset point ahead of center).
     gamma : float, default 1.0
-        CBF barrier gain (cubic class-K).
+        CBF barrier gain. The class-K function is linear, `alpha(h) = gamma
+        * h`, with `h = dist**2 - d_cbf**2` already in squared-distance
+        units. A cubic `h**3` was used previously and is why an earlier
+        gamma sweep returned byte-identical results: it vanishes to third
+        order exactly at the boundary where the constraint binds, so gamma
+        multiplied a term that was ~0 whenever it mattered.
     k_goal : float, default 1.0
         Nominal single-integrator controller gain.
     w_omega : float | None, default None (resolved to `l**2`)
@@ -102,14 +107,18 @@ class CBFQPAgent(BaseAgent):
         J = np.array([[c, -self.l * sn], [sn, self.l * c]])
         J_inv = np.array([[c, sn], [-sn / self.l, c / self.l]])
 
-        v_si = self.k_goal * (self.goal - p_hat)
+        # Track the CENTER to the goal, not p_hat. p_hat leads the center by l,
+        # so servoing p_hat onto the goal parks the center l short of it; with
+        # l = 0.3 > goal_tol = 0.1 no robot could ever be scored as arrived.
+        # Targeting goal + l*[c, sn] for p_hat reduces exactly to goal - p.
+        v_si = self.k_goal * (self.goal - p)
         speed = np.linalg.norm(v_si)
         v_max_soft = 0.95 * cfg.v_max
         if speed > v_max_soft:
             v_si = v_si / speed * v_max_soft
         u_nom = J_inv @ v_si
 
-        # ---- CBF rows: -2 * diff^T @ J @ u <= (gamma / 2) * h**3 ----
+        # ---- CBF rows: -2 * diff^T @ J @ u <= (gamma / 2) * h ----
         G_cbf, h_cbf = [], []
         for pose_j in neighbor_states.values():
             xj, yj, theta_j = pose_j
@@ -121,7 +130,12 @@ class CBFQPAgent(BaseAgent):
                 dist = np.linalg.norm(diff)
             h = dist**2 - d_cbf**2
             G_cbf.append(-2.0 * (diff @ J))
-            h_cbf.append(0.5 * self.gamma * h**3)
+            # Linear class-K rather than cubic: h is in squared-distance units,
+            # so h**3 collapses to ~0 slope exactly at the boundary where the
+            # constraint binds. That forbids essentially all motion toward a
+            # neighbour and makes gamma multiply a vanishing term, which is why
+            # the gamma sweep produced byte-identical results.
+            h_cbf.append(0.5 * self.gamma * h)
 
         # ---- Hard box rows: v_min <= v <= v_max, omega_min <= omega <= omega_max ----
         G_box = np.array([[1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]])
@@ -187,4 +201,12 @@ class CBFQPAgent(BaseAgent):
 
 def run_instance(instance: BenchmarkInstance, params: dict | None, out_dir) -> RunResult:
     """Entry point for the comparison campaign driver."""
-    return run_reactive(CBFQPAgent, instance, params)
+    result = run_reactive(CBFQPAgent, instance, params)
+    p = params or {}
+    # Recorded so the campaign can report what each method actually enforced
+    # next to what it achieved. This baseline guards the offset points, so its
+    # barrier radius sits 2*l above the contract it is scored against.
+    result.meta |= {
+        'enforced_safety_distance': instance.config.safety_distance + 2.0 * p.get('l', 0.3)
+    }
+    return result

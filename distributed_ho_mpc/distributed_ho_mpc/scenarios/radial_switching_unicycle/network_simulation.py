@@ -28,6 +28,63 @@ from hierarchical_optimization_mpc.utils.robot_models import (
     get_unicycle_model,
 )
 
+DEFAULT_TASK_PRIORITIES = {
+    'input_limits': 1,
+    'input_smooth': 2,
+    'collision_avoidance': 3,
+    'position': 4,
+}
+
+
+def build_system_tasks(num_points, goals):
+    """Build each agent's local task hierarchy.
+
+    Under `scenario == 'uniform'` every agent gets DEFAULT_TASK_PRIORITIES. Under
+    'priority_conflict' the per-agent entries in `st.priority_overrides` are
+    layered on top and the pairs in `st.formation_pairs` add a shared formation
+    task, so two agents can rank the same coupling task in opposite order.
+
+    Generated from settings rather than hand-written `agent_N` literals: the
+    literal form silently mismatches whenever n_nodes changes, and it duplicates
+    the pairing that `formation_pairs` already states.
+    """
+    conflict = getattr(st, 'scenario', 'uniform') == 'priority_conflict'
+    overrides = getattr(st, 'priority_overrides', {}) if conflict else {}
+    pairs = getattr(st, 'formation_pairs', []) if conflict else []
+
+    system_tasks = {}
+    for ag in range(num_points):
+        prios = {**DEFAULT_TASK_PRIORITIES, **overrides.get(ag, {})}
+        tasks = [
+            {'prio': prios['input_limits'], 'name': 'input_limits'},
+            {'prio': prios['input_smooth'], 'name': 'input_smooth'},
+            {'prio': prios['collision_avoidance'], 'name': 'collision_avoidance'},
+            {'prio': prios['position'], 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
+        ]
+        for a, b, distance in pairs:
+            if ag in (a, b):
+                tasks.append(
+                    {
+                        # Absent an explicit override, the formation shares the
+                        # goal's level (blended, no strict order between them).
+                        'prio': prios.get('formation', prios['position']),
+                        'name': 'formation',
+                        'agents': [[a, b]],
+                        'distance': distance,
+                    }
+                )
+
+        levels = sorted({t['prio'] for t in tasks})
+        if len(levels) > st.n_priority:
+            raise ValueError(
+                f'agent_{ag} declares {len(levels)} distinct priority levels '
+                f'({levels}) but n_priority={st.n_priority}; node.py sizes y_i/rho_i '
+                f'by n_priority, so an extra level indexes out of bounds.'
+            )
+        system_tasks[f'agent_{ag}'] = tasks
+
+    return system_tasks
+
 
 def neigh_connection(
     states, nodes, graph_matrix, communication_range, limit_connection, system_tasks
@@ -276,15 +333,7 @@ def main(
         goals = [np.array(g) for g in goals]
         s_init = [np.array(s) for s in s_init]
 
-    system_tasks = {}
-
-    for ag in range(num_points):
-        system_tasks[f'agent_{ag}'] = [
-            {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
-        ]
+    system_tasks = build_system_tasks(num_points, goals)
 
     """# system_tasks = {
     #     'agent_0': [

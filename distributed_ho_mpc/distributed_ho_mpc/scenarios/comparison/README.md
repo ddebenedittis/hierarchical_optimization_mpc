@@ -108,3 +108,41 @@ python3 src/distributed_ho_mpc/distributed_ho_mpc/scenarios/comparison/run_compa
 Writes `kpi_table.csv`, `kpi_table.md`, and `overlay_uniform.pdf` /
 `overlay_priority_conflict.pdf` (agents 0-1 distance over time, every method
 on one axes) to a timestamped folder under `out/`.
+
+## Parameters that must be swept before reporting
+
+Per-method parameters are passed with `--params`, keyed by method name or by
+a `method@tag` tag (the tag also names the output subfolder), so the same
+method can be run several times at different settings in one campaign:
+
+```shell
+--params '{"orca@slow": {"v_track_max": 0.8}, "orca@fast": {"v_track_max": 1.2}}'
+```
+
+Two parameters currently decide headline numbers and should not be left at
+their defaults in a reported campaign:
+
+- **`orca` / `v_track_max`** (default `min(v_h_max, epsilon * k_omega)` =
+  0.8 m/s). This is the radius of NH-ORCA's trackable-velocity disc. The
+  default derives from a worst-case `sin(e) = 1` lateral-drift bound that
+  partly double-counts the error already absorbed by the `2 * epsilon`
+  radius inflation, and it sits below the ~0.9 m/s needed to cross this
+  benchmark within `max_steps` -- so it sets the NH-ORCA success rate
+  outright. See the `Caveat on the default cap` section of
+  `methods/nh_orca.py`.
+- **`cbf` / `gamma`** (default 1.0). The class-K function is now linear;
+  under the previous cubic `h**3` a gamma sweep returned byte-identical
+  results, so any gamma conclusion predating that change is void and must
+  be re-run.
+
+## Safety contract each method actually enforces
+
+The methods do not all enforce the same center-to-center distance, so each
+run records `enforced_safety_distance` in its `run_info.json` metadata and
+the KPI table should be read next to it:
+
+| Method | Enforced | Reason |
+| --- | --- | --- |
+| `cbf` | `safety_distance + 2*l` (2.6 by default) | Barrier guards the feedback-linearization offset points, not the centers |
+| `orca` | `safety_distance + 2*epsilon` (2.4 by default) | ORCA radius inflated to absorb holonomic tracking error |
+| `dhqp` | `safety_distance + margin` (2.0 by default) | Enforced exactly; `margin` exists to grant the same latitude if a campaign wants it |

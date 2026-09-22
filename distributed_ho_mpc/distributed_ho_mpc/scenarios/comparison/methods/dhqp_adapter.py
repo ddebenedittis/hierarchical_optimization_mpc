@@ -42,6 +42,26 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     st.n_steps = config.max_steps
     st.save_data = False
 
+    # Center-to-center distance the collision task enforces. Both baselines
+    # inflate their own barrier radius above config.safety_distance for concrete
+    # geometric reasons -- CBF by 2*l for the feedback-linearization offset
+    # point, ORCA by 2*epsilon for holonomic tracking error -- so dHQP was the
+    # only method scored against a 2.0 bound while enforcing exactly 2.0, with
+    # no room for its own discretization and slack error. `margin` gives it the
+    # same explicit latitude, and defaults to 0.0 so nothing changes unless a
+    # campaign sweeps it.
+    margin = params.get('margin', 0.0)
+    st.safety_distance = config.safety_distance + margin
+
+    # MPC horizon. The scenario ships n_control = 1, n_pred = 0, which runs this
+    # MPC as a one-step reactive controller -- the baselines get their gains
+    # swept, so the horizon should be sweepable too. n_xi is a DERIVED primal
+    # dimension that settings.py computes at import time, so it has to be
+    # recomputed here or the variable dimensions silently disagree.
+    st.n_control = params.get('n_control', st.n_control)
+    st.n_pred = params.get('n_pred', st.n_pred)
+    st.n_xi = st.n_control * (5 if st.type == 'uni' else 4)
+
     out = sim.main(
         config.n_robots,
         params.get('comm_range', config.comm_range),
@@ -66,6 +86,7 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         'n_solves': out['n_solves'],
         'creation_time_total': out.get('creation_time_total', 0.0),
         'infeasible_measured': False,
+        'enforced_safety_distance': float(st.safety_distance),
     }
 
     return RunResult(

@@ -133,14 +133,70 @@ class NHORCAAgent(BaseAgent):
     """Reciprocal collision avoidance for a nonholonomic (unicycle) robot.
 
     Solves a 2-D QP for a preferred holonomic velocity `v_h` subject to
-    ORCA half-planes against visible neighbors, a speed-disc bound, and a
-    hard trackability cone around the current heading, then tracks `v_h`
-    with a heading-alignment + capped-forward-speed unicycle controller.
+    ORCA half-planes against visible neighbors and an isotropic trackable
+    speed disc, then tracks `v_h` with a heading-alignment +
+    capped-forward-speed unicycle controller.
+
+    Trackable velocity set
+    ----------------------
+    NH-ORCA's premise is that the unicycle must be able to track the
+    holonomic `v_h` to within `epsilon`, and that the ORCA radius is
+    inflated by `2 * epsilon` to absorb the residual tracking error. The
+    question is which subset of holonomic velocities qualifies as
+    trackable.
+
+    This implementation uses the maximum inscribed CIRCLE of that set,
+    `||v_h|| <= v_track_max`, which is what Alonso-Mora et al. prescribe.
+    An earlier version instead intersected the speed disc with a hard CONE
+    of half-angle `e_max` around the current heading. That was wrong in
+    practice: ORCA half-planes routinely require lateral or backward
+    velocities, so intersecting them with a +/-32 deg forward cone was
+    infeasible on a median of 271 of 600 steps per run, pushing the
+    controller onto its slack fallback for nearly half the horizon. The
+    isotropic disc keeps the QP well-posed in every direction.
+
+    Caveat on the default cap
+    -------------------------
+    The default `v_track_max = epsilon * k_omega` comes from bounding the
+    lateral drift during realignment (`||v_h|| * sin(e) / k_omega`) by
+    `epsilon` at the worst case `sin(e) = 1`. That worst case assumes
+    permanent 90-degree misalignment and partly double-counts the error
+    the `2 * epsilon` radius inflation already absorbs. At the defaults it
+    caps speed at 0.8 m/s, below the ~0.9 m/s needed to cross this
+    benchmark within `max_steps`, so it determines the reported success
+    rate outright. It is left as the default because it is the defensible
+    bound, but any campaign that reports an NH-ORCA success rate should
+    sweep `v_track_max` the way it sweeps CBF's `gamma` -- see
+    ../README.md.
+
+    Parameters (read from `params`, defaults shown)
+    -------------------------------------------------
+    tau : float, default 2.0
+        ORCA time horizon for the velocity-obstacle truncation.
+    epsilon : float, default 0.2
+        Holonomic tracking-error bound; inflates the collision radius by
+        `2 * epsilon` and sets the default `v_track_max`.
+    k_omega : float, default 4.0
+        Heading-alignment gain of the unicycle tracking law.
+    v_h_max : float, default `0.95 * config.v_max`
+        Upper bound on the preferred holonomic speed.
+    v_track_max : float, default `min(v_h_max, epsilon * k_omega)`
+        Radius of the trackable-velocity disc. See the caveat above.
+    k_pref : float, default 1.0
+        Proportional gain of the goal-seeking preferred velocity.
+    n_disc : int, default 16
+        Number of tangent half-planes used to polygonize the speed disc.
     """
 
     def __init__(self, node_id, s0, goal, config, params=None):
         super().__init__(node_id, s0, goal, config, params)
         self.v_h = np.zeros(2)
+        # Velocity this robot actually realized last step. ORCA's reciprocity
+        # split assumes both sides of a pair are described in the same terms,
+        # and neighbors are only observable through finite differences, so the
+        # ego side must be its realized velocity too -- not the holonomic v_h
+        # it merely intended.
+        self._v_actual = np.zeros(2)
         # Per-neighbor (step, position) at last sighting, used to gate
         # finite-differenced neighbor velocities against staleness.
         self._prev_neighbor: dict[int, tuple[int, np.ndarray]] = {}
@@ -164,11 +220,19 @@ class NHORCAAgent(BaseAgent):
         theta = self.s[2]
         r = self.config.safety_distance + 2.0 * epsilon
 
+        # Radius of the maximum inscribed circle of the trackable velocity
+        # set: bounding the realignment drift ||v_h|| * sin(e) / k_omega by
+        # epsilon at the worst case sin(e) = 1 gives epsilon * k_omega. This
+        # default is conservative enough to decide the reported success rate
+        # on this benchmark -- see `Caveat on the default cap` in the class
+        # docstring; sweep it before reporting.
+        v_track_max = params.get('v_track_max', min(v_h_max, epsilon * k_omega))
+
         # Preferred velocity: toward the goal, capped (tapers near the goal).
         v_pref = k_pref * (self.goal - p)
         pref_speed = float(np.linalg.norm(v_pref))
-        if pref_speed > v_h_max:
-            v_pref = v_pref / pref_speed * v_h_max
+        if pref_speed > v_track_max:
+            v_pref = v_pref / pref_speed * v_track_max
 
         # ORCA half-planes: n . (v - point) >= 0  <=>  (-n) . v <= -(n . point).
         orca_normals = []
@@ -187,54 +251,32 @@ class NHORCAAgent(BaseAgent):
             self._prev_neighbor[j] = (current_step, p_j.copy())
 
             rel_pos = p_j - p
-            rel_vel = self.v_h - v_j
+            rel_vel = self._v_actual - v_j
             u, n = _orca_u(rel_pos, rel_vel, r, tau, self.config.dt)
             u_norm = float(np.linalg.norm(u))
             if u_norm < 1e-9:
                 continue
-            point = self.v_h + 0.5 * u
+            point = self._v_actual + 0.5 * u
             orca_normals.append(n)
             orca_offsets.append(float(n @ point))
 
         orca_G = np.vstack([-n for n in orca_normals]) if orca_normals else np.zeros((0, 2))
         orca_h = np.array([-off for off in orca_offsets]) if orca_offsets else np.zeros(0)
 
-        # Speed-disc bound ||v|| <= v_h_max, approximated by tangent half-planes:
-        # n_k . v <= v_h_max.
+        # Trackable-speed disc ||v|| <= v_track_max, approximated by tangent
+        # half-planes: n_k . v <= v_track_max.
+        #
+        # Isotropic disc, not the hard heading cone this previously used --
+        # see `Trackable velocity set` in the class docstring.
         disc_normals = [
             np.array([math.cos(2.0 * math.pi * k / n_disc), math.sin(2.0 * math.pi * k / n_disc)])
             for k in range(n_disc)
         ]
         disc_G = np.vstack(disc_normals) if disc_normals else np.zeros((0, 2))
-        disc_h = np.full(n_disc, v_h_max)
+        disc_h = np.full(n_disc, v_track_max)
 
-        # Trackability cone: restrict v_h to a cone of half-angle e_max around
-        # the current heading theta, hard (never relaxed by the ORCA slack
-        # fallback below). The unicycle tracking law steers omega = k_omega*e
-        # (e = heading error), so the heading realigns with time constant
-        # 1/k_omega; while realigning, the lateral velocity error is
-        # ||v_h||*sin(e), so the drift accumulated is at most
-        # ||v_h||*sin(e)/k_omega. Bounding that by epsilon and solving for e
-        # gives sin(e) <= epsilon*k_omega/||v_h||; using v_h_max in place of
-        # ||v_h|| gives a conservative, velocity-independent e_max.
-        ratio = epsilon * k_omega / v_h_max if v_h_max > 1e-9 else 1.0
-        e_max = math.asin(min(1.0, ratio))
-        cone_G = np.zeros((0, 2))
-        cone_h = np.zeros(0)
-        if e_max < math.pi / 2.0 - 1e-9:
-            # Cone edges are at theta +/- e_max; the inward normal of each
-            # edge ray is that ray's direction rotated by -/+ 90 deg, i.e.
-            # the heading rotated by +/-(pi/2 - e_max).
-            half_span = math.pi / 2.0 - e_max
-            n_plus = np.array([math.cos(theta + half_span), math.sin(theta + half_span)])
-            n_minus = np.array([math.cos(theta - half_span), math.sin(theta - half_span)])
-            cone_G = np.vstack([-n_plus, -n_minus])
-            cone_h = np.zeros(2)
-        # else: e_max >= pi/2, the cone covers a full half-plane or more, so
-        # it imposes no additional restriction beyond the speed disc.
-
-        G = np.vstack([orca_G, disc_G, cone_G])
-        h = np.concatenate([orca_h, disc_h, cone_h])
+        G = np.vstack([orca_G, disc_G])
+        h = np.concatenate([orca_h, disc_h])
 
         P = 2.0 * np.eye(2)
         q = -2.0 * v_pref
@@ -242,10 +284,9 @@ class NHORCAAgent(BaseAgent):
 
         if v is None:
             # Infeasible (dense scenario): relax ORCA half-planes with a shared
-            # slack d >= 0, keep the speed-disc bound and trackability cone
-            # hard. If this relaxed QP is still infeasible (e.g. the cone
-            # and disc, which both always contain v=0, somehow conflict),
-            # fall back to v_h = 0 below.
+            # slack d >= 0, keeping the speed-disc bound hard. The disc always
+            # contains v = 0, so this relaxed QP is feasible by construction;
+            # the v_h = 0 fallback below is defensive only.
             self.infeasible_count += 1
             n_vars = 3
             P2 = np.diag([2e-3, 2e-3, 2e6])
@@ -259,10 +300,7 @@ class NHORCAAgent(BaseAgent):
                 rhs.append(-off)
             for n in disc_normals:
                 rows.append([n[0], n[1], 0.0])
-                rhs.append(v_h_max)
-            for i in range(cone_G.shape[0]):
-                rows.append([cone_G[i, 0], cone_G[i, 1], 0.0])
-                rhs.append(float(cone_h[i]))
+                rhs.append(v_track_max)
             rows.append([0.0, 0.0, -1.0])
             rhs.append(0.0)
 
@@ -275,12 +313,26 @@ class NHORCAAgent(BaseAgent):
 
         speed_h = float(np.linalg.norm(self.v_h))
         if speed_h < 1e-6:
-            return np.array([0.0, 0.0])
+            # Stalled, but keep turning toward the goal. Returning omega = 0
+            # here left a stopped robot frozen in its current heading, so it
+            # could never recover an orientation from which ORCA admits
+            # forward motion again.
+            angle_to_goal = math.atan2(self.goal[1] - p[1], self.goal[0] - p[0])
+            omega_stall = float(
+                np.clip(
+                    k_omega * _wrap_to_pi(angle_to_goal - theta),
+                    self.config.omega_min,
+                    self.config.omega_max,
+                )
+            )
+            self._v_actual = np.zeros(2)
+            return np.array([0.0, omega_stall])
 
         theta_des = math.atan2(self.v_h[1], self.v_h[0])
         e = _wrap_to_pi(theta_des - theta)
         omega = float(np.clip(k_omega * e, self.config.omega_min, self.config.omega_max))
         v_fwd = float(np.clip(speed_h * math.cos(e), 0.0, self.config.v_max))
+        self._v_actual = v_fwd * np.array([math.cos(theta), math.sin(theta)])
         return np.array([v_fwd, omega])
 
 
@@ -296,4 +348,13 @@ def run_instance(instance: BenchmarkInstance, params: dict | None, out_dir) -> R
     out_dir
         Accepted for interface compatibility; unused (no artifacts written).
     """
-    return run_reactive(NHORCAAgent, instance, params)
+    result = run_reactive(NHORCAAgent, instance, params)
+    p = params or {}
+    # Recorded so the campaign can report what each method actually enforced
+    # next to what it achieved. NH-ORCA inflates its collision radius by
+    # 2*epsilon to absorb holonomic tracking error, so it too is scored against
+    # a looser contract than it enforces.
+    result.meta |= {
+        'enforced_safety_distance': instance.config.safety_distance + 2.0 * p.get('epsilon', 0.2)
+    }
+    return result

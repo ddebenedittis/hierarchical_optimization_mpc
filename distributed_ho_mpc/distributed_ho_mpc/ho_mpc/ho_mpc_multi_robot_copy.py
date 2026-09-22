@@ -625,7 +625,7 @@ class HOMPCMultiRobot(HOMPC):
         if robot_index is None:
             robot_index = self._tasks[id].robot_index
 
-        self._tasks[i] = self.Task(
+        self._tasks[id] = self.Task(
             name=name,
             prio=prio,
             type=type,

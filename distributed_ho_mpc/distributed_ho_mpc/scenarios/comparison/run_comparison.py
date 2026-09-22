@@ -34,8 +34,8 @@ import distributed_ho_mpc.scenarios.comparison.settings as cst
 # (method_key, package path, whether it's expected to run cleanly right now)
 METHODS = [
     ('potential_field', 'distributed_ho_mpc.scenarios.potential_field'),
-    ('distributed_qp', 'distributed_ho_mpc.scenarios.distributed_qp'),
-    ('orca', 'distributed_ho_mpc.scenarios.orca_radial_switching'),
+    ('cbf_qp', 'distributed_ho_mpc.scenarios.cbf_qp'),
+    ('nh_orca', 'distributed_ho_mpc.scenarios.nh_orca_radial_switching'),
     # ('centralized_hqp', 'distributed_ho_mpc.scenarios.centralized_radial_switching'),
     ('dhqp', 'distributed_ho_mpc.scenarios.dhqp_radial_switching'),
 ]
@@ -54,7 +54,7 @@ ATTR_MAP = {
         'goal_tol',
         'min_spawn_distance',
     ],
-    'distributed_qp': [
+    'cbf_qp': [
         'n_nodes',
         'dt',
         'n_steps',
@@ -66,7 +66,7 @@ ATTR_MAP = {
         'goal_tol',
         'min_spawn_distance',
     ],
-    'orca': [
+    'nh_orca': [
         'n_nodes',
         'dt',
         'n_steps',
@@ -141,21 +141,25 @@ CAPABILITIES = {
         'safety_guarantee_type': 'none (heuristic force, no formal guarantee)',
         'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
     },
-    'distributed_qp': {
+    'cbf_qp': {
         'strict_priority': False,
         'per_agent_priority': False,
         'formation_tasks': True,
         'retuning_to_change_priority': 'Yes -- hand-tune 2 weights per agent',
         'training_cost': 'N/A -- no training, hand-tuned weights only',
-        'safety_guarantee_type': 'hard constraint (exact, CBF-QP)',
+        'safety_guarantee_type': (
+            'soft, heavily-penalized constraint (CBF-QP, w_safety large finite -- '
+            'approximately hard, degrades gracefully under multi-agent congestion '
+            'instead of raising)'
+        ),
         'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
     },
-    'orca': {
+    'nh_orca': {
         'strict_priority': False,
         'per_agent_priority': False,
         'formation_tasks': False,
         'retuning_to_change_priority': 'N/A -- cannot express a formation/coupling task at all',
-        'training_cost': 'N/A -- no training, hand-tuned ORCA parameters only',
+        'training_cost': 'N/A -- no training, hand-tuned NH-ORCA parameters only',
         'safety_guarantee_type': 'geometric reciprocity (exact, given shared radius)',
         'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
     },
@@ -201,8 +205,11 @@ def _apply_canonical_settings(settings_module, method_key, scenario):
         settings_module.scenario = scenario
     if hasattr(settings_module, 'formation_pairs'):
         settings_module.formation_pairs = cst.formation_pairs
-    if method_key == 'orca':
-        settings_module.orca_radius = cst.d_safe / 2.0
+    if method_key == 'nh_orca':
+        # d_safe is the shared measurement threshold; epsilon is nh_orca's own extra
+        # conservative buffer (kept at the method's own default, not overridden), so the
+        # enforced diameter 2*orca_radius = d_safe + 2*epsilon stays strictly above d_safe.
+        settings_module.orca_radius = (cst.d_safe + 2 * settings_module.epsilon) / 2.0
         settings_module.orca_max_speed = cst.v_max
 
     # Hand every method the SAME random start/goal layout for the
@@ -302,6 +309,9 @@ def _compute_kpis(method_key: str, scenario: str, result: dict) -> dict:
         'normalized_time_to_goal': round(last_step / cst.n_steps, 3) if converged else None,
         'min_distance_m': round(float(result['min_distance']), 3),
         'safety_margin_ok': bool(result['min_distance'] >= cst.d_safe - 1e-6),
+        'enforced_safety_distance_m': round(
+            float(result.get('enforced_safety_distance', cst.d_safe)), 3
+        ),
         'formation_pair_distance_m': round(formation_dist, 3),
         'formation_error_m': round(abs(formation_dist - d_form), 3),
         'goal_error_agent_a_m': round(float(goal_errors[a]), 3),
@@ -383,6 +393,7 @@ def run_all(out_dir: str | None = None) -> list[dict]:
                         'normalized_time_to_goal': None,
                         'min_distance_m': None,
                         'safety_margin_ok': None,
+                        'enforced_safety_distance_m': None,
                         'formation_pair_distance_m': None,
                         'formation_error_m': None,
                         'goal_error_agent_a_m': None,

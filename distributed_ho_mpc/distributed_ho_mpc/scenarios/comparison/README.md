@@ -14,8 +14,8 @@ Methods compared:
 |---|---|---|
 | dHQP | `dhqp_radial_switching/` | This repo's contribution: distributed, per-agent hierarchical QP with consensus, exact lexicographic task priorities, priority order settable per agent |
 | Centralized HQP | `centralized_radial_switching/` | The paper's existing baseline: one global hierarchical QP over the whole fleet, exact priorities but only ONE shared order for everyone |
-| Weighted distributed QP | `distributed_qp/` | Distributed, per-agent QP, hard safety via a CBF constraint, but goal/formation are soft weighted costs in ONE QP -- no priority |
-| ORCA | `orca_radial_switching/` | Distributed reciprocal velocity-obstacle collision avoidance (van den Berg et al., 2011) + go-to-goal; no formation/coupling task at all |
+| CBF-QP | `cbf_qp/` | Distributed, per-agent QP, hard safety via a control barrier function constraint (enforced margin `d_safe + 2*l`, strictly above the measured `d_safe`), but goal/formation are soft weighted costs in ONE QP -- no priority |
+| NH-ORCA | `nh_orca_radial_switching/` | Distributed reciprocal velocity-obstacle collision avoidance (van den Berg et al., 2011) + go-to-goal, with an extra `epsilon` conservatism margin (enforced diameter `d_safe + 2*epsilon`); no formation/coupling task at all |
 | Potential field | `potential_field/` | Distributed heuristic force sum (goal attraction + collision repulsion + optional formation spring), no optimization, no priority |
 
 Two scenarios are run for each method:
@@ -54,6 +54,12 @@ Deliberately **not** led by raw performance, per the reviewer's own framing
   reach every goal, and how fast (only meaningful when converged).
 - `min_distance_m` / `safety_margin_ok` -- worst-case inter-robot distance
   over the whole run vs. `d_safe`.
+- `enforced_safety_distance_m` -- the actual distance each method's own
+  control law internally enforces (`cbf_qp`: `d_safe + 2*l`; `nh_orca`:
+  `d_safe + 2*epsilon`; other methods default to `d_safe`, i.e. no extra
+  margin). Baselines legitimately hold more separation than they're scored
+  against; this column makes that asymmetry explicit and checkable instead
+  of conflating it with `min_distance_m`.
 - `formation_pair_distance_m` / `formation_error_m` -- final distance
   between agents 0-1 vs. the `d_form` target -- the direct measure of
   whether the "dominant" task in `priority_conflict` was actually honored.

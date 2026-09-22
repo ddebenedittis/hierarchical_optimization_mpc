@@ -1,0 +1,4 @@
+dt: 0.05
+ n_c: 4
+time elapsed: 399.2537670135498s
+total solving 33.0570068359375

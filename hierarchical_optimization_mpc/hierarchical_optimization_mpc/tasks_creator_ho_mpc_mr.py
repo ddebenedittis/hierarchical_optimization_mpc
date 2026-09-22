@@ -44,10 +44,10 @@ class TasksCreatorHOMPCMultiRobot:
             self.inputs_bar = inputs_bar
 
         # Input limits
-        self.v_max = 5
-        self.v_min = -5
-        self.omega_max = 1
-        self.omega_min = -1
+        self.v_max = 3.0
+        self.v_min = 0.0
+        self.omega_max = 2.0
+        self.omega_min = -2.0
 
         self.bounding_box = None
 

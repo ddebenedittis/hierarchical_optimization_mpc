@@ -88,23 +88,17 @@ class Node:
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
 
         self.out_dir = out_dir
-
+        self.lambda_p = None
+        self.mu_p = None
         self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
 
             header = ['Time']
-            for i in range(st.n_nodes):
-                if i == self.node_id:
-                    continue
-                for j in range(self.n_xi):
-                    header.append(f'rho_(i{i})_p3_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_(i{i})_p4_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_({i}i)_p3_{j}')
-                for j in range(self.n_xi):
-                    header.append(f'rho_({i}i)_p4_{j}')
+            for i in range(5):
+                header.append(f'lamda_{i}')
+            for i in range(5):
+                header.append(f'mu_{i}')
             for i in range(st.n_nodes):
                 header.append(f'stateX_{i}')
                 header.append(f'stateY_{i}')
@@ -194,7 +188,7 @@ class Node:
         )
 
         self.task_vel_ref_coeff = RobCont(
-            omni=[np.array([2, 2])],
+            omni=[np.array([2.5, 2.5])],
         )
 
         # ===========================Go-to-Goal====================================== #
@@ -226,8 +220,8 @@ class Node:
                 )
 
         # =====================Obstacle Avoidance===================================== #
-        self.obstacle_pos = np.array([7, 7])
-        self.obstacle_size = 2.1
+        self.obstacle_pos = np.array([5.5, 4.5])
+        self.obstacle_size = 2.0
         self.task_obs_avoidance = [
             ca.vertcat(
                 -((self.s.omni[0] - self.obstacle_pos[0]) ** 2)
@@ -351,7 +345,7 @@ class Node:
 
         # ======================================================================== #
 
-        if self.node_id == 0:
+        """if self.node_id == 0:
             self.s = RobCont(
                 omni=[np.array([0, 2]) for _ in range(self.n_robots.omni)],
             )
@@ -370,7 +364,29 @@ class Node:
         elif self.node_id == 7:
             self.s = RobCont(omni=[np.array([-2, 2]) for _ in range(self.n_robots.omni)])
         elif self.node_id == 8:
-            self.s = RobCont(omni=[np.array([0, 1]) for _ in range(self.n_robots.omni)])
+            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
+        else:
+            raise ValueError('Missing agent init on s')"""
+        if self.node_id == 0:
+            self.s = RobCont(
+                omni=[np.array([0, 5]) for _ in range(self.n_robots.omni)],
+            )
+        elif self.node_id == 1:
+            self.s = RobCont(omni=[np.array([3.536, 3.536]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 2:
+            self.s = RobCont(omni=[np.array([5, 0]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 3:
+            self.s = RobCont(omni=[np.array([3.536, -3.536]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 4:
+            self.s = RobCont(omni=[np.array([0, -5]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 5:
+            self.s = RobCont(omni=[np.array([-3.536, -3.536]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 6:
+            self.s = RobCont(omni=[np.array([-5, 0]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 7:
+            self.s = RobCont(omni=[np.array([-3.536, 3.536]) for _ in range(self.n_robots.omni)])
+        elif self.node_id == 8:
+            self.s = RobCont(omni=[np.array([0, 0]) for _ in range(self.n_robots.omni)])
         else:
             raise ValueError('Missing agent init on s')
 
@@ -416,7 +432,7 @@ class Node:
     def update(self, round):
         """Pop from local buffer the received dual variables of neighbours and minimize primal function"""
 
-        if self.step == 30:
+        if self.step == -2:
             # self.goals = [
             #     np.array([5, 5]),
             #     np.array([8.53, 8.53]),
@@ -427,21 +443,35 @@ class Node:
             #     self.task_pos_coeff[i] = RobCont(
             #         omni=[[g] for _ in range(self.n_robots.omni)],
             #     )
+            # for n, tt in enumerate(self.hompc._tasks):
+            #     if tt.name == 'position':
+            #         for j in tt.eq_coeff[0]:
+            #             if j[0] is not None:
+            #                 j[0] += 40
+            # self.hompc.update_task(
+            #     name = "position",
+            #     eq_task_coeff = self.task_pos_coeff[0].tolist(),
+            #     # robot_index = cov_rob_idx,
+            # )
             for n, tt in enumerate(self.hompc._tasks):
                 if tt.name == 'position':
-                    for j in tt.eq_coeff[0]:
-                        if j[0] is not None:
-                            j[0] += 40
-                    # self.hompc.update_task(
-                    #     name = "position",
-                    #     eq_task_coeff = self.task_pos_coeff[0].tolist(),
-                    #     # robot_index = cov_rob_idx,
-                    # )
+                    self.hompc._tasks.pop(n)
+                    self.hompc.create_task(
+                        name='vel_ref',
+                        prio=3,
+                        type=TaskType.Same,
+                        eq_task_ls=self.task_vel_ref.tolist(),
+                        eq_task_coeff=self.task_vel_ref_coeff.tolist(),
+                        time_index=[0],
+                        robot_index=[[0]],
+                    )
 
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.u_star, self.lambda_p, self.mu_p = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
             # self.y_i = copy.deepcopy(self.y)
@@ -533,17 +563,10 @@ class Node:
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             row = [self.step]
-            for i in range(st.n_nodes):
-                if i == self.node_id:
-                    continue
-                if i in self.neigh:
-                    ii = self.neigh.index(i)
-                    row.extend(self.rho_i[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_i[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                    row.extend(self.rho_j[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-                else:
-                    row.extend([None] * (self.n_xi * 4))
+            for i in range(5):
+                row.extend([self.lambda_p[i]])
+            for i in range(5):
+                row.extend([self.mu_p[i]])
             for i in range(st.n_nodes):
                 if i in self.robot_idx_global:
                     ii = self.index_global_to_local(i)

@@ -1250,9 +1250,6 @@ class HOMPCMultiRobot(HOMPC):
         d = [None] * (1 + n_prio)
 
         A[0], b[0] = self._task_dynamics_consistency()
-
-        self.solve_times['Create Problem'] += time.time() - start_time
-
         p = 1
         for k, t in enumerate(self._tasks):
             if k == 0:  # otherwise self._tasks[k-1] creates problems
@@ -1270,12 +1267,13 @@ class HOMPCMultiRobot(HOMPC):
                 C[p - 1] = np.vstack((C[p - 1], C_temp))
                 d[p - 1] = np.vstack((d[p - 1], d_temp))
 
-        # self.solve_times["Create Problem"] += time.time() - start_time
+        self.solve_times['Create Problem'] += time.time() - start_time
 
         # hqp = HierarchicalQP(solver=self.solver, hierarchical=self.hierarchical)
         start_time = time.time()
         if self.hierarchical:
-            x_star = self.hqp(A, b, C, d)
+            # x_star, z_bar, w_bar = self.hqp(A, b, C, d)
+            x_star, w_bar = self.hqp(A, b, C, d)
         else:
             we = [np.inf] + [t.eq_weight for t in self._tasks]
             wi = [np.inf] + [t.ineq_weight for t in self._tasks]
@@ -1299,7 +1297,7 @@ class HOMPCMultiRobot(HOMPC):
                         self._input_bar[c][j][k] + x_star[self._get_idx_input_k(c, j, k)]
                     )
 
-        return u_0
+        return u_0, w_bar
 
     # ======================================================================== #
 

@@ -89,6 +89,8 @@ class Node:
         )
 
         self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
+        self.lambda_p = None
+        self.mu_p = None
 
         self.filename = f'{out_dir}/node_{self.node_id}_data.csv'
         with open(self.filename, mode='w', newline='') as file:
@@ -96,18 +98,11 @@ class Node:
 
             header = ['iter']
             header.append('time')
-            # for i in range(st.n_nodes):
-            #     if i == self.node_id:
-            #         continue
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_(i{i})_p3_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_(i{i})_p4_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_({i}i)_p3_{j}')
-            #     for j in range(self.n_xi):
-            #         header.append(f'rho_({i}i)_p4_{j}')
             if st.type == 'uni':
+                for i in range(5):
+                    header.append(f'lambda_{i}')
+                for i in range(5):
+                    header.append(f'mu_{i}')
                 for i in range(st.n_nodes):
                     header.append(f'stateX_{i}')
                     header.append(f'stateY_{i}')
@@ -119,6 +114,10 @@ class Node:
                     header.append(f'stateY0_k{i}')
                     header.append(f'stateRHO0_k{i}')
             elif st.type == 'omni':
+                for i in range(5):
+                    header.append(f'lambda_{i}')
+                for i in range(5):
+                    header.append(f'mu_{i}')
                 for i in range(st.n_nodes):
                     header.append(f'stateX_{i}')
                     header.append(f'stateY_{i}')
@@ -142,7 +141,7 @@ class Node:
         self.u = RobCont(omni=None, uni=None)
         self.s_kp1 = RobCont(omni=None, uni=None)
         if st.type == 'omni':
-            self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(10 * dt)
+            self.s.omni, self.u.omni, self.s_kp1.omni = get_omnidirectional_model(1 * dt)
         elif st.type == 'uni':
             self.s.omni, self.u.omni, self.s_kp1.omni = get_unicycle_model(2 * dt)
 
@@ -256,7 +255,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = 0.9
+        self.threshold = 1.0
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -350,6 +349,11 @@ class Node:
                     robot_index=[self.robot_idx],
                 )
             elif task['name'] == 'formation':
+                if (
+                    task['agents'][0][0] not in self.robot_idx_global
+                    or task['agents'][0][1] not in self.robot_idx_global
+                ):
+                    continue
                 aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
                     self.task_formation_method(task['agents'], task['distance'])
                 )
@@ -439,7 +443,9 @@ class Node:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
             # rho_delta = 2*self.rho_i
 
-            self.u_star, s = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            self.u_star, s, self.lambda_p, self.mu_p = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
             self.state_k.append(s[0])
 
             self.counter.append(self.step)
@@ -540,50 +546,21 @@ class Node:
 
     def save_data(self):
         # TODO: partizionare vettori e mettere none
-        """if not st.save_data or self.step <= 20:
-            return
-        with open(self.filename, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            # Write the data
-            row = [self.step]
-            row.extend(self.rho_i[0, 0, :])
-            row.extend(self.rho_i[0, 1, :])
-            row.extend(self.rho_j[0, 0, :])
-            row.extend(self.rho_j[0, 1, :])
-            for s in self.s.tolist():
-                for ss in s:
-                    row.extend(ss)
-            for u in self.u_star[0]:
-                row.extend(list(u))
-
-
-            writer.writerow(row)"""
         time_round = time.time() - self.time_start
         if not st.save_data:
             return
         with open(self.filename, mode='a', newline='') as file:
             writer = csv.writer(file)
             row = [self.step_plot, time_round]
-            # row.extend(time_round)
-            # for i in range(st.n_nodes):
-            #     if i == self.node_id:
-            #         continue
-            #     if i in self.neigh:
-            #         ii = self.neigh.index(i)
-            #         row.extend(self.rho_i[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_i[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_j[0, 0, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #         row.extend(self.rho_j[0, 1, (ii * self.n_xi) : (ii + 1) * self.n_xi])
-            #     else:
-            #         row.extend([None] * (self.n_xi * 4))
+            for i in range(5):
+                row.extend([self.lambda_p[i]])
+            for i in range(5):
+                row.extend([self.mu_p[i]])
             for i in range(st.n_nodes):
-                if (self.step_plot % st.inner_loop) == 0:
-                    if i in self.robot_idx_global:
-                        ii = self.index_global_to_local(i)
-                        row.extend(self.s.omni[ii])
-                        row.extend(self.u_star[0][ii])
-                    else:
-                        row.extend([None] * 5)
+                if i in self.robot_idx_global:
+                    ii = self.index_global_to_local(i)
+                    row.extend(self.s.omni[ii])
+                    row.extend(self.u_star[0][ii])
                 else:
                     row.extend([None] * 5)
             for k in range(st.n_control):
@@ -775,17 +752,26 @@ class Node:
                 #     eq_task_coeff = task_formation_coeff,
                 # )
 
-            # aux, mapping, task_formation, task_formation_coeff = self.task_formation_method(
-            #         [[0,1]], 3
-            #     )
-            # self.hompc.create_task_bi(
-            #     name = "formation", prio = 3,
-            #     type = TaskType.Bi,
-            #     aux = aux,
-            #     mapping = self.mapping.tolist(),
-            #     eq_task_ls = task_formation,
-            #     eq_task_coeff = task_formation_coeff,
-            # )
+            for task in self.tasks:
+                if task['name'] == 'formation':
+                    if (
+                        task['agents'][0][0] not in self.robot_idx_global
+                        or task['agents'][0][1] not in self.robot_idx_global
+                    ):
+                        continue
+                    aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
+                        self.task_formation_method(task['agents'], task['distance'])
+                    )
+                    self.hompc.create_task_bi(
+                        name='formation',
+                        prio=task['prio'],
+                        type=TaskType.Bi,
+                        aux=aux,
+                        mapping=self.mapping.tolist(),
+                        eq_task_ls=task_formation,
+                        eq_task_coeff=task_formation_coeff,
+                        robot_index=f_robot_idx,
+                    )
 
             self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
@@ -843,14 +829,14 @@ class Node:
             self.hompc._tasks[:] = [
                 task
                 for task in self.hompc._tasks
-                if id_to_remove not in task.robot_index[0] or task.prio < 3
+                if id_to_remove not in task.robot_index[0] or task.name == 'input_limits'
             ]
         else:
             self.hompc._tasks[:] = [
                 task
                 for task in self.hompc._tasks
                 if id_to_remove not in task.robot_index[0]
-                or task.prio < 3
+                or task.name == 'input_limits'
                 or task.name == 'collision'
             ]
 
@@ -858,7 +844,7 @@ class Node:
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
 
         for n, task in enumerate(self.hompc._tasks):
-            if task.type == TaskType.Bi and task.prio > 2:
+            if task.type == TaskType.Bi:
                 if task.name == 'formation':
                     c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
 
@@ -899,24 +885,34 @@ class Node:
                         pos=n,
                     )
 
-            elif task.prio > 2:
-                # self.task_pos_coeff = [None for i in range(len(self.goals))]
-                # for i, g in enumerate(self.goals):
-                #     self.task_pos_coeff[i] = RobCont(
-                #         omni=[[g] for _ in range(self.n_robots.omni)],
-                #     )
-                while len(task.eq_coeff[0]) < self.n_robots.omni:
-                    task.eq_coeff[0].append([None])
+            else:
+                if task.eq_coeff is not None:
+                    # self.task_pos_coeff = [None for i in range(len(self.goals))]
+                    # for i, g in enumerate(self.goals):
+                    #     self.task_pos_coeff[i] = RobCont(
+                    #         omni=[[g] for _ in range(self.n_robots.omni)],
+                    #     )
+                    while len(task.eq_coeff[0]) < self.n_robots.omni:
+                        task.eq_coeff[0].append([None])
 
-                id = robot_idx_global_old[task.robot_index[0][0]]
-                id = self.robot_idx_global.index(id)
-                self.hompc.update_task(
-                    name=task.name,
-                    prio=task.prio,
-                    robot_index=[[id]],
-                    # eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
-                    pos=n,
-                )
+                    id = robot_idx_global_old[task.robot_index[0][0]]
+                    id = self.robot_idx_global.index(id)
+                    self.hompc.update_task(
+                        name=task.name,
+                        prio=task.prio,
+                        robot_index=[[id]],
+                        # eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
+                        pos=n,
+                    )
+                else:
+                    # inequality-only task (e.g. 'input_smooth'): no per-goal eq_coeff
+                    # remap, just refresh robot_index to the post-removal indexing.
+                    self.hompc.update_task(
+                        name=task.name,
+                        prio=task.prio,
+                        robot_index=[self.robot_idx],
+                        pos=n,
+                    )
 
         self.sender.update(self.neigh, self.y_i, self.rho_i)
         self.receiver.update(self.neigh, self.y_j, self.rho_j)

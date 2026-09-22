@@ -13,6 +13,7 @@ from matplotlib.cm import get_cmap
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 from hierarchical_optimization_mpc.voronoi_task import BoundedVoronoi
 
@@ -445,6 +446,9 @@ class Animation:
                 legend_elements.append(
                     plt.Circle([0, 0], [0.1], color='grey', alpha=0.5, label='Obstacle')
                 )
+            # legend_elements.append(
+            #     Line2D([], [], color='red', linestyle='-', linewidth=1.2,label='Future trajectory')
+            # )
 
             self.ax.legend(handles=legend_elements, loc='upper right')
 
@@ -453,9 +457,9 @@ class Animation:
         if self.artists_flags.time:
             self.fr_number = self.ax.annotate(
                 '$t = 0.00 \, s$',
-                (0, 1),
+                (1, 0),
                 xycoords='axes fraction',
-                xytext=(10, -10),
+                xytext=(-80, 15),
                 fontsize=self.textsize,
                 textcoords='offset points',
                 ha='left',
@@ -659,7 +663,7 @@ class Animation:
                     y = x_future[c][j, :, 1]
 
                     self.artists.future_trajectory[cnt] = plt.plot(
-                        x, y, linestyle='-', color='black', alpha=0.3
+                        x, y, linestyle='-', color='red', alpha=0.3
                     )[0]
                     cnt += 1
 
@@ -771,6 +775,8 @@ def plot_distances(
     dt: float,
     d_min: float = None,
     filename: str = 'distances.pdf',
+    to_obj: bool = False,
+    form: bool = False,
 ):
     init_matplotlib()
     [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
@@ -789,18 +795,329 @@ def plot_distances(
     fig = plt.figure(figsize=(x_size_def, y_size_def / 2))
     ax = plt.gca()
 
+    pairwise_distances = []
+    dist_to_obj = []
     for i, j in itertools.combinations(range(sum(n_j)), 2):
-        ax.plot(
-            np.arange(0, n_k * dt, dt),
-            np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1),
+        # ax.plot(
+        #     np.arange(0, n_k * dt, dt),
+        #     np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1),
+        # )
+        pairwise_distances.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1)
         )
+        dist_to_obj.append(np.maximum(np.linalg.norm(x_hist[:, i] - np.array([0, 8]), axis=1), 0.1))
+        dist_to_obj.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - np.array([0, -8]), axis=1), 0.1)
+        )
+
+    # Shape: (num_pairs, num_timesteps)
+    pairwise_distances = np.vstack(pairwise_distances)
+    # Minimum distance at each time step across all agent pairs
+    min_distance_per_timestep = np.min(pairwise_distances, axis=0)
+
+    ax.plot(np.arange(0, n_k * dt, dt), min_distance_per_timestep, linewidth=1.3, color='#0072BD')
+
+    if to_obj:
+        # Shape: (num_pairs, num_timesteps)
+        dist_to_obj = np.vstack(dist_to_obj)
+        # Minimum distance at each time step across all agent pairs
+        min_distance_to_obj_per_timestep = np.min(dist_to_obj, axis=0) - 5.5
+        ax11 = ax.twinx()  # second y-axis on the right
+
+        ax11.plot(
+            np.arange(0, n_k * dt, dt),
+            min_distance_to_obj_per_timestep,
+            linewidth=1.1,
+            label='dist to object',
+            linestyle='-',
+            color='r',  ##0072BD'
+        )
+        ax11.set_ylabel('Object distance [$m$]', color='r')
+        ax11.tick_params(axis='y', labelcolor='r')
+
+    if form:
+        ax11 = ax.twinx()  # second y-axis on the right
+        s_matrix = np.zeros((x_hist.shape[0], 9, 9))
+        s_matrix[0] = np.array(
+            [
+                [0, 1, 0, 0, 0, 0, 0, 1, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 1, 0, 0, 0, 0, 1],
+                [0, 0, 1, 0, 1, 0, 0, 0, 1],
+                [0, 0, 0, 1, 0, 1, 0, 0, 1],
+                [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                [0, 0, 0, 0, 0, 1, 0, 1, 1],
+                [1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 0],
+            ]
+        )
+        for i in range(n_j[0]):
+            for j in range(n_j[0]):
+                if s_matrix[0, i, j] != 0:
+                    s_matrix[:, i, j] = np.maximum(
+                        np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1
+                    )
+        f_score = shape_similarity(s_matrix)
+        ax11.plot(
+            np.arange(0, n_k * dt, dt),
+            f_score,
+            label='Shape-similarity',
+            color='#D95319',
+            linestyle='--',
+            linewidth=1.1,
+        )
+        # ax11.set_ylabel("$\frac{||D-D*||_f}{||D*||_f}$")
+        ax11.set_ylabel('$S_f$', color='#D95319')
+        ax11.tick_params(axis='y', labelcolor='#D95319')
 
     if d_min is not None:
         ax.axhspan(0, d_min, color='red', alpha=0.25)
+        # ax.axhline(d_min, color='green', alpha=0.25, label='d_min')
+        # ax.text(
+        # -0.01,
+        # d_min,
+        # "\n safety \n distance",
+        # transform=ax.get_yaxis_transform(),
+        # va="center",
+        # ha="right",
+        # clip_on=False,
+        # color='g',
+        # size='x-small',
+        # alpha=0.4
+        # )
 
     ax.set(xlim=[0.0, dt * n_k])
     ax.set_ylim(ymin=0)
+    # ax11.set_ylim(ymin=-0.05)
+    # ax.axhline(d_min, color='green', alpha=0.25, label='d_min')
     ax.set_xlabel('Time [$s$]')
-    ax.set_ylabel('Inter-robot dist. [$m$]')
+    # ax.set_ylabel('Object distance [$m$]', color='#0072BD')
+    ax.set_ylabel('Min. inter-robot \n dist. [$m$]', color='#0072BD')
+    # ax.yaxis.set_label_coords(-0.12, 0.35)
+    ax.tick_params(axis='y', labelcolor='#0072BD')
 
     plt.savefig(filename, bbox_inches='tight', format='pdf')
+
+
+def plot_distances2(
+    s_history,
+    dt: float,
+    d_min: float = None,
+    filename: str = 'distances.pdf',
+    to_obj: bool = False,
+    form: bool = False,
+    slack: list = None,
+):
+    # Collect unique colors and their labels from all segments
+    color_labels = {
+        '#77AC30': '0$\leq$v$<$7',
+        '#EDB120': '7$\leq$v$<$30',
+        '#D95319': 'v$\geq$30',
+        # adjust to match your actual colors
+    }
+    init_matplotlib()
+    [x_size_def, y_size_def] = plt.rcParams.get('figure.figsize')
+
+    n_k = len(s_history)
+    n_c = len(s_history[0])
+    n_j = [len(s_history[0][c]) for c in range(n_c)]
+    n_coord = 2
+
+    x_hist = np.zeros([n_k, sum(n_j), n_coord])
+
+    # slack
+    l_hist = slack[0]
+    m_hist = slack[1]
+    slack_v = [l_hist[0], m_hist[1], m_hist[2], l_hist[3], l_hist[4]]
+
+    for k, c in np.ndindex(n_k, n_c):
+        for j in range(n_j[c]):
+            x_hist[k, sum(n_j[:c]) + j] = s_history[k][c][j][:n_coord]
+
+    fig = plt.figure(figsize=(x_size_def, y_size_def / 2))
+    fig, (ax2, ax) = plt.subplots(2, sharex=True, gridspec_kw={'height_ratios': [0.3, 0.5]})
+
+    pairwise_distances = []
+    dist_to_obj = []
+    for i, j in itertools.combinations(range(sum(n_j)), 2):
+        pairwise_distances.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1)
+        )
+        dist_to_obj.append(
+            np.maximum(np.linalg.norm(x_hist[:, i] - np.array([5.50, 4.50]), axis=1), 0.0)
+        )
+        # dist_to_obj.append(np.maximum(np.linalg.norm(x_hist[:, i] - np.array([0,-8]), axis=1), 0.1))
+
+    # Shape: (num_pairs, num_timesteps)
+    pairwise_distances = np.vstack(pairwise_distances)
+    # Minimum distance at each time step across all agent pairs
+
+    if to_obj:
+        # Shape: (num_pairs, num_timesteps)
+        dist_to_obj = np.vstack(dist_to_obj) - 1.97
+        # Minimum distance at each time step across all agent pairs
+        min_distance_to_obj_per_timestep = np.min(dist_to_obj, axis=0)
+        # ax11 = ax.twinx()  # second y-axis on the right
+
+        ax.plot(
+            np.arange(0, n_k * dt, dt),
+            min_distance_to_obj_per_timestep,
+            linewidth=1.1,
+            label='dist to object',
+            linestyle='-',
+            color='#0072BD',
+        )
+        ax.set_ylabel('Object distance [$m$]', color='#0072BD')
+        ax.tick_params(axis='y', labelcolor='#0072BD')
+
+    if form:
+        ax11 = ax.twinx()  # second y-axis on the right
+        s_matrix = np.zeros((x_hist.shape[0], 9, 9))
+        s_matrix[0] = np.array(
+            [
+                [0, 1, 0, 0, 0, 0, 0, 1, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 1, 0, 0, 0, 0, 1],
+                [0, 0, 1, 0, 1, 0, 0, 0, 1],
+                [0, 0, 0, 1, 0, 1, 0, 0, 1],
+                [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                [0, 0, 0, 0, 0, 1, 0, 1, 1],
+                [1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 0],
+            ]
+        )
+        for i in range(n_j[0]):
+            for j in range(n_j[0]):
+                if s_matrix[0, i, j] != 0:
+                    s_matrix[:, i, j] = np.maximum(
+                        np.linalg.norm(x_hist[:, i] - x_hist[:, j], axis=1), 0.1
+                    )
+        f_score = shape_similarity(s_matrix)
+        ax11.plot(
+            np.arange(0, n_k * dt, dt),
+            f_score,
+            label='Shape-similarity',
+            color='#D95319',
+            linestyle='--',
+            linewidth=1.1,
+        )
+        # ax11.set_ylabel("$\frac{||D-D*||_f}{||D*||_f}$")
+        ax11.set_ylabel('$S_f$', color='#D95319')
+        ax11.tick_params(axis='y', labelcolor='#D95319')
+
+    ax.set(xlim=[0.0, dt * n_k])
+    ax.set_ylim(ymin=0)
+    ax11.set_ylim(ymin=0.0)
+    ax.set_xlabel('Time [$s$]')
+    ax.set_ylabel('Object distance [$m$]', color='#0072BD')
+    # ax.set_ylabel('Min. inter-robot dist. [$m$]', color='#0072BD')
+    # ax.yaxis.set_label_coords(-0.12, 0.35)
+    ax.tick_params(axis='y', labelcolor='#0072BD')
+
+    segments = []
+    colors = []
+
+    bar_height = 0.05
+    gap = 0.05
+    n_rows = len(slack_v)
+
+    for row_idx, arr in enumerate(slack_v):
+        row_y = (n_rows - 1 - row_idx) * (bar_height + gap)  # invert y position
+        segments = build_segments(arr)
+
+        y = row_idx * (bar_height + gap)
+
+        for start, width, color in segments:
+            ax2.broken_barh([(start * dt, width * dt)], (row_y, bar_height), facecolors=color)
+
+    ax2.set_yticks([(n_rows - 1 - i) * (bar_height + gap) + bar_height / 2 for i in range(n_rows)])
+    ax2.set_yticklabels([f'$p_{i}$' for i in range(n_rows)])
+
+    # ax2.set_yticklabels([f"$p_{i}$" for i in range(len(l_hist))])
+    # ax2.set(xlim=[0.0, dt * n_k])
+    ax2.set_xlabel('Time [$s$]')
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['left'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+
+    # legend_handles = [Patch(facecolor=c, label=l) for c, l in color_labels.items()]
+
+    # ax2.legend(
+    #     handles=legend_handles,
+    #     loc='right',
+    #     #bbox_to_anchor=(0.5, 1.2),   # pushes legend above the subplot
+    #     ncol=len(legend_handles),
+    #     frameon=False,
+    #     fontsize=10,
+    # )
+    # Match these to whatever build_segments returns
+    legend_handles = [
+        Patch(facecolor='#77AC30', label='$0 \leq v < 7$'),
+        Patch(facecolor='#EDB120', label='$7 \leq v < 30$'),
+        Patch(facecolor='#D95319', label='$v \geq 30$'),
+    ]
+
+    ax2.legend(
+        handles=legend_handles,
+        loc='center left',
+        bbox_to_anchor=(1.01, 0.5),  # just outside the right edge of ax2
+        frameon=False,
+        fontsize=10,
+    )
+
+    # plt.tight_layout()
+    fig.subplots_adjust(hspace=0.01)
+    fig.autofmt_xdate()
+
+    plt.savefig(filename, bbox_inches='tight', format='pdf')
+
+
+def shape_similarity(M):
+    Md = np.array(
+        [
+            [0, 3.84, 0, 0, 0, 0, 0, 3.84, 5.0],
+            [3.84, 0, 3.84, 0, 0, 0, 0, 0, 5.0],
+            [0, 3.84, 0, 3.84, 0, 0, 0, 0, 5.0],
+            [0, 0, 3.84, 0, 3.84, 0, 0, 0, 5.0],
+            [0, 0, 0, 3.84, 0, 3.84, 0, 0, 5.0],
+            [0, 0, 0, 0, 3.84, 0, 3.84, 0, 5.0],
+            [0, 0, 0, 0, 0, 3.84, 0, 3.84, 5.0],
+            [3.84, 0, 0, 0, 0, 0, 3.84, 0, 5.0],
+            [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 0],
+        ]
+    )
+    return np.linalg.norm(M[:] - Md, 'fro', axis=(1, 2)) / (np.linalg.norm(Md, 'fro'))
+
+
+def value_to_color(v):
+    if v <= 7 and v >= 0:
+        return '#77AC30'
+    elif v <= 30 and v > 7:
+        return '#EDB120'
+    elif v > 30:
+        return '#D95319'
+    elif v <= -3:
+        return 'black'
+
+
+def build_segments(arr):
+    """
+    Convert array -> [(start, width, color), ...]
+    by grouping consecutive same-color values.
+    """
+    segments = []
+
+    start = 0
+    current_color = value_to_color(arr[0])
+
+    for i in range(1, len(arr)):
+        c = value_to_color(arr[i])
+        if c != current_color:
+            segments.append((start, i - start, current_color))
+            start = i
+            current_color = c
+
+    # last segment
+    segments.append((start, len(arr) - start, current_color))
+
+    return segments

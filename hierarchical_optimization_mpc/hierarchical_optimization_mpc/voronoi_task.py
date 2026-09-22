@@ -92,7 +92,7 @@ def main():
     # np.random.seed(1)
     n_towers = 100
     towers = np.random.rand(n_towers, 2)
-    bounding_box = np.array([0, 1, 0, 1])  # [x_min, x_max, y_min, y_max]
+    bounding_box = np.array([-20, 20, -20, 20])  # [x_min, x_max, y_min, y_max]
 
     b_vor = BoundedVoronoi(towers, bounding_box)
 

@@ -256,9 +256,9 @@ class Node:
 
         # =====================Collision Avoidance=================================== #
         if st.scenario == 'uniform':
-            self.threshold = 1.65
+            self.threshold = 1.6 + st.v_max * st.dt
         else:
-            self.threshold = 1.65
+            self.threshold = 1.6 + st.v_max * st.dt
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(

@@ -198,6 +198,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'wall_time_s': time_elapsed,
         'solve_time_s': None,
         'min_distance': min_distance,
+        'enforced_safety_distance': 2 * st.orca_radius,
         'supports_priority': False,
         'supports_formation': False,
     }

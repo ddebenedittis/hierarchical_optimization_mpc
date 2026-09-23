@@ -661,6 +661,12 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'wall_time_s': time_elapsed,
         'solve_time_s': tot_solve,
         'min_distance': min_distance,
+        # dHQP's own collision threshold (1.6 + v_max*dt, see node.py) is
+        # deliberately kept above the shared canonical `d_safe` to absorb its
+        # per-step velocity-induced tracking error -- not overridden by the
+        # comparison harness, reported here so the extra margin is explicit
+        # in the KPI tables instead of silently reporting the canonical value.
+        'enforced_safety_distance': nodes[0].threshold,
         'supports_priority': True,
         'supports_formation': True,
         'supports_per_agent_priority': True,

@@ -16,7 +16,7 @@ inner_loop = 1  # number of inner loop of the distributed algorithm
 # other baselines' per-step `communication_range` filter, but here it
 # actually adds/removes tasks via `Node.create_connection`/`remove_connection`
 # instead of just gating a force term.
-communication_range = 5
+communication_range = 6
 neighbor_limit = 3  # connect to at most this many closest agents within range
 
 v_max = 1.4

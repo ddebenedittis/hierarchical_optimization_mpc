@@ -16,7 +16,7 @@ radius = 6.0  # circle radius for the radial start/goal layout
 dt = 0.03
 n_steps = 1200  # 60 s cap -- generous enough for every method to converge
 
-communication_range = 4  # > 2 * radius: every agent senses every other agent
+communication_range = 6  # > 2 * radius: every agent senses every other agent
 neighbor_limit = (
     2  # limit the number of neighbors to this many closest agents if possible (so in dhqp)
 )
@@ -39,6 +39,21 @@ formation_pairs = [(0, 1, d_form)]  # (agent_a, agent_b, target_distance)
 # `build_radial_configuration(..., layout='random', ...)` in each method's
 # `network_simulation.py`.
 min_spawn_distance = 1.5 * d_safe
+
+
+def _build_symmetric_layout(n_nodes: int, radius: float, seed: int):
+    """Evenly-spaced radial layout ('uniform'/'priority_conflict' scenarios),
+    rigidly rotated by a random offset drawn from `seed`. Agents stay exactly
+    evenly spaced (same relative geometry as the old fixed layout) -- only
+    where the first agent (and hence, since goal = -start, its antipodal
+    endpoint) sits on the circumference changes with the seed.
+    """
+    rng = np.random.default_rng(seed)
+    rotation = rng.uniform(0.0, 2 * np.pi)
+    thetas = rotation + 2 * np.pi * np.arange(n_nodes) / n_nodes
+    starts = [radius * np.array([np.cos(t), np.sin(t)]) for t in thetas]
+    goals = [-s for s in starts]
+    return starts, goals
 
 
 def _build_asymmetric_layout(
@@ -80,12 +95,6 @@ def _build_asymmetric_layout(
     goals = [-s for s in starts]
     return starts, goals
 
-
-# The single canonical 'asymmetric'-scenario start/goal layout, computed
-# once at import time and handed to every method identically -- see
-# `_build_asymmetric_layout`'s docstring for why each method can't just be
-# trusted to (re)generate this on its own.
-asymmetric_starts, asymmetric_goals = _build_asymmetric_layout(n_nodes, radius, min_spawn_distance)
 
 scenarios = ['uniform', 'asymmetric', 'priority_conflict']
 

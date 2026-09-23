@@ -20,9 +20,12 @@ Run with:
     python3 src/distributed_ho_mpc/distributed_ho_mpc/scenarios/comparison/run_comparison.py
 """
 
+import argparse
 import csv
 import importlib
+import multiprocessing
 import os
+import statistics
 import traceback
 from datetime import datetime
 
@@ -34,8 +37,10 @@ import distributed_ho_mpc.scenarios.comparison.settings as cst
 # (method_key, package path, whether it's expected to run cleanly right now)
 METHODS = [
     ('potential_field', 'distributed_ho_mpc.scenarios.potential_field'),
+    ('distributed_qp', 'distributed_ho_mpc.scenarios.distributed_qp'),
     ('cbf_qp', 'distributed_ho_mpc.scenarios.cbf_qp'),
     ('nh_orca', 'distributed_ho_mpc.scenarios.nh_orca_radial_switching'),
+    ('orca', 'distributed_ho_mpc.scenarios.orca_radial_switching'),
     # ('centralized_hqp', 'distributed_ho_mpc.scenarios.centralized_radial_switching'),
     ('dhqp', 'distributed_ho_mpc.scenarios.dhqp_radial_switching'),
 ]
@@ -52,6 +57,30 @@ ATTR_MAP = {
         'd_safe',
         'd_form',
         'goal_tol',
+        'min_spawn_distance',
+    ],
+    'orca': [
+        'n_nodes',
+        'dt',
+        'n_steps',
+        'communication_range',
+        'v_max',
+        'radius',
+        'goal_tol',
+        'min_spawn_distance',
+    ],
+    'distributed_qp': [
+        'n_nodes',
+        'dt',
+        'n_steps',
+        'communication_range',
+        'v_max',
+        'radius',
+        'd_safe',
+        'd_form',
+        'goal_tol',
+        'n_control',
+        'n_pred',
         'min_spawn_distance',
     ],
     'cbf_qp': [
@@ -154,12 +183,33 @@ CAPABILITIES = {
         ),
         'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
     },
+    'distributed_qp': {
+        'strict_priority': False,
+        'per_agent_priority': False,
+        'formation_tasks': True,
+        'retuning_to_change_priority': 'Yes -- hand-tune 2 weights per agent (w_goal/w_form)',
+        'training_cost': 'N/A -- no training, exact optimization',
+        'safety_guarantee_type': (
+            'hard constraint (CBF-QP collision/velocity limits solved exactly; only '
+            'the goal/formation trade-off is a soft weighted cost)'
+        ),
+        'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
+    },
     'nh_orca': {
         'strict_priority': False,
         'per_agent_priority': False,
         'formation_tasks': False,
         'retuning_to_change_priority': 'N/A -- cannot express a formation/coupling task at all',
         'training_cost': 'N/A -- no training, hand-tuned NH-ORCA parameters only',
+        'safety_guarantee_type': 'geometric reciprocity (exact, given shared radius)',
+        'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
+    },
+    'orca': {
+        'strict_priority': False,
+        'per_agent_priority': False,
+        'formation_tasks': False,
+        'retuning_to_change_priority': 'N/A -- cannot express a formation/coupling task at all',
+        'training_cost': 'N/A -- no training, hand-tuned ORCA parameters only',
         'safety_guarantee_type': 'geometric reciprocity (exact, given shared radius)',
         'generalizes_to_unseen_n_agents': 'Yes -- re-parametrized directly, no retraining needed',
     },
@@ -198,7 +248,7 @@ CAPABILITIES = {
 }
 
 
-def _apply_canonical_settings(settings_module, method_key, scenario):
+def _apply_canonical_settings(settings_module, method_key, scenario, seed: int):
     for attr in ATTR_MAP[method_key]:
         setattr(settings_module, attr, getattr(cst, attr))
     if hasattr(settings_module, 'scenario'):
@@ -209,24 +259,35 @@ def _apply_canonical_settings(settings_module, method_key, scenario):
         # d_safe is the shared measurement threshold; epsilon is nh_orca's own extra
         # conservative buffer (kept at the method's own default, not overridden), so the
         # enforced diameter 2*orca_radius = d_safe + 2*epsilon stays strictly above d_safe.
+        # The 1.5 shown as "safety" everywhere is still the shared canonical d_safe; this
+        # method's real extra margin is reported explicitly via `enforced_safety_distance_m`/
+        # `safety_margin_extra_m` in the KPI table rather than hidden in the constraint.
         settings_module.orca_radius = (cst.d_safe + 2 * settings_module.epsilon) / 2.0
         settings_module.orca_max_speed = cst.v_max
+    elif method_key == 'orca':
+        # Plain ORCA has no epsilon/margin concept of its own -- align it to the
+        # shared canonical d_safe directly (0 extra margin).
+        settings_module.orca_radius = cst.d_safe / 2.0
+        settings_module.orca_max_speed = cst.v_max
 
-    # Hand every method the SAME random start/goal layout for the
-    # 'asymmetric' scenario (see `cst._build_asymmetric_layout`), instead of
-    # letting each method's own `network_simulation.run()` draw its own
-    # random layout -- those disagree across methods even when each seeds
-    # `np.random` the same way, since they differ in sampling algorithm and
-    # in how many RNG draws happen before the layout is built. Reset to None
-    # for the other scenarios since settings modules are cached across the
-    # scenario loop in `run_all()` and would otherwise leak a stale
-    # asymmetric layout into a later 'uniform'/'priority_conflict' run.
+    # Hand every method the SAME start/goal layout for the given (scenario,
+    # seed) pair (see `cst._build_asymmetric_layout` /
+    # `cst._build_symmetric_layout`), instead of letting each method's own
+    # `network_simulation.run()` draw its own layout -- those disagree
+    # across methods even when each seeds `np.random` the same way, since
+    # they differ in sampling algorithm and in how many RNG draws happen
+    # before the layout is built. Every scenario is now seed-dependent:
+    # 'asymmetric' draws a fully independent random layout per agent,
+    # 'uniform'/'priority_conflict' keep the evenly-spaced formation but
+    # rotate it by a seeded random offset.
     if scenario == 'asymmetric':
-        settings_module.fixed_starts = [np.array(p) for p in cst.asymmetric_starts]
-        settings_module.fixed_goals = [np.array(g) for g in cst.asymmetric_goals]
+        starts, goals = cst._build_asymmetric_layout(
+            cst.n_nodes, cst.radius, cst.min_spawn_distance, seed=seed
+        )
     else:
-        settings_module.fixed_starts = None
-        settings_module.fixed_goals = None
+        starts, goals = cst._build_symmetric_layout(cst.n_nodes, cst.radius, seed=seed)
+    settings_module.fixed_starts = [np.array(p) for p in starts]
+    settings_module.fixed_goals = [np.array(g) for g in goals]
 
 
 def _converged(
@@ -277,15 +338,15 @@ def _converged(
     return others_ok and formation_ok
 
 
-def _run_one(method_key: str, module_path: str, scenario: str):
+def _run_one(method_key: str, module_path: str, scenario: str, seed: int):
     settings_module = importlib.import_module(f'{module_path}.settings')
-    _apply_canonical_settings(settings_module, method_key, scenario)
+    _apply_canonical_settings(settings_module, method_key, scenario, seed)
 
     sim_module = importlib.import_module(f'{module_path}.network_simulation')
     return sim_module.run(out_dir=None, make_plots=False)
 
 
-def _compute_kpis(method_key: str, scenario: str, result: dict) -> dict:
+def _compute_kpis(method_key: str, scenario: str, seed: int, result: dict) -> dict:
     s_history = result['s_history']
     goals = np.array(result['goals'])
     dt = result['dt']
@@ -303,6 +364,7 @@ def _compute_kpis(method_key: str, scenario: str, result: dict) -> dict:
     return {
         'method': method_key,
         'scenario': scenario,
+        'seed': seed,
         'status': 'ok',
         'converged': converged,
         'time_to_goal_s': round(last_step * dt, 2) if converged else None,
@@ -311,6 +373,14 @@ def _compute_kpis(method_key: str, scenario: str, result: dict) -> dict:
         'safety_margin_ok': bool(result['min_distance'] >= cst.d_safe - 1e-6),
         'enforced_safety_distance_m': round(
             float(result.get('enforced_safety_distance', cst.d_safe)), 3
+        ),
+        # How much above the shared canonical `d_safe` this method's own
+        # constraint actually enforces -- 0 for methods that use `d_safe`
+        # directly (potential_field/cbf_qp/distributed_qp/nh_orca/orca);
+        # dHQP's own hardcoded velocity margin shows up here too, explicit
+        # rather than silently folded into a per-method threshold.
+        'safety_margin_extra_m': round(
+            float(result.get('enforced_safety_distance', cst.d_safe)) - cst.d_safe, 3
         ),
         'formation_pair_distance_m': round(formation_dist, 3),
         'formation_error_m': round(abs(formation_dist - d_form), 3),
@@ -360,7 +430,113 @@ def _write_table(rows: list[dict], out_dir: str):
     print(f'KPI table written to {out_dir}/kpi_table.{{csv,md}}')
 
 
-def run_all(out_dir: str | None = None) -> list[dict]:
+def _error_row(method_key: str, scenario: str, seed: int, exc: Exception) -> dict:
+    return {
+        'method': method_key,
+        'scenario': scenario,
+        'seed': seed,
+        'status': f'ERROR: {type(exc).__name__}: {exc}',
+        'converged': None,
+        'time_to_goal_s': None,
+        'normalized_time_to_goal': None,
+        'min_distance_m': None,
+        'safety_margin_ok': None,
+        'enforced_safety_distance_m': None,
+        'safety_margin_extra_m': None,
+        'formation_pair_distance_m': None,
+        'formation_error_m': None,
+        'goal_error_agent_a_m': None,
+        'goal_error_agent_b_m': None,
+        'wall_time_s': None,
+        'solve_time_s': None,
+        'strict_priority': CAPABILITIES[method_key]['strict_priority'],
+        'per_agent_priority': CAPABILITIES[method_key]['per_agent_priority'],
+        'formation_tasks': CAPABILITIES[method_key]['formation_tasks'],
+        'retuning_to_change_priority': CAPABILITIES[method_key]['retuning_to_change_priority'],
+        'training_cost': CAPABILITIES[method_key]['training_cost'],
+        'safety_guarantee_type': CAPABILITIES[method_key]['safety_guarantee_type'],
+        'generalizes_to_unseen_n_agents': CAPABILITIES[method_key][
+            'generalizes_to_unseen_n_agents'
+        ],
+    }
+
+
+def _run_job(job: tuple[str, str, str, int]):
+    """Run one (method, scenario, seed) job. Must be a module-level function
+    (not a closure) so it can be pickled for `multiprocessing.Pool`.
+
+    Returns `(kpi_row, plot_data)`, where `plot_data` is `(s_history, dt)`
+    for `seed == 0` (used for the one representative overlay plot per
+    scenario) and `None` otherwise, to avoid shipping every seed's full
+    trajectory back through the process pool.
+    """
+    method_key, module_path, scenario, seed = job
+    print(f'\n=== Running {method_key} / {scenario} / seed={seed} ===')
+    try:
+        result = _run_one(method_key, module_path, scenario, seed)
+        kpi_row = _compute_kpis(method_key, scenario, seed, result)
+        plot_data = (result['s_history'], result['dt']) if seed == 0 else None
+        return kpi_row, plot_data
+    except Exception as exc:  # noqa: BLE001 -- keep the whole comparison alive
+        traceback.print_exc()
+        return _error_row(method_key, scenario, seed, exc), None
+
+
+NUMERIC_KPI_COLUMNS = [
+    'time_to_goal_s',
+    'normalized_time_to_goal',
+    'min_distance_m',
+    'enforced_safety_distance_m',
+    'safety_margin_extra_m',
+    'formation_error_m',
+    'goal_error_agent_a_m',
+    'goal_error_agent_b_m',
+    'wall_time_s',
+    'solve_time_s',
+]
+
+
+def _write_summary_md(rows: list[dict], out_dir: str):
+    """One Markdown table per scenario: mean +/- std of every numeric KPI
+    across seeds, grouped by method."""
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for row in rows:
+        groups.setdefault((row['scenario'], row['method']), []).append(row)
+
+    lines = ['# Mean +/- std over seeds']
+    for scenario in cst.scenarios:
+        lines.append(f'\n## {scenario}\n')
+        header = ['method', 'n_seeds', 'converged_rate'] + NUMERIC_KPI_COLUMNS
+        lines.append('| ' + ' | '.join(header) + ' |')
+        lines.append('| ' + ' | '.join(['---'] * len(header)) + ' |')
+        for method_key, _ in METHODS:
+            group = groups.get((scenario, method_key), [])
+            ok_rows = [r for r in group if r['status'] == 'ok']
+            converged_rate = (
+                f'{sum(1 for r in ok_rows if r["converged"]) / len(ok_rows):.2f}'
+                if ok_rows
+                else 'n/a'
+            )
+            cells = [method_key, str(len(group)), converged_rate]
+            for col in NUMERIC_KPI_COLUMNS:
+                values = [r[col] for r in ok_rows if r.get(col) is not None]
+                if values:
+                    mean = statistics.mean(values)
+                    std = statistics.pstdev(values) if len(values) > 1 else 0.0
+                    cells.append(f'{mean:.3f} +/- {std:.3f}')
+                else:
+                    cells.append('n/a')
+            lines.append('| ' + ' | '.join(cells) + ' |')
+
+    md = '\n'.join(lines) + '\n'
+    with open(f'{out_dir}/summary_mean_std.md', 'w') as f:
+        f.write(md)
+    print(f'\nMean/std summary written to {out_dir}/summary_mean_std.md')
+
+
+def run_all(
+    out_dir: str | None = None, n_seeds: int = 15, workers: int | None = None
+) -> list[dict]:
     if out_dir is None:
         try:
             from ament_index_python.packages import get_package_share_directory
@@ -371,66 +547,42 @@ def run_all(out_dir: str | None = None) -> list[dict]:
         out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-comparison/'
     os.makedirs(out_dir, exist_ok=True)
 
-    rows = []
-    raw_results = {}
+    jobs = [
+        (method_key, module_path, scenario, seed)
+        for scenario in cst.scenarios
+        for method_key, module_path in METHODS
+        for seed in range(n_seeds)
+    ]
 
-    for scenario in cst.scenarios:
-        for method_key, module_path in METHODS:
-            print(f'\n=== Running {method_key} / {scenario} ===')
-            try:
-                result = _run_one(method_key, module_path, scenario)
-                raw_results[(method_key, scenario)] = result
-                rows.append(_compute_kpis(method_key, scenario, result))
-            except Exception as exc:  # noqa: BLE001 -- keep the whole comparison alive
-                traceback.print_exc()
-                rows.append(
-                    {
-                        'method': method_key,
-                        'scenario': scenario,
-                        'status': f'ERROR: {type(exc).__name__}: {exc}',
-                        'converged': None,
-                        'time_to_goal_s': None,
-                        'normalized_time_to_goal': None,
-                        'min_distance_m': None,
-                        'safety_margin_ok': None,
-                        'enforced_safety_distance_m': None,
-                        'formation_pair_distance_m': None,
-                        'formation_error_m': None,
-                        'goal_error_agent_a_m': None,
-                        'goal_error_agent_b_m': None,
-                        'wall_time_s': None,
-                        'solve_time_s': None,
-                        'strict_priority': CAPABILITIES[method_key]['strict_priority'],
-                        'per_agent_priority': CAPABILITIES[method_key]['per_agent_priority'],
-                        'formation_tasks': CAPABILITIES[method_key]['formation_tasks'],
-                        'retuning_to_change_priority': CAPABILITIES[method_key][
-                            'retuning_to_change_priority'
-                        ],
-                        'training_cost': CAPABILITIES[method_key]['training_cost'],
-                        'safety_guarantee_type': CAPABILITIES[method_key]['safety_guarantee_type'],
-                        'generalizes_to_unseen_n_agents': CAPABILITIES[method_key][
-                            'generalizes_to_unseen_n_agents'
-                        ],
-                    }
-                )
+    with multiprocessing.Pool(processes=workers or os.cpu_count()) as pool:
+        job_results = pool.map(_run_job, jobs)
+
+    rows = [kpi_row for kpi_row, _ in job_results]
+    raw_results = {
+        (job[0], job[2]): plot_data
+        for job, (_, plot_data) in zip(jobs, job_results)
+        if plot_data is not None
+    }
 
     _write_table(rows, out_dir)
+    _write_summary_md(rows, out_dir)
 
     a, b, _ = cst.formation_pairs[0]
     for scenario in cst.scenarios:
         plt.figure(figsize=(9, 5))
         for method_key, _ in METHODS:
-            result = raw_results.get((method_key, scenario))
-            if result is None:
+            plot_data = raw_results.get((method_key, scenario))
+            if plot_data is None:
                 continue
-            t, dist = _pairwise_history(result['s_history'], a, b, result['dt'])
+            s_history, dt = plot_data
+            t, dist = _pairwise_history(s_history, a, b, dt)
             plt.plot(t, dist, label=method_key)
         plt.axhline(y=cst.d_safe, color='red', lw=1.5, linestyle='--', label='collision threshold')
         if scenario == 'priority_conflict':
             plt.axhline(
                 y=cst.d_form, color='green', lw=1.5, linestyle='--', label='formation target'
             )
-        plt.title(f'Agents {a}-{b} distance over time -- {scenario}')
+        plt.title(f'Agents {a}-{b} distance over time -- {scenario} (seed 0)')
         plt.xlabel('Time [s]')
         plt.ylabel('Distance [m]')
         plt.legend()
@@ -445,7 +597,14 @@ def run_all(out_dir: str | None = None) -> list[dict]:
 
 
 def main():
-    run_all()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--seeds', type=int, default=15, help='Number of seeds to run (0..N-1).')
+    parser.add_argument(
+        '--workers', type=int, default=None, help='Worker processes (default: all CPU cores).'
+    )
+    parser.add_argument('--out-dir', type=str, default=None, help='Output directory.')
+    args = parser.parse_args()
+    run_all(out_dir=args.out_dir, n_seeds=args.seeds, workers=args.workers)
 
 
 if __name__ == '__main__':

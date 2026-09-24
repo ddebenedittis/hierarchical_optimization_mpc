@@ -258,7 +258,6 @@ def run(out_dir: str | None = None, make_plots: bool = True, episode: dict | Non
     system_tasks = {
         f'agent_{ag}': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
             {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'obstacle_avoidance'},
             {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
@@ -692,7 +691,7 @@ def main():
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     scenario_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(scenario_dir, 'scene_info_0916-1427.json')
+    json_path = os.path.join(scenario_dir, 'scene_info_0924-1139.json')
 
     episodes = load_episodes(json_path)
 

@@ -9,7 +9,8 @@ import numpy as np
 from scipy.special import binom
 
 from distributed_ho_mpc.ho_mpc.hierarchical_qp_copy import HierarchicalQP, QPSolver
-from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, subs
+from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, cached_function
+from distributed_ho_mpc.ho_mpc.ho_mpc import subs_cached as subs
 from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 np.set_printoptions(threshold=np.inf)
@@ -1271,6 +1272,19 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
 
+        # The symbolic Jacobians below depend only on the task and on which robot
+        # (first or second of the pair) is differentiated, never on the numeric
+        # point, so each one is compiled once and re-evaluated (see
+        # `cached_function`). Building them inline, as this used to, redid
+        # ca.jacobian + ca.Function for every task, pair and timestep of every step.
+        def mapped(c: int, j: int):
+            fun = cached_function(
+                ('map', id(t.mapping[c]), id(self._states[c]), id(self._inputs[c])),
+                (t.mapping[c], self._states[c], self._inputs[c]),
+                lambda: ca.Function('f', [self._states[c], self._inputs[c]], [t.mapping[c]]),
+            )
+            return fun(self._state_bar[c][j][k + 1], self._input_bar[c][j][ki]).full()
+
         def J_f_var(self, task_ls: ca.SX, ci: int, ji: int, derivating_var: ca.SX):
             """Return jacobian(task_ls, derivating_var) computed in x_bar, u_bar."""
             if ci == c0 and ji == j0:
@@ -1278,59 +1292,45 @@ class HOMPCMultiRobot(HOMPC):
             else:
                 i = 1
 
-            return (
-                subs(
-                    [
-                        ca.jacobian(task_ls, t.aux_var[i, :])
-                        @ ca.jacobian(t.mapping[ci], derivating_var[ci])
-                    ],
+            def build():
+                expr = ca.jacobian(task_ls, t.aux_var[i, :]) @ ca.jacobian(
+                    t.mapping[ci], derivating_var[ci]
+                )
+                return ca.Function(
+                    'f',
                     [
                         self._states[ci],
                         self._inputs[ci],
                         ca.vertcat(t.aux_var[0, :].T),
                         ca.vertcat(t.aux_var[1, :].T),
                     ],
-                    [
-                        self._state_bar[ci][ji][k + 1],
-                        self._input_bar[ci][ji][ki],
-                        subs(
-                            [t.mapping[c0]],
-                            [self._states[c0], self._inputs[c0]],
-                            [
-                                self._state_bar[c0][j0][k + 1],
-                                self._input_bar[c0][j0][ki],
-                            ],
-                        ),
-                        subs(
-                            [t.mapping[c1]],
-                            [self._states[c1], self._inputs[c1]],
-                            [
-                                self._state_bar[c1][j1][k + 1],
-                                self._input_bar[c1][j1][ki],
-                            ],
-                        ),
-                    ],
-                ),
+                    [expr],
+                )
+
+            fun = cached_function(
+                ('J', id(task_ls), id(t.aux_var), id(t.mapping[ci]), id(derivating_var[ci]), i),
+                (task_ls, t.aux_var, t.mapping[ci], derivating_var[ci]),
+                build,
+            )
+            return (
+                fun(
+                    self._state_bar[ci][ji][k + 1],
+                    self._input_bar[ci][ji][ki],
+                    mapped(c0, j0),
+                    mapped(c1, j1),
+                ).full(),
             )
 
         def f_in_x_bar_u_bar(self, task: ca.SX):
             """Returns task_ls computed in x_bar, u_bar."""
-            return -subs(
-                [task],
-                [ca.vertcat(t.aux_var[0, :].T), ca.vertcat(t.aux_var[1, :].T)],
-                [
-                    subs(
-                        [t.mapping[c0]],
-                        [self._states[c0], self._inputs[c0]],
-                        [self._state_bar[c0][j0][k + 1], self._input_bar[c0][j0][ki]],
-                    ),
-                    subs(
-                        [t.mapping[c1]],
-                        [self._states[c1], self._inputs[c1]],
-                        [self._state_bar[c1][j1][k + 1], self._input_bar[c1][j1][ki]],
-                    ),
-                ],
+            fun = cached_function(
+                ('F', id(task), id(t.aux_var)),
+                (task, t.aux_var),
+                lambda: ca.Function(
+                    'f', [ca.vertcat(t.aux_var[0, :].T), ca.vertcat(t.aux_var[1, :].T)], [task]
+                ),
             )
+            return -fun(mapped(c0, j0), mapped(c1, j1)).full()
 
         if constr_type == self.ConstraintType.Eq:
             return [

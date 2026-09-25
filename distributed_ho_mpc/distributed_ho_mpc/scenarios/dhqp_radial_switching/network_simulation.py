@@ -245,53 +245,34 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     #         {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
     #     ]
     if st.scenario == 'priority_conflict':
-        system_tasks = {
-            'agent_3': [
+        # One template for every agent: limits 1, collision 2, then the objectives.
+        # The formation pair differs only in how it orders its two objectives:
+        # agent fa keeps its own goal above the formation, agent fb the formation
+        # above its own goal. The previous table mixed collision at 2 or 3, put
+        # input_smooth at the same level as collision for some agents and not
+        # others, and ranked input_smooth above collision for agents 2-3.
+        fa, fb, d_pair = st.formation_pairs[0]
+        system_tasks = {}
+        for ag in range(num_points):
+            tasks = [
                 {'prio': 1, 'name': 'input_limits'},
-                {'prio': 3, 'name': 'input_smooth'},
                 {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
-            ],
-            'agent_2': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 3, 'name': 'input_smooth'},
-                {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
-                {'prio': 2, 'name': 'collision_avoidance'},
-            ],
-            'agent_1': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-                {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
-            ],
-            'agent_0': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
-                {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-            ],
-            'agent_4': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
-            ],
-            'agent_5': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
-            ],
-        }
+            ]
+            position = {'name': 'position', 'goal': goals[ag], 'goal_index': ag}
+            formation = {'name': 'formation', 'agents': [[fa, fb]], 'distance': d_pair}
+            if ag == fa:
+                tasks += [{'prio': 3, **position}, {'prio': 4, **formation}]
+            elif ag == fb:
+                tasks += [{'prio': 3, **formation}, {'prio': 4, **position}]
+            else:
+                tasks += [{'prio': 3, **position}]
+            system_tasks[f'agent_{ag}'] = tasks
     elif st.scenario == 'uniform' or st.scenario == 'asymmetric':
         system_tasks = {
             f'agent_{ag}': [
                 {'prio': 1, 'name': 'input_limits'},
-                # {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
+                {'prio': 2, 'name': 'collision_avoidance'},
+                {'prio': 3, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
             ]
             for ag in range(num_points)
         }

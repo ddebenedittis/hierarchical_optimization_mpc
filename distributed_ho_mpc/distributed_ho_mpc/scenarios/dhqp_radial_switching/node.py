@@ -170,6 +170,17 @@ class Node:
         self.u_star_prev = None
         self.time_start = time.time()
 
+    def _own_prio(self, name: str) -> int:
+        """Priority of task `name` in this agent's own task list."""
+        return next(t['prio'] for t in self.tasks if t['name'] == name)
+
+    def _has_formation_task(self, prio: int, robot_index: list[list[int]]) -> bool:
+        """Whether a formation task with this priority and robot pair already exists."""
+        return any(
+            t.name == 'formation' and t.prio == prio and t.robot_index == robot_index
+            for t in self.hompc._tasks
+        )
+
     def index_local_to_global(self, r) -> int:
         """
         Convert the local index of the node to the global index in the adjacency vector.
@@ -621,6 +632,8 @@ class Node:
                             task_formation_coeff,
                             f_robot_idx,
                         ) = self.task_formation_method(task['agents'], task['distance'])
+                        if self._has_formation_task(task['prio'], f_robot_idx):
+                            continue
                         self.hompc.create_task_bi(
                             name='formation',
                             prio=task['prio'],
@@ -732,7 +745,7 @@ class Node:
             if self.degree == 1:
                 self.hompc.create_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=self._own_prio('collision_avoidance'),
                     type=TaskType.Bi,
                     aux=self.aux_avoid_collision,
                     mapping=self.mapping_avoid_collision.tolist(),
@@ -745,7 +758,7 @@ class Node:
 
                 self.hompc.update_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=self._own_prio('collision_avoidance'),
                     type=TaskType.Bi,
                     # aux = self.aux_avoid_collision,
                     # mapping = self.mapping_avoid_collision.tolist(),
@@ -776,6 +789,11 @@ class Node:
                     aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
                         self.task_formation_method(task['agents'], task['distance'])
                     )
+                    # Every new connection used to re-add the agent's own formation
+                    # task, so an agent with k neighbours carried k-1 copies of it,
+                    # which reweights it against the other tasks at its level.
+                    if self._has_formation_task(task['prio'], f_robot_idx):
+                        continue
                     self.hompc.create_task_bi(
                         name='formation',
                         prio=task['prio'],
@@ -787,7 +805,11 @@ class Node:
                         robot_index=f_robot_idx,
                     )
 
-            self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='input_limits',
+                prio=self._own_prio('input_limits'),
+                robot_index=[self.robot_idx],
+            )
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
@@ -854,7 +876,9 @@ class Node:
                 or task.name == 'collision'
             ]
 
-        self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='input_limits', prio=self._own_prio('input_limits'), robot_index=[self.robot_idx]
+        )
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
 
         for n, task in enumerate(self.hompc._tasks):

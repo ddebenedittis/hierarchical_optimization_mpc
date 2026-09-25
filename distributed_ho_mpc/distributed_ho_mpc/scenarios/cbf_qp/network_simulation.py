@@ -77,7 +77,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     """
     np.random.seed(1)
 
-    dt = 0.02
+    dt = st.dt
 
     fixed_starts = getattr(st, 'fixed_starts', None)
     fixed_goals = getattr(st, 'fixed_goals', None)

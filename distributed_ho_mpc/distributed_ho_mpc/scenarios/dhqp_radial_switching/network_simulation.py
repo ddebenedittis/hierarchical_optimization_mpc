@@ -135,6 +135,10 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'omnidirectional': get_omnidirectional_model(st.dt),
     }
 
+    # n_xi is derived from n_control; settings.py computes it at import time, so a
+    # caller that changes n_control afterwards would otherwise leave it stale.
+    st.n_xi = st.n_control * (5 if st.type == 'uni' else 4)
+
     n_robot = st.n_nodes
     comm_range = st.communication_range
     limit_conn = st.neighbor_limit

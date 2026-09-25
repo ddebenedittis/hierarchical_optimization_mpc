@@ -124,14 +124,31 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     goals_arr = np.array(goals)
     min_distance = np.inf
 
-    time_start = time.time()
+    # Control-loop bookkeeping: x_hist includes the initial state, wall time
+    # covers the loop only (setup and plotting excluded).
+    x_hist = [np.array([a.pos for a in agents])]
+    u_hist = []
+    solve_times = []
+    total_solve_time = 0.0
+
+    time_start = time.perf_counter()
 
     for step in range(st.n_steps):
         positions = {a.node_id: a.pos for a in agents}
 
-        inputs = [a.compute_input(positions, st.communication_range) for a in agents]
+        # Per-agent compute time of this step's control law (perf_counter).
+        inputs, step_times = [], []
+        for a in agents:
+            t0 = time.perf_counter()
+            u = a.compute_input(positions, st.communication_range)
+            step_times.append(time.perf_counter() - t0)
+            inputs.append(u)
+        total_solve_time += sum(step_times)
         for a, u in zip(agents, inputs):
             a.step(u, st.dt)
+        solve_times.append(step_times)
+        u_hist.append([a.u_applied for a in agents])
+        x_hist.append(np.array([a.pos for a in agents]))
 
         s_history[step] = [[], [copy.deepcopy(a.pos) for a in agents]]
 
@@ -163,7 +180,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             s_history = s_history[:last_step]
             break
 
-    time_elapsed = time.time() - time_start
+    time_elapsed = time.perf_counter() - time_start
     print(f'The time elapsed is {time_elapsed} seconds')
     print(f'Simulation stopped after {last_step} steps ({last_step * st.dt:.2f} s)')
 
@@ -225,8 +242,12 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'dt': st.dt,
         'last_step': last_step,
         'wall_time_s': time_elapsed,
-        'solve_time_s': None,
+        'solve_time_s': total_solve_time,
         'min_distance': min_distance,
+        'x_hist': np.array(x_hist),
+        'u_hist': np.array(u_hist).reshape(len(u_hist), st.n_nodes, 2),
+        'solve_times': np.array(solve_times).reshape(len(solve_times), st.n_nodes),
+        'infeasible_count': 0,
         'supports_priority': False,
         'supports_formation': True,
     }

@@ -351,7 +351,9 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     # out_dir = f'{workspace_dir}/out/{root}{limit_conn}/{comm_range}/{cycle}/'
-    out_dir = f'{workspace_dir}/out/{root}/'
+    # An absolute out_dir is used as is (the comparison harness passes one);
+    # a relative one is placed under the workspace's out/ as before.
+    out_dir = f'{root}/' if os.path.isabs(root) else f'{workspace_dir}/out/{root}/'
     os.makedirs(out_dir, exist_ok=True)
     time_start = time.time()
     # Create an agents of the same type for each node of the system
@@ -398,6 +400,15 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     link_events = []  # (connect, disconnect) events per step
     for j in range(n_robot):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+
+    # Control-loop bookkeeping, same as the other baselines: x_hist includes the
+    # initial state; solve_times is each agent's full control computation
+    # (node.update: matrix construction + HQP), qp_times only the HQP solve.
+    x_hist = [np.array([np.asarray(s_j)[:2] for s_j in state])]
+    u_hist = []
+    solve_times = []
+    qp_times = []
+    time_start = time.perf_counter()
     for i in tqdm(range(st.n_steps), desc='iteration', position=2, colour='red', leave=False):
         #    for i in range(st.n_steps):
         if i == st.n_steps - 1:
@@ -409,9 +420,16 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         )
         link_events.append((n_conn, n_disc))
         # for rr in range(st.inner_loop):
+        step_times, step_qp = [], []
         for j in range(n_robot):
+            qp_before = nodes[j].hompc.solve_times['Solve Problem']
+            t0 = time.perf_counter()
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
+            step_times.append(time.perf_counter() - t0)
+            step_qp.append(nodes[j].hompc.solve_times['Solve Problem'] - qp_before)
+        solve_times.append(step_times)
+        qp_times.append(step_qp)
         for j in range(n_robot):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             # for ij in nodes[j].neigh:  # select my neighbours
@@ -420,6 +438,8 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             # for j in range(st.n_nodes):
             nodes[j].dual_update()  # linear update of dual problem
         pairwise_distances, min_distance = agents_distance(state, pairwise_distances, min_distance)
+        x_hist.append(np.array([np.asarray(s_j)[:2] for s_j in state]))
+        u_hist.append([np.asarray(nodes[j].u_applied, dtype=float)[:2] for j in range(n_robot)])
         # for j in range(st.n_nodes):
         #     for ij in nodes[j].neigh:  # select my neighbours
         #         msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
@@ -471,12 +491,12 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             last_step = i + 1
             for j in range(n_robot):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
-            time_goal = time.time() - time_start
+            time_goal = time.perf_counter() - time_start
             step_goal = i
             break
         # b.update(i)
 
-    time_elapsed = time.time() - time_start
+    time_elapsed = time.perf_counter() - time_start
     time_coop = time.time() - start_time_coop
     # print(f'The time elapsed is {time_elapsed} seconds')
     # print(f'Time used to coordinate the network is {time_coop}')
@@ -529,7 +549,16 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     #         f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s\ntotal solving {tot_solve}\n time to goal: {time_goal} at iter {step_goal} \nmax {max_a}\nall max {max_value}\n cr {creation}'
     #     )
 
-    if st.simulation:
+    s_hist_merged = [
+        sum(([node.s_history[i][0][0]] for node in nodes), [])
+        for i in range(len(nodes[0].s_history))
+    ]
+    if st.type == 'omni':
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+    elif st.type == 'uni':
+        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+
+    if st.simulation and make_plots:
         robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, last_step + 1) * st.dt
         plt.figure(figsize=(10, 6))
@@ -551,15 +580,6 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
-        s_hist_merged = [
-            sum(([node.s_history[i][0][0]] for node in nodes), [])
-            for i in range(len(nodes[0].s_history))
-        ]
-        if st.type == 'omni':
-            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
-        elif st.type == 'uni':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
-
         s_history_all = []
         for r in range(len(nodes[0].state_k)):
             s = []
@@ -647,6 +667,12 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         # comparison harness, reported here so the extra margin is explicit
         # in the KPI tables instead of silently reporting the canonical value.
         'enforced_safety_distance': nodes[0].threshold,
+        'x_hist': np.array(x_hist),
+        'u_hist': np.array(u_hist).reshape(len(u_hist), n_robot, 2),
+        'solve_times': np.array(solve_times),
+        'qp_times': np.array(qp_times),
+        'infeasible_count': 0,
+        'link_events': np.array(link_events, dtype=int).reshape(-1, 2),
         'supports_priority': True,
         'supports_formation': True,
         'supports_per_agent_priority': True,

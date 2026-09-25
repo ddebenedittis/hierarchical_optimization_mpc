@@ -166,7 +166,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             others = [i for i in range(st.n_nodes) if i not in (fa, fb)]
             others_ok = np.all(goal_errors[others] < st.goal_tol) if others else True
             formation_dist = np.linalg.norm(positions_arr[fa] - positions_arr[fb])
-            formation_ok = abs(formation_dist - d_form) < st.goal_tol
+            formation_ok = abs(formation_dist - d_form) < st.form_tol
             converged_now = others_ok and formation_ok
         else:
             converged_now = np.all(goal_errors < st.goal_tol)

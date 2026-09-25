@@ -60,6 +60,7 @@ w_goal = 1.0
 w_form = 1.0
 
 goal_tol = 1e-2  # stop tolerance
+form_tol = 5e-2  # formation-distance tolerance, same one the comparison uses to score success
 
 # ---------------------------------------------------------------------------- #
 #                                   Scenario                                   #

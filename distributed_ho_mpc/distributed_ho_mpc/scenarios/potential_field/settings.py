@@ -29,6 +29,7 @@ k_form = 1.5  # spring gain for the formation-keeping behaviour
 d_form = 2.0  # desired inter-robot distance for a formation pair (matches dHQP)
 
 goal_tol = 1e-2  # stop tolerance
+form_tol = 5e-2  # formation-distance tolerance, same one the comparison uses to score success
 
 # ---------------------------------------------------------------------------- #
 #                                   Scenario                                   #

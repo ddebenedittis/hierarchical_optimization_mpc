@@ -34,6 +34,7 @@ safety_distance = None
 
 d_form = 2.0  # desired inter-robot distance for a formation pair
 goal_tol = 1e-2  # stop tolerance (matches the paper's own metric definition)
+form_tol = 5e-2  # formation-distance tolerance, same one the comparison uses to score success
 
 # ---------------------------------------------------------------------------- #
 #                                   Scenario                                   #

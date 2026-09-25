@@ -20,7 +20,7 @@ communication_range = 6
 neighbor_limit = 3  # connect to at most this many closest agents within range
 
 v_max = 1.4
-v_min = -1.0
+v_min = -v_max  # symmetric per-axis box, was -1.0 (slowed motion along -x/-y only)
 omega_max = 0.5
 omega_min = -0.5
 

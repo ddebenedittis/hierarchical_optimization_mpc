@@ -156,4 +156,11 @@ class Agent:
         return u
 
     def step(self, u: np.ndarray, dt: float) -> None:
+        # Plant saturation ||u|| <= v_max, applied identically by every method in the
+        # comparison regardless of what its controller already guarantees.
+        u = np.asarray(u, dtype=float)
+        speed = np.linalg.norm(u)
+        if speed > self.v_max:
+            u = u / speed * self.v_max
+        self.u_applied = u
         self.pos = self.pos + dt * u

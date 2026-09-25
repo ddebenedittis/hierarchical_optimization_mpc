@@ -464,9 +464,9 @@ class Node:
                 #     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 # )
 
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
+                u_applied = RobCont(omni=[np.array(u, dtype=float) for u in self.u_star[0]])
+                self.s = self.evolve(copy.deepcopy(self.s_init), u_applied, self.dt)
+                self.u_applied = u_applied.omni[0]
 
             if st.inner_plot and round == '2':
                 for i in range(len(self.s_.omni)):
@@ -537,6 +537,12 @@ class Node:
                     )
         if st.type == 'omni':
             for j, _ in enumerate(s.omni):
+                # Plant saturation ||u|| <= v_max, the same one every other method in
+                # the comparison applies in its integrator.
+                u_j = np.asarray(u_star.omni[j], dtype=float)
+                speed = np.linalg.norm(u_j)
+                if speed > self.v_max:
+                    u_star.omni[j] = u_j / speed * self.v_max
                 for _ in range(n_intervals):
                     s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                         [

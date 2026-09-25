@@ -16,7 +16,8 @@ class RunResult:
     """Result of one simulation run, ready to be persisted by save_run.
 
     Attributes:
-        x_hist: State history, shape (T+1, N, 3).
+        x_hist: State history, shape (T+1, N, 3) for unicycles, (T+1, N, 2) for
+            omnidirectional robots.
         u_hist: Input history, shape (T, N, 2).
         solve_times: Per-agent solve time in seconds, shape (T, N).
             All-zeros is allowed when only run-level aggregates are known
@@ -24,6 +25,8 @@ class RunResult:
         infeasible_count: Total number of infeasible solves across the run.
         meta: Optional aggregates, e.g. solve_time_total, solve_time_max,
             n_solves, wall_time.
+        arrays: Extra per-run arrays saved alongside the trajectory, e.g.
+            qp_times (T, N) or link_events (T, 2).
     """
 
     x_hist: np.ndarray
@@ -31,6 +34,7 @@ class RunResult:
     solve_times: np.ndarray
     infeasible_count: int = 0
     meta: dict = field(default_factory=dict)
+    arrays: dict = field(default_factory=dict)
 
 
 def save_run(
@@ -64,6 +68,7 @@ def save_run(
         solve_times=result.solve_times,
         s_init=instance.s_init,
         goals=instance.goals,
+        **result.arrays,
     )
 
     run_info = {
@@ -72,6 +77,7 @@ def save_run(
         'params': params,
         'infeasible_count': result.infeasible_count,
         'meta': result.meta,
+        'scenario': instance.config.scenario,
         'config': asdict(instance.config),
         'n_robots': instance.config.n_robots,
         'dt': instance.config.dt,

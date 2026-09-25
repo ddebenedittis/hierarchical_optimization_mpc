@@ -208,3 +208,110 @@ def compute_kpis(run_info: dict, arrays: dict) -> dict:
         kpis[f'param_{name}'] = value
 
     return kpis
+
+
+# ---------------------------------------------------------------------------- #
+#                     Omnidirectional benchmark (colleague's rules)            #
+# ---------------------------------------------------------------------------- #
+
+DEADLOCK_WINDOW = 100  # steps
+DEADLOCK_DISPLACEMENT = 1e-3  # m
+
+
+def omni_converged(
+    final_positions: np.ndarray,
+    goals: np.ndarray,
+    config: dict,
+    formation_capable: bool,
+) -> bool:
+    """Success rule of the colleague's comparison (``_converged`` on dhqp_with_plots).
+
+    Every agent must end within ``goal_tol`` of its goal, except in
+    'priority_conflict' for a method that can express the formation task: there
+    the formation pair is judged only on its distance (within ``form_tol`` of the
+    target), since one of the two is meant to give up its own goal.
+    """
+    goal_errors = np.linalg.norm(final_positions - goals, axis=1)
+    goal_tol = config['goal_tol']
+    pairs = config.get('formation_pairs') or []
+    if config.get('scenario') != 'priority_conflict' or not formation_capable or not pairs:
+        return bool(np.all(goal_errors < goal_tol))
+    a, b, d_form = pairs[0]
+    others = [i for i in range(len(goal_errors)) if i not in (a, b)]
+    others_ok = bool(np.all(goal_errors[others] < goal_tol)) if others else True
+    form_dist = float(np.linalg.norm(final_positions[a] - final_positions[b]))
+    return others_ok and abs(form_dist - d_form) < config['form_tol']
+
+
+def compute_omni_kpis(run_info: dict, arrays: dict) -> dict:
+    """KPIs of one omnidirectional run, with the colleague's definitions plus safety.
+
+    - converged: ``omni_converged`` on the final state.
+    - norm_ttg: last step / step cap, only for converged runs.
+    - min_distance: minimum pairwise distance over the whole trajectory.
+    - safe_success: converged and min_distance >= d_safe (1e-6 slack, as his).
+    - deadlock: not converged and no agent moved more than 1 mm over the last
+      100 steps.
+    - wall_time_s: control-loop wall time.
+    - ms_per_agent_step / qp_ms_per_agent_step: mean per-agent compute time of
+      one control step (dHQP: matrix construction + HQP / HQP only).
+    """
+    config = run_info['config']
+    meta = run_info.get('meta') or {}
+    x_hist = arrays['x_hist']
+    goals = arrays['goals']
+    solve_times = arrays['solve_times']
+    positions = x_hist[..., :2]
+    n_steps = int(arrays['u_hist'].shape[0])
+    d_safe = config['safety_distance']
+
+    formation_capable = bool((meta.get('capabilities') or {}).get('formation_tasks', False))
+    converged = omni_converged(positions[-1], goals, config, formation_capable)
+    min_distance = _min_pairwise_distance(positions)
+
+    window = positions[-(DEADLOCK_WINDOW + 1) :]
+    displacement = float(np.max(np.linalg.norm(window - window[-1][None], axis=2)))
+    deadlock = (
+        (not converged) and n_steps > DEADLOCK_WINDOW and displacement < DEADLOCK_DISPLACEMENT
+    )
+
+    pairs = config.get('formation_pairs') or []
+    final_errors = np.linalg.norm(positions[-1] - goals, axis=1)
+    kpis = {
+        'scenario': config.get('scenario'),
+        'method': run_info.get('method'),
+        'seed': run_info.get('seed'),
+        'converged': converged,
+        'last_step': n_steps,
+        'norm_ttg': n_steps / config['max_steps'] if converged else float('nan'),
+        'min_distance': min_distance,
+        'safe': bool(min_distance >= d_safe - 1e-6),
+        'safe_success': bool(converged and min_distance >= d_safe - 1e-6),
+        'collision_events': count_collisions(x_hist, d_safe)[0],
+        'max_violation': compute_violation_stats(x_hist, d_safe)[0],
+        'deadlock': bool(deadlock),
+        'final_max_goal_error': float(np.max(final_errors)),
+        'wall_time_s': float(meta.get('wall_time_s', float('nan'))),
+        'ms_per_agent_step': float(np.mean(solve_times) * 1e3)
+        if solve_times.size
+        else float('nan'),
+        'qp_ms_per_agent_step': (
+            float(np.mean(arrays['qp_times']) * 1e3) if 'qp_times' in arrays else float('nan')
+        ),
+        'infeasible_count': int(run_info.get('infeasible_count', 0)),
+        'enforced_safety_distance': meta.get('enforced_safety_distance'),
+        'link_events_per_step': (
+            float(np.sum(arrays['link_events']) / max(n_steps, 1))
+            if 'link_events' in arrays
+            else float('nan')
+        ),
+    }
+    if pairs:
+        a, b, d_form = pairs[0]
+        form_dist = float(np.linalg.norm(positions[-1][a] - positions[-1][b]))
+        kpis['formation_error'] = abs(form_dist - d_form)
+        kpis['goal_error_a'] = float(final_errors[a])
+        kpis['goal_error_b'] = float(final_errors[b])
+    for name, value in (run_info.get('params') or {}).items():
+        kpis[f'param_{name}'] = value
+    return kpis

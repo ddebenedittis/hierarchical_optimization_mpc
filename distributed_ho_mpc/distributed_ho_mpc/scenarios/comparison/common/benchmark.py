@@ -1,5 +1,11 @@
 """Seeded benchmark instance generation for the radial-switching comparison.
 
+Two benchmarks live here. The default one (``BenchmarkConfig()``,
+``generate_instance``) is the unicycle radial-switching campaign. The
+``colleague_omni()`` preset with ``generate_omni_instance`` reproduces the
+omnidirectional three-scenario benchmark of ``origin/dhqp_with_plots``
+(``comparison/settings.py`` there), seed for seed.
+
 Replicates the instance generator in
 ``radial_switching_unicycle/network_simulation.py`` (lines ~229-259), but
 seeded via ``numpy.random.default_rng`` so campaigns are reproducible.
@@ -11,9 +17,10 @@ crosses the center. Robots start already facing (approximately) their goal.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 import numpy as np
+from scipy.spatial.distance import pdist
 
 
 @dataclass
@@ -34,6 +41,15 @@ class BenchmarkConfig:
     goal_tol: float = 0.1
     comm_range: float = 5.0
     limit_connection: int = 7
+    # Fields used by the omnidirectional benchmark (see `colleague_omni`).
+    model: str = 'unicycle'  # 'unicycle' or 'omni'
+    scenario: str = 'uniform'  # 'uniform', 'asymmetric' or 'priority_conflict'
+    formation_pairs: list = field(default_factory=list)  # [(agent_a, agent_b, distance)]
+    d_form: float = 2.0
+    form_tol: float = 0.05
+    neighbor_limit: int = 2
+    n_control: int = 1
+    min_spawn_distance: float = 0.0
 
 
 @dataclass
@@ -157,3 +173,119 @@ def symmetric_instance(config: BenchmarkConfig | None = None) -> BenchmarkInstan
     angles = [2 * np.pi * i / config.n_robots for i in range(config.n_robots)]
     perturbations = [0.0] * config.n_robots
     return _build_instance(angles, perturbations, -1, config)
+
+
+# ---------------------------------------------------------------------------- #
+#                  Omnidirectional benchmark (colleague's layout)              #
+# ---------------------------------------------------------------------------- #
+
+OMNI_SCENARIOS = ('uniform', 'asymmetric', 'priority_conflict')
+
+
+def colleague_omni() -> BenchmarkConfig:
+    """Parameters of the omnidirectional comparison on ``origin/dhqp_with_plots``.
+
+    Same values as that branch's ``comparison/settings.py``: 6 agents on a circle
+    of radius 6, dt 0.03, 1200 steps, v_max 1.4, d_safe 1.5, sensing range 6,
+    at most 2 dHQP neighbours, n_control 2, goal/formation tolerance 1 cm / 5 cm,
+    formation pair (0, 1) at 2 m, spawn separation 1.5 * d_safe.
+    """
+    d_safe = 1.5
+    return BenchmarkConfig(
+        n_robots=6,
+        radius=6.0,
+        dt=0.03,
+        max_steps=1200,
+        safety_distance=d_safe,
+        v_min=-1.4,
+        v_max=1.4,
+        goal_tol=1e-2,
+        comm_range=6.0,
+        model='omni',
+        formation_pairs=[(0, 1, 2.0)],
+        d_form=2.0,
+        form_tol=5e-2,
+        neighbor_limit=2,
+        n_control=2,
+        min_spawn_distance=1.5 * d_safe,
+    )
+
+
+def build_symmetric_layout(n_nodes: int, radius: float, seed: int):
+    """Evenly spaced radial layout, rigidly rotated by a seeded random offset.
+
+    Verbatim from ``comparison/settings.py:_build_symmetric_layout`` on
+    ``origin/dhqp_with_plots``, so seed k gives exactly that branch's instance k.
+    """
+    rng = np.random.default_rng(seed)
+    rotation = rng.uniform(0.0, 2 * np.pi)
+    thetas = rotation + 2 * np.pi * np.arange(n_nodes) / n_nodes
+    starts = [radius * np.array([np.cos(t), np.sin(t)]) for t in thetas]
+    goals = [-s for s in starts]
+    return starts, goals
+
+
+def build_asymmetric_layout(
+    n_nodes: int,
+    radius: float,
+    min_spawn_distance: float,
+    seed: int = 1,
+    max_attempts: int = 1000,
+):
+    """Random radial layout with a minimum spawn separation, goal = -start.
+
+    Verbatim from ``comparison/settings.py:_build_asymmetric_layout`` on
+    ``origin/dhqp_with_plots``, so seed k gives exactly that branch's instance k.
+    """
+    rng = np.random.default_rng(seed)
+    if n_nodes > 1:
+        max_feasible = 2 * radius * np.sin(np.pi / n_nodes)
+        if min_spawn_distance > max_feasible:
+            raise ValueError(
+                f'min_spawn_distance={min_spawn_distance} is infeasible for '
+                f'{n_nodes} agents on a circle of radius={radius} '
+                f'(max possible separation is {max_feasible:.3f})'
+            )
+    for _ in range(max_attempts):
+        thetas = rng.uniform(0.0, 2 * np.pi, n_nodes)
+        starts = [radius * np.array([np.cos(t), np.sin(t)]) for t in thetas]
+        if n_nodes < 2 or pdist(np.array(starts)).min() >= min_spawn_distance:
+            break
+    else:
+        raise RuntimeError(
+            f'Could not find a random layout with min_spawn_distance='
+            f'{min_spawn_distance} after {max_attempts} attempts'
+        )
+    goals = [-s for s in starts]
+    return starts, goals
+
+
+def generate_omni_instance(
+    seed: int, scenario: str, config: BenchmarkConfig | None = None
+) -> BenchmarkInstance:
+    """Build instance `seed` of an omnidirectional scenario.
+
+    'asymmetric' draws random start angles; 'uniform' and 'priority_conflict'
+    use the evenly spaced layout rotated by a seeded offset (so the two share
+    their geometry for a given seed and differ only in the task set).
+
+    Args:
+        seed: Layout seed, passed to ``numpy.random.default_rng``.
+        scenario: One of ``OMNI_SCENARIOS``.
+        config: Base configuration; defaults to ``colleague_omni()``.
+
+    Returns:
+        The instance, with ``s_init`` of shape (N, 2) and ``config.scenario`` set.
+    """
+    if scenario not in OMNI_SCENARIOS:
+        raise ValueError(f'Unknown scenario {scenario!r}, expected one of {OMNI_SCENARIOS}')
+    config = replace(config or colleague_omni(), scenario=scenario)
+    if scenario == 'asymmetric':
+        starts, goals = build_asymmetric_layout(
+            config.n_robots, config.radius, config.min_spawn_distance, seed=seed
+        )
+    else:
+        starts, goals = build_symmetric_layout(config.n_robots, config.radius, seed=seed)
+    return BenchmarkInstance(
+        seed=seed, s_init=np.array(starts), goals=np.array(goals), config=config
+    )

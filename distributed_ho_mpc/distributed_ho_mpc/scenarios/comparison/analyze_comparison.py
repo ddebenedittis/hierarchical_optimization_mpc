@@ -4,6 +4,12 @@ Walks a campaign directory laid out as ``<method_tag>/<seed>/{trajectory.npz, ru
 computes KPIs for every run, writes summary CSVs and paired statistics against a baseline
 method, and renders comparison figures and a markdown report.
 
+A campaign of the omnidirectional benchmark (``run_comparison.py --preset
+colleague_omni``) is laid out as ``<scenario>/<method_tag>/<seed>/`` instead; it is
+detected automatically and analyzed per scenario (see ``analyze_omni``), writing
+``summary_<scenario>.csv``, ``summary_by_method.csv`` and the KPI table in the
+colleague's row format, ``table_colleague_format.{md,tex}``.
+
 Usage::
 
     python3 analyze_comparison.py <campaign_root> [--out <dir>] [--baseline dhqp]
@@ -31,7 +37,15 @@ _PKG_ROOT = Path(__file__).resolve().parents[3]
 if str(_PKG_ROOT) not in sys.path:
     sys.path.insert(0, str(_PKG_ROOT))
 
-from distributed_ho_mpc.scenarios.comparison.common.metrics import compute_kpis
+from distributed_ho_mpc.scenarios.comparison.common.benchmark import (
+    OMNI_SCENARIOS,
+    build_asymmetric_layout,
+    build_symmetric_layout,
+)
+from distributed_ho_mpc.scenarios.comparison.common.metrics import (
+    compute_kpis,
+    compute_omni_kpis,
+)
 from distributed_ho_mpc.scenarios.comparison.common.run_io import load_run
 
 NUMERIC_KPI_KEYS = (
@@ -204,8 +218,12 @@ def write_summary_by_method_csv(
     return summaries
 
 
-def sanity_checks(runs: dict[str, dict[int, dict]]) -> list[str]:
-    """Cross-method consistency checks. Prints WARN lines and returns them; never raises."""
+def sanity_checks(runs: dict[str, dict[int, dict]], omni: bool = False) -> list[str]:
+    """Cross-method consistency checks. Prints WARN lines and returns them; never raises.
+
+    With ``omni`` the input check is the plant saturation ||u|| <= v_max instead
+    of the unicycle's per-column (v, omega) bounds.
+    """
     warnings_list: list[str] = []
 
     seeds: set[int] = set()
@@ -239,6 +257,16 @@ def sanity_checks(runs: dict[str, dict[int, dict]]) -> list[str]:
             cfg = data['run_info'].get('config', {}) or {}
             u_hist = data['arrays'].get('u_hist')
             if u_hist is None or u_hist.size == 0:
+                continue
+            if omni:
+                speed = np.linalg.norm(u_hist[..., :2], axis=-1)
+                if np.any(speed > cfg.get('v_max', np.inf) + tol):
+                    msg = (
+                        f'WARN {method_tag}/seed {seed}: ||u|| up to {speed.max():.4f} '
+                        f'exceeds v_max={cfg.get("v_max")}'
+                    )
+                    print(msg)
+                    warnings_list.append(msg)
                 continue
             bounds = (
                 ('v_min', 0, np.less, 'below'),
@@ -686,6 +714,255 @@ def write_report(
     (out_dir / 'report.md').write_text('\n'.join(lines))
 
 
+# ---------------------------------------------------------------------------- #
+#                         Omnidirectional benchmark campaign                   #
+# ---------------------------------------------------------------------------- #
+
+# Row order of the colleague's table, then the variants this harness adds.
+OMNI_METHOD_ORDER = (
+    'dhqp_omni',
+    'dhqp_omni@nc4',
+    'pf',
+    'dqp',
+    'cbf_omni',
+    'nh_orca_omni',
+    'orca_omni',
+)
+OMNI_LABELS = {
+    'dhqp_omni': 'dHQP',
+    'dhqp_omni@nc4': 'dHQP nc=4',
+    'pf': 'Pot. Field',
+    'dqp': 'Distr. QP',
+    'cbf_omni': 'CBF-QP',
+    'nh_orca_omni': 'NH-ORCA',
+    'orca_omni': 'ORCA',
+}
+OMNI_SCENARIO_LABELS = {
+    'uniform': 'Uniform',
+    'asymmetric': 'Asymm.',
+    'priority_conflict': 'P. Conf.',
+}
+
+
+def is_omni_campaign(campaign_root: Path) -> bool:
+    """Whether campaign_root is laid out as <scenario>/<method_tag>/<seed>/."""
+    return any((campaign_root / sc).is_dir() for sc in OMNI_SCENARIOS)
+
+
+def load_omni(campaign_root: Path) -> tuple[dict, list[dict], list[str]]:
+    """Load every omni run: runs[scenario][method_tag][seed] and flat KPI rows."""
+    runs: dict[str, dict[str, dict[int, dict]]] = {}
+    rows: list[dict] = []
+    warnings_list: list[str] = []
+    for scenario in OMNI_SCENARIOS:
+        layout = discover_runs(campaign_root / scenario)
+        if not layout:
+            continue
+        runs[scenario] = {}
+        for method_tag, seed_map in layout.items():
+            runs[scenario][method_tag] = {}
+            for seed, run_dir in seed_map.items():
+                try:
+                    run_info, arrays = load_run(run_dir)
+                    kpi = compute_omni_kpis(run_info, arrays)
+                except Exception as exc:
+                    msg = f'WARN: failed to load run {run_dir}: {exc}'
+                    print(msg)
+                    warnings_list.append(msg)
+                    continue
+                runs[scenario][method_tag][seed] = {
+                    'run_info': run_info,
+                    'arrays': arrays,
+                    'kpi': kpi,
+                }
+                rows.append({**kpi, 'method_tag': method_tag, 'scenario': scenario})
+    return runs, rows, warnings_list
+
+
+def omni_layout_checks(runs: dict) -> list[str]:
+    """Check each (scenario, seed) instance against the colleague's layout builders.
+
+    Also checks that 'uniform' and 'priority_conflict' share their geometry.
+    """
+    warnings_list: list[str] = []
+    for scenario, by_method in runs.items():
+        for method_tag, seed_map in by_method.items():
+            for seed, data in seed_map.items():
+                cfg = data['run_info']['config']
+                if scenario == 'asymmetric':
+                    starts, goals = build_asymmetric_layout(
+                        cfg['n_robots'], cfg['radius'], cfg['min_spawn_distance'], seed=seed
+                    )
+                else:
+                    starts, goals = build_symmetric_layout(cfg['n_robots'], cfg['radius'], seed)
+                ok = np.allclose(data['arrays']['s_init'][:, :2], np.array(starts)) and np.allclose(
+                    data['arrays']['goals'], np.array(goals)
+                )
+                if not ok:
+                    msg = f'WARN {scenario}/{method_tag}/seed {seed}: instance differs from layout'
+                    print(msg)
+                    warnings_list.append(msg)
+    return warnings_list
+
+
+def _mean_std(values: list[float], fmt: str) -> str:
+    values = [v for v in values if v is not None and not _is_nan(v)]
+    if not values:
+        return 'n/a'
+    return f'{np.mean(values):{fmt}}±{np.std(values):{fmt}}'
+
+
+def summarize_omni(rows: list[dict], scenario: str, method_tag: str) -> dict[str, Any] | None:
+    """Aggregate one (scenario, method) cell of the table."""
+    group = [r for r in rows if r['scenario'] == scenario and r['method_tag'] == method_tag]
+    if not group:
+        return None
+    conv = [r for r in group if r['converged']]
+    d_safe_viol = any(not r['safe'] for r in group)
+    return {
+        'scenario': scenario,
+        'method_tag': method_tag,
+        'n_runs': len(group),
+        'conv_rate': len(conv) / len(group),
+        'norm_ttg_mean': float(np.mean([r['norm_ttg'] for r in conv])) if conv else float('nan'),
+        'norm_ttg_std': float(np.std([r['norm_ttg'] for r in conv])) if conv else float('nan'),
+        'min_distance_mean': float(np.mean([r['min_distance'] for r in group])),
+        'min_distance_std': float(np.std([r['min_distance'] for r in group])),
+        'min_distance_min': float(np.min([r['min_distance'] for r in group])),
+        'any_below_d_safe': d_safe_viol,
+        'safe_success_rate': float(np.mean([r['safe_success'] for r in group])),
+        'deadlock_rate': float(np.mean([r['deadlock'] for r in group])),
+        'wall_time_mean': float(np.mean([r['wall_time_s'] for r in group])),
+        'wall_time_std': float(np.std([r['wall_time_s'] for r in group])),
+        'ms_per_agent_step_mean': float(np.mean([r['ms_per_agent_step'] for r in group])),
+        'qp_ms_per_agent_step_mean': float(np.nanmean([r['qp_ms_per_agent_step'] for r in group]))
+        if any(not _is_nan(r['qp_ms_per_agent_step']) for r in group)
+        else float('nan'),
+        'infeasible_total': int(sum(r['infeasible_count'] for r in group)),
+        'enforced_safety_distance': group[0].get('enforced_safety_distance'),
+        'link_events_per_step_mean': float(np.nanmean([r['link_events_per_step'] for r in group]))
+        if any(not _is_nan(r['link_events_per_step']) for r in group)
+        else float('nan'),
+    }
+
+
+def _omni_table_rows(summary: dict | None, rows: list[dict]) -> dict[str, str]:
+    """Format one method's cells for every metric row of the table."""
+    if summary is None:
+        return {}
+    conv = [
+        r
+        for r in rows
+        if r['scenario'] == summary['scenario']
+        and r['method_tag'] == summary['method_tag']
+        and r['converged']
+    ]
+    group = [
+        r
+        for r in rows
+        if r['scenario'] == summary['scenario'] and r['method_tag'] == summary['method_tag']
+    ]
+    star = '*' if summary['any_below_d_safe'] else ''
+    qp = summary['qp_ms_per_agent_step_mean']
+    ms = f'{summary["ms_per_agent_step_mean"]:.3f}'
+    if not _is_nan(qp):
+        ms += f' ({qp:.3f})'
+    return {
+        'Conv. rate': f'{summary["conv_rate"]:.2f}',
+        'Norm. TTG': _mean_std([r['norm_ttg'] for r in conv], '.3f') if conv else 'DNF',
+        'Min. dist': _mean_std([r['min_distance'] for r in group], '.3f') + star,
+        'Wall [s]': _mean_std([r['wall_time_s'] for r in group], '.3f'),
+        'Safe success': f'{summary["safe_success_rate"]:.2f}',
+        'Deadlock': f'{summary["deadlock_rate"]:.2f}',
+        'ms/agent-step': ms,
+    }
+
+
+OMNI_TABLE_METRICS = (
+    'Conv. rate',
+    'Norm. TTG',
+    'Min. dist',
+    'Wall [s]',
+    'Safe success',
+    'Deadlock',
+    'ms/agent-step',
+)
+
+
+def write_omni_tables(rows: list[dict], summaries: list[dict], out_dir: Path) -> None:
+    """Write the KPI table in the colleague's layout as Markdown and LaTeX."""
+    tags = [t for t in OMNI_METHOD_ORDER if any(s['method_tag'] == t for s in summaries)]
+    tags += sorted({s['method_tag'] for s in summaries} - set(tags))
+    labels = [OMNI_LABELS.get(t, t) for t in tags]
+
+    md = ['| Scen. | Metric | ' + ' | '.join(labels) + ' |', '|---|---|' + '---|' * len(tags)]
+    tex = [
+        '\\begin{tabular}{ll' + 'c' * len(tags) + '}',
+        '\\toprule',
+        'Scen. & Metric & ' + ' & '.join(labels) + ' \\\\',
+        '\\midrule',
+    ]
+    for scenario in OMNI_SCENARIOS:
+        cells = {
+            t: _omni_table_rows(
+                next(
+                    (s for s in summaries if s['scenario'] == scenario and s['method_tag'] == t),
+                    None,
+                ),
+                rows,
+            )
+            for t in tags
+        }
+        if not any(cells.values()):
+            continue
+        for k, metric in enumerate(OMNI_TABLE_METRICS):
+            values = [cells[t].get(metric, '--') for t in tags]
+            scen = OMNI_SCENARIO_LABELS[scenario] if k == 0 else ''
+            md.append(f'| {scen} | {metric} | ' + ' | '.join(values) + ' |')
+            tex_values = [v.replace('±', '$\\pm$').replace('*', '$^*$') for v in values]
+            tex.append(f'{scen} & {metric} & ' + ' & '.join(tex_values) + ' \\\\')
+        tex.append('\\midrule')
+    tex[-1] = '\\bottomrule'
+    tex.append('\\end{tabular}')
+    note = (
+        '\n* at least one run below d_safe. Norm. TTG over converged runs only (DNF: none '
+        'converged). Wall: control loop only. ms/agent-step: mean per-agent compute time of one '
+        'control step; for dHQP the HQP-only share is in parentheses.\n'
+    )
+    (out_dir / 'table_colleague_format.md').write_text('\n'.join(md) + '\n' + note)
+    (out_dir / 'table_colleague_format.tex').write_text('\n'.join(tex) + '\n')
+    print('\n'.join(md))
+
+
+def analyze_omni(campaign_root: Path, out_dir: Path) -> None:
+    """Analyze an omnidirectional campaign, one scenario at a time."""
+    runs, rows, load_warnings = load_omni(campaign_root)
+    print(f'Loaded {len(rows)} runs over scenarios {sorted(runs)}.')
+
+    warnings_list = list(load_warnings)
+    for scenario, by_method in runs.items():
+        print(f'Sanity checks for {scenario} ...')
+        warnings_list += sanity_checks(by_method, omni=True)
+        scen_rows = [r for r in rows if r['scenario'] == scenario]
+        write_summary_csv(scen_rows, out_dir / f'summary_{scenario}.csv')
+    warnings_list += omni_layout_checks(runs)
+
+    summaries = []
+    for scenario in OMNI_SCENARIOS:
+        for tag in sorted({r['method_tag'] for r in rows if r['scenario'] == scenario}):
+            summary = summarize_omni(rows, scenario, tag)
+            if summary is not None:
+                summaries.append(summary)
+    if summaries:
+        with (out_dir / 'summary_by_method.csv').open('w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=list(summaries[0].keys()))
+            writer.writeheader()
+            writer.writerows(summaries)
+    write_omni_tables(rows, summaries, out_dir)
+    (out_dir / 'warnings.txt').write_text('\n'.join(warnings_list) + '\n')
+    print(f'{len(warnings_list)} warnings; analysis written to {out_dir}')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Analyze a comparison campaign.')
     parser.add_argument('campaign_root', type=Path, help='Root directory of the campaign.')
@@ -701,6 +978,11 @@ def main() -> None:
     campaign_root: Path = args.campaign_root.resolve()
     out_dir: Path = (args.out or campaign_root / 'analysis').resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if is_omni_campaign(campaign_root):
+        print(f'Loading omnidirectional campaign from {campaign_root} ...')
+        analyze_omni(campaign_root, out_dir)
+        return
 
     print(f'Loading campaign from {campaign_root} ...')
     runs, rows, load_warnings = load_all(campaign_root)

@@ -69,6 +69,7 @@ class Agent:
         self.w_form = w_form
 
         self.hqp = HierarchicalQP(solver=solver, hierarchical=False)
+        self.infeasible_count = 0
 
     def _formation_task(self, positions: dict[int, np.ndarray]):
         """Equality task: drive the projected relative velocity to close the
@@ -146,7 +147,17 @@ class Agent:
 
         # Non-hierarchical ("weighted") mode returns the solution vector
         # directly, not a (x_star, slacks) tuple like the hierarchical mode.
-        x_star = self.hqp(A_levels, b_levels, C_levels, d_levels, we=we_levels, wi=wi_levels)
+        # With hard (wi = inf) safety rows the QP has no solution when several
+        # neighbours pin the agent from conflicting sides. The solver then returns
+        # None and slicing it used to crash the whole run; stop in place instead
+        # and count the event.
+        try:
+            x_star = self.hqp(A_levels, b_levels, C_levels, d_levels, we=we_levels, wi=wi_levels)
+        except (TypeError, ValueError):
+            x_star = None
+        if x_star is None:
+            self.infeasible_count += 1
+            return np.zeros(nx)
         u = np.asarray(x_star[:nx], dtype=float)
 
         speed = np.linalg.norm(u)

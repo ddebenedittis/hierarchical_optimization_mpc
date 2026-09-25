@@ -12,7 +12,10 @@ from pathlib import Path
 
 import numpy as np
 
-from distributed_ho_mpc.scenarios.comparison.common.benchmark import BenchmarkInstance
+from distributed_ho_mpc.scenarios.comparison.common.benchmark import (
+    BenchmarkInstance,
+    discretization_back_off,
+)
 from distributed_ho_mpc.scenarios.comparison.common.run_io import RunResult
 
 
@@ -47,10 +50,11 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     # geometric reasons -- CBF by 2*l for the feedback-linearization offset
     # point, ORCA by 2*epsilon for holonomic tracking error -- so dHQP was the
     # only method scored against a 2.0 bound while enforcing exactly 2.0, with
-    # no room for its own discretization and slack error. `margin` gives it the
-    # same explicit latitude, and defaults to 0.0 so nothing changes unless a
-    # campaign sweeps it.
-    margin = params.get('margin', 0.0)
+    # no room for its own discretization error. It now takes the derived
+    # one-sample back-off by default; pass `margin` to override (0.0 reproduces
+    # the untightened runs). dwqp_adapter must use the same default, or the
+    # ablation stops isolating strict-vs-weighted priority.
+    margin = params.get('margin', discretization_back_off(config))
     st.safety_distance = config.safety_distance + margin
 
     # MPC horizon. The scenario ships n_control = 1, n_pred = 0, which runs this
@@ -87,6 +91,7 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         'creation_time_total': out.get('creation_time_total', 0.0),
         'infeasible_measured': False,
         'enforced_safety_distance': float(st.safety_distance),
+        'back_off': float(margin),
     }
 
     return RunResult(

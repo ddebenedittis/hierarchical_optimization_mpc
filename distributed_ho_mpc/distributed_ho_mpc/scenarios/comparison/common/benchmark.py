@@ -46,6 +46,37 @@ class BenchmarkInstance:
     config: BenchmarkConfig
 
 
+def discretization_back_off(config: BenchmarkConfig) -> float:
+    """Constraint tightening for a collision bound enforced only at sample instants.
+
+    The dHQP/dWQP collision task is a linearized inequality imposed on the
+    predicted state at the next sample. Between samples the controller cannot
+    react, so a closing pair can cross the bound by up to one sample of relative
+    displacement, ``2 * v_max * dt``. Measured undershoot tracks this closely and
+    scales linearly with ``dt`` (median 0.155 m at dt = 0.05, 0.298 m at
+    dt = 0.10, against bounds of 0.160 and 0.320), confirming the mechanism is
+    discretization rather than the hierarchy, the distribution, or the horizon.
+
+    Tightening by this amount is the same kind of allowance the reactive
+    baselines already build in -- CBF-QP guards its offset points at
+    ``d_safe + 2*l`` and NH-ORCA inflates its radius by ``2*epsilon`` -- so it
+    puts every method on the same footing while all of them are still scored
+    against the common ``config.safety_distance`` contract.
+
+    Derived rather than tuned on purpose: a margin fitted until a seed batch
+    comes out clean is not predictive and will break on the next seed, whereas
+    this one correctly anticipates the larger back-off needed at a slower
+    control rate without re-tuning.
+
+    Args:
+        config: Benchmark configuration supplying ``v_max`` and ``dt``.
+
+    Returns:
+        The back-off in meters, to be added to ``config.safety_distance``.
+    """
+    return 2.0 * config.v_max * config.dt
+
+
 def _sample_angles(n_robots: int, min_angle_sep: float, rng: np.random.Generator) -> list[float]:
     """Rejection-sample ``n_robots`` angles in [0, 2*pi) with minimum circular separation."""
     angles: list[float] = []

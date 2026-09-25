@@ -12,7 +12,10 @@ from pathlib import Path
 
 import numpy as np
 
-from distributed_ho_mpc.scenarios.comparison.common.benchmark import BenchmarkInstance
+from distributed_ho_mpc.scenarios.comparison.common.benchmark import (
+    BenchmarkInstance,
+    discretization_back_off,
+)
 from distributed_ho_mpc.scenarios.comparison.common.run_io import RunResult
 
 
@@ -43,6 +46,13 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     st.n_steps = config.max_steps
     st.save_data = False
 
+    # Same discretization back-off as the dHQP adapter, and it has to be the
+    # same number: dWQP is dHQP's weighted ablation, so if only one of the two
+    # tightens its collision bound the comparison stops isolating strict-vs-
+    # weighted priority and starts measuring the margin difference instead.
+    margin = params.get('margin', discretization_back_off(config))
+    st.safety_distance = config.safety_distance + margin
+
     out = sim.main(
         config.n_robots,
         params.get('comm_range', config.comm_range),
@@ -68,6 +78,8 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         'kappa': st.kappa,
         'creation_time_total': out.get('creation_time_total', 0.0),
         'infeasible_measured': False,
+        'enforced_safety_distance': float(st.safety_distance),
+        'back_off': float(margin),
     }
 
     return RunResult(

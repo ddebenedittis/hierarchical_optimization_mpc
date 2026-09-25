@@ -19,6 +19,13 @@ v_min = -1.6
 omega_max = 2.0
 omega_min = -2.0
 type = 'uni'  # 'uni'
+
+# Center-to-center distance the collision-avoidance task enforces. The
+# comparison harness overwrites this per run (see methods/dwqp_adapter.py) so
+# the enforced radius is an explicit, recorded parameter rather than a constant
+# buried in node.py -- and so dHQP and its weighted ablation can be given the
+# same back-off, which is required for the two to stay comparable.
+safety_distance = 2.0
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #

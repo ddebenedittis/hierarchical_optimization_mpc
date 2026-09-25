@@ -61,7 +61,7 @@ RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,s
     ros-$ROS_DISTRO-joint-state-publisher \
     ros-$ROS_DISTRO-tf-transformations \
     ros-$ROS_DISTRO-joint-state-publisher-gui \
-    ros-${ROS_DISTRO}-pinocchio \
+    ros-$ROS_DISTRO-pinocchio \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
     ros-$ROS_DISTRO-rqt-graph \
@@ -91,6 +91,7 @@ RUN pip3 install \
     scipy \
     sympy \
     transforms3d \
+    tqdm \
     --upgrade
 
 RUN pip3 install \

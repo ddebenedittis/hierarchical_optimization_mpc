@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist
 
-import distributed_ho_mpc.scenarios.orca_radial_switching.settings as st
-from distributed_ho_mpc.scenarios.orca_radial_switching.node import Agent
+import distributed_ho_mpc.scenarios.nh_orca_radial_switching.settings as st
+from distributed_ho_mpc.scenarios.nh_orca_radial_switching.node import Agent
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
@@ -147,10 +147,15 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         plt.figure(figsize=(10, 6))
         for i, dist_list in enumerate(pairwise_distances):
             plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+        plt.axhline(y=st.d_safe, color='red', lw=2, linestyle='--', label='measured threshold')
         plt.axhline(
-            y=2 * st.orca_radius, color='red', lw=2, linestyle='--', label='collision threshold'
+            y=2 * st.orca_radius,
+            color='darkred',
+            lw=2,
+            linestyle=':',
+            label='enforced (NH-ORCA) distance',
         )
-        plt.title('Pairwise robot distances -- ORCA radial switching')
+        plt.title('Pairwise robot distances -- NH-ORCA radial switching')
         plt.xlabel('Time [s]')
         plt.ylabel('Distance [m]')
         plt.legend()
@@ -189,7 +194,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         )
 
     return {
-        'method': 'orca',
+        'method': 'nh_orca',
         'scenario': scenario,
         's_history': s_history,
         'goals': goals,
@@ -209,9 +214,7 @@ def main():
 
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    out_dir = (
-        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-orca_radial_switching/'
-    )
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-nh_orca/'
     return run(out_dir=out_dir, make_plots=True)
 
 

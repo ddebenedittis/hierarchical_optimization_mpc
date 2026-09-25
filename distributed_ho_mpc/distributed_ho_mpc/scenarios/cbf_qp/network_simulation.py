@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.distance import pdist
 
-import distributed_ho_mpc.scenarios.orca_radial_switching.settings as st
-from distributed_ho_mpc.scenarios.orca_radial_switching.node import Agent
+import distributed_ho_mpc.scenarios.cbf_qp.settings as st
+from distributed_ho_mpc.scenarios.cbf_qp.node import Agent
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
@@ -31,14 +31,16 @@ def build_radial_configuration(
 
     'symmetric': evenly spaced angles (deterministic).
     'random':    random angles, resampled until every pair of agents spawns
-                 at least `min_spawn_distance` apart.
+                 at least `min_spawn_distance` apart. Used for the
+                 'asymmetric' scenario. Matches
+                 `orca_radial_switching.network_simulation`'s implementation
+                 so the RNG draws align across methods given the same seed
+                 -- same random benchmark instance for every method.
     """
     if layout == 'symmetric':
         thetas = 2 * np.pi * np.arange(n_nodes) / n_nodes
     elif layout == 'random':
         if n_nodes > 1:
-            # Largest min-pairwise-chord achievable on this circle is the
-            # evenly-spaced configuration; fail fast if the request can't be met.
             max_feasible = 2 * radius * np.sin(np.pi / n_nodes)
             if min_spawn_distance > max_feasible:
                 raise ValueError(
@@ -67,26 +69,38 @@ def build_radial_configuration(
 
 
 def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
-    """Run the ORCA baseline and return raw trajectory/timing data.
+    """Run the weighted distributed-QP baseline and return raw trajectory/timing data.
 
     Kept separate from `main()` so a comparison harness can call this with
     settings monkey-patched to a shared benchmark, without going through the
-    ament package-share/`out/` bookkeeping below. Note ORCA has no notion of
-    a formation task at all -- it only ever runs the plain go-to-goal +
-    collision-avoidance law, regardless of `scenario`.
+    ament package-share/`out/` bookkeeping below.
     """
     np.random.seed(1)
 
-    scenario = getattr(st, 'scenario', 'uniform')
+    dt = 0.02
+
     fixed_starts = getattr(st, 'fixed_starts', None)
     fixed_goals = getattr(st, 'fixed_goals', None)
     if fixed_starts is not None and fixed_goals is not None:
         starts, goals = fixed_starts, fixed_goals
     else:
-        layout = 'random' if scenario == 'asymmetric' else st.layout
+        layout = 'random' if st.scenario == 'asymmetric' else 'symmetric'
         starts, goals = build_radial_configuration(
-            st.n_nodes, st.radius, layout=layout, min_spawn_distance=st.min_spawn_distance
+            st.n_nodes,
+            st.radius,
+            layout=layout,
+            min_spawn_distance=getattr(st, 'min_spawn_distance', 0.0),
         )
+
+    formation_targets = {i: [] for i in range(st.n_nodes)}
+    weights = {i: {'w_goal': st.w_goal, 'w_form': 0.0} for i in range(st.n_nodes)}
+
+    if st.scenario == 'priority_conflict':
+        for a, b, _ in st.formation_pairs:
+            formation_targets[a].append(b)
+            formation_targets[b].append(a)
+        for node_id, override in st.weight_overrides.items():
+            weights[node_id].update(override)
 
     agents = [
         Agent(
@@ -95,10 +109,16 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             goal=goals[i],
             v_max=st.v_max,
             k_goal=st.k_goal,
-            orca_radius=st.orca_radius,
-            orca_time_horizon=st.orca_time_horizon,
-            orca_max_speed=st.orca_max_speed,
-            dt=st.dt,
+            d_safe=st.d_safe,
+            l=st.l,
+            gamma=st.gamma,
+            w_safety=st.w_safety,
+            solver=st.solver,
+            formation_targets=formation_targets[i],
+            k_form=st.k_form,
+            d_form=st.d_form,
+            w_goal=weights[i]['w_goal'],
+            w_form=weights[i]['w_form'],
         )
         for i in range(st.n_nodes)
     ]
@@ -109,17 +129,23 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     s_history = [None] * st.n_steps
     last_step = st.n_steps
     goals_arr = np.array(goals)
+
+    total_solve_time = 0.0
     min_distance = np.inf
 
     time_start = time.time()
 
     for step in range(st.n_steps):
         positions = {a.node_id: a.pos for a in agents}
-        velocities = {a.node_id: a.velocity for a in agents}
 
-        inputs = [a.compute_input(positions, velocities, st.communication_range) for a in agents]
+        inputs = []
+        for a in agents:
+            t0 = time.perf_counter()
+            u = a.compute_input(positions, st.communication_range)
+            total_solve_time += time.perf_counter() - t0
+            inputs.append(u)
         for a, u in zip(agents, inputs):
-            a.step(u, st.dt)
+            a.step(u, dt)
 
         s_history[step] = [[], [copy.deepcopy(a.pos) for a in agents]]
 
@@ -129,28 +155,54 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         for i, d in enumerate(step_distances):
             pairwise_distances[i].append(d)
 
-        if np.all(np.linalg.norm(positions_arr - goals_arr, axis=1) < st.goal_tol):
+        goal_errors = np.linalg.norm(positions_arr - goals_arr, axis=1)
+        if st.scenario == 'priority_conflict':
+            # The formation pair is judged only on the formation distance,
+            # not on either member's individual goal error -- one of them
+            # (per `weight_overrides` above) is formation-dominant and not
+            # expected to reach its own goal. Deliberately not checking
+            # which one specifically: that mapping is a construction detail
+            # of `weight_overrides`, not something to hardcode here.
+            fa, fb, d_form = st.formation_pairs[0]
+            others = [i for i in range(st.n_nodes) if i not in (fa, fb)]
+            others_ok = np.all(goal_errors[others] < st.goal_tol) if others else True
+            formation_dist = np.linalg.norm(positions_arr[fa] - positions_arr[fb])
+            formation_ok = abs(formation_dist - d_form) < st.goal_tol
+            converged_now = others_ok and formation_ok
+        else:
+            converged_now = np.all(goal_errors < st.goal_tol)
+
+        if converged_now:
             last_step = step + 1
             s_history = s_history[:last_step]
             break
 
     time_elapsed = time.time() - time_start
     print(f'The time elapsed is {time_elapsed} seconds')
-    print(f'Simulation stopped after {last_step} steps ({last_step * st.dt:.2f} s)')
+    print(f'Total solving time is {total_solve_time} seconds')
+    print(f'Simulation stopped after {last_step} steps ({last_step * dt:.2f} s)')
+    d_safe_enforced = st.d_safe + 2 * st.l
+    print(
+        f'Minimum inter-robot distance observed: {min_distance:.4f} '
+        f'(measured against d_safe = {st.d_safe}, enforced = {d_safe_enforced})'
+    )
 
     if make_plots:
         assert out_dir is not None
         os.makedirs(out_dir, exist_ok=True)
 
         robot_pairs = list(combinations(range(st.n_nodes), 2))
-        x = np.arange(1, last_step + 1) * st.dt
+        x = np.arange(1, last_step + 1) * dt
         plt.figure(figsize=(10, 6))
         for i, dist_list in enumerate(pairwise_distances):
             plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+        plt.axhline(y=st.d_safe, color='red', lw=2, linestyle='--', label='measured threshold')
         plt.axhline(
-            y=2 * st.orca_radius, color='red', lw=2, linestyle='--', label='collision threshold'
+            y=d_safe_enforced, color='darkred', lw=2, linestyle=':', label='enforced (CBF) distance'
         )
-        plt.title('Pairwise robot distances -- ORCA radial switching')
+        if st.scenario == 'priority_conflict':
+            plt.axhline(y=st.d_form, color='green', lw=2, linestyle='--', label='formation target')
+        plt.title(f'Pairwise robot distances -- weighted distributed QP ({st.scenario})')
         plt.xlabel('Time [s]')
         plt.ylabel('Distance [m]')
         plt.legend()
@@ -167,8 +219,8 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             s_history,
             goals,
             None,
-            st.dt,
-            [(last_step - 1) * st.dt],
+            dt,
+            [(last_step - 1) * dt],
             f'{out_dir}/snapshot',
             x_lim=[-lim, lim],
             y_lim=[-lim, lim],
@@ -180,7 +232,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             None,
             goals,
             None,
-            st.dt,
+            dt,
             st.visual_method,
             x_lim=[-lim, lim],
             y_lim=[-lim, lim],
@@ -189,18 +241,18 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         )
 
     return {
-        'method': 'orca',
-        'scenario': scenario,
+        'method': 'cbf_qp',
+        'scenario': st.scenario,
         's_history': s_history,
         'goals': goals,
-        'dt': st.dt,
+        'dt': dt,
         'last_step': last_step,
         'wall_time_s': time_elapsed,
-        'solve_time_s': None,
+        'solve_time_s': total_solve_time,
         'min_distance': min_distance,
-        'enforced_safety_distance': 2 * st.orca_radius,
+        'enforced_safety_distance': d_safe_enforced,
         'supports_priority': False,
-        'supports_formation': False,
+        'supports_formation': True,
     }
 
 
@@ -210,7 +262,8 @@ def main():
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     out_dir = (
-        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-orca_radial_switching/'
+        f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}'
+        f'-cbf_qp_{st.scenario}/'
     )
     return run(out_dir=out_dir, make_plots=True)
 

@@ -1,5 +1,28 @@
 # Comparison: dHQP vs. centralized HQP vs. three lightweight baselines
 
+## Omnidirectional benchmark (colleague's three scenarios)
+
+`run_comparison.py --preset colleague_omni` runs the benchmark of `origin/dhqp_with_plots` (6 omnidirectional agents, radius 6, dt 0.03, 1200 steps, v_max 1.4, d_safe 1.5) on the scenarios `uniform`, `asymmetric` and `priority_conflict`, with his simulators from `potential_field/`, `distributed_qp/`, `cbf_qp/`, `orca_radial_switching/`, `nh_orca_radial_switching/` and `dhqp_radial_switching/` driven through `methods/omni_adapters.py`.
+Seed k is his instance k (`common/benchmark.py:generate_omni_instance`).
+
+Rules every method shares:
+
+- every constraint-based method enforces `d_safe + 2*v_max*dt` (1.584 m), and all are scored against `d_safe`;
+- every integrator clips `||u|| <= v_max`;
+- a run stops, and is scored as converged, on the same rule: all agents within 1 cm of their goals, except the formation pair in `priority_conflict` for formation-capable methods, judged on the pair distance within 5 cm of `d_form`;
+- timing is `perf_counter` around each agent's control law, one job per process, one job per physical core (`--workers`, `--pin-cpus`).
+
+The NH-ORCA folder has the same `orca.py` and `node.py` as the ORCA one; its only difference was a larger radius, so under the shared enforced distance the two are the same controller.
+
+Full campaign, inside the `ho_mpc` container from the workspace root:
+
+```bash
+source install/setup.bash
+src/distributed_ho_mpc/distributed_ho_mpc/scenarios/comparison/run_omni_campaign.sh out/<campaign> 0:15
+```
+
+`analyze_comparison.py out/<campaign>` (run by the script) writes `summary_<scenario>.csv`, `summary_by_method.csv` and `table_colleague_format.{md,tex}`.
+
 ## What this is
 
 This scenario runs **every distributed-control method implemented in this

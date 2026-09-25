@@ -9,7 +9,6 @@ import numpy as np
 from cycler import cycler
 from matplotlib import colors
 from matplotlib.animation import FFMpegWriter, FuncAnimation
-from matplotlib.cm import get_cmap
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
@@ -88,7 +87,7 @@ def _plot_colour_line(x, y, cmap='viridis', alpha=0.9, lw=2.0, dash_on=5, dash_o
     segments = np.concatenate([pts[:-1], pts[1:]], axis=1)
 
     n_segments = len(segments)
-    cmap_fn = get_cmap(cmap)
+    cmap_fn = mpl.colormaps[cmap] if isinstance(cmap, str) else cmap
     norm = Normalize(vmin=0, vmax=len(x) - 1)
 
     # Compute dash pattern mask

@@ -29,6 +29,9 @@ omega_min = -0.5
 # ---------------------------------------------------------------------------- #
 radius = 6.0
 
+# Enforced collision distance; None falls back to 1.6 + v_max*dt (see node.py).
+safety_distance = None
+
 d_form = 2.0  # desired inter-robot distance for a formation pair
 goal_tol = 1e-2  # stop tolerance (matches the paper's own metric definition)
 

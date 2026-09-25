@@ -28,6 +28,9 @@ solver = QPSolver.quadprog  # {clarabel, osqp, proxqp, quadprog, reluqp}
 
 k_goal = 0.6  # nominal goal-tracking gain (equality task RHS)
 d_safe = 1.0  # inter-robot safety distance (CBF constraint, matches dHQP/potential-field threshold)
+# Enforced center-to-center distance. None enforces d_safe itself; the comparison harness
+# sets it so every constraint-based method enforces the same bound.
+d_safe_enforced = None
 gamma = 4.0  # class-K CBF gain: how aggressively the safety margin may be recovered
 
 k_form = 1.5  # formation-keeping gain (equality task RHS)

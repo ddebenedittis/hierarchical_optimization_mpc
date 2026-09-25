@@ -119,6 +119,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             d_form=st.d_form,
             w_goal=weights[i]['w_goal'],
             w_form=weights[i]['w_form'],
+            d_safe_enforced=getattr(st, 'd_safe_enforced', None),
         )
         for i in range(st.n_nodes)
     ]
@@ -181,7 +182,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     print(f'The time elapsed is {time_elapsed} seconds')
     print(f'Total solving time is {total_solve_time} seconds')
     print(f'Simulation stopped after {last_step} steps ({last_step * dt:.2f} s)')
-    d_safe_enforced = st.d_safe + 2 * st.l
+    d_safe_enforced = agents[0].d_safe_enforced
     print(
         f'Minimum inter-robot distance observed: {min_distance:.4f} '
         f'(measured against d_safe = {st.d_safe}, enforced = {d_safe_enforced})'

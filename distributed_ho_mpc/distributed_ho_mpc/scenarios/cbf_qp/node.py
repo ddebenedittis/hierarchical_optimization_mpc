@@ -77,6 +77,7 @@ class Agent:
         w_goal: float = 1.0,
         w_form: float = 1.0,
         w_safety: float = 1e3,
+        d_safe_enforced: float | None = None,
     ):
         self.node_id = node_id
         self.pos = np.array(pos, dtype=float)
@@ -88,7 +89,9 @@ class Agent:
         self.l = l
         # The CBF barrier enforces this, not d_safe directly -- see settings.py's docstring for
         # why this baseline is deliberately more conservative than the shared measurement d_safe.
-        self.d_safe_enforced = d_safe + 2.0 * l
+        # An explicit `d_safe_enforced` overrides the l-based buffer, so a comparison harness can
+        # hand every method the same enforced distance.
+        self.d_safe_enforced = d_safe + 2.0 * l if d_safe_enforced is None else d_safe_enforced
         self.gamma = gamma
         self.w_safety = w_safety
 

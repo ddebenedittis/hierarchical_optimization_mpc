@@ -255,8 +255,11 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        if st.scenario == 'uniform':
-            self.threshold = 1.6 + st.v_max * st.dt
+        # Center-to-center distance the collision task enforces. None keeps this
+        # scenario's own 1.6 + v_max*dt; the comparison harness sets it so every
+        # constraint-based method enforces the same bound.
+        if getattr(st, 'safety_distance', None) is not None:
+            self.threshold = st.safety_distance
         else:
             self.threshold = 1.6 + st.v_max * st.dt
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)

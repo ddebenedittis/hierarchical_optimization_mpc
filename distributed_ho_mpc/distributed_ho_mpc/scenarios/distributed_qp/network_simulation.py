@@ -117,6 +117,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             d_form=st.d_form,
             w_goal=weights[i]['w_goal'],
             w_form=weights[i]['w_form'],
+            d_safe_enforced=getattr(st, 'd_safe_enforced', None),
         )
         for i in range(st.n_nodes)
     ]
@@ -241,6 +242,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'wall_time_s': time_elapsed,
         'solve_time_s': total_solve_time,
         'min_distance': min_distance,
+        'enforced_safety_distance': agents[0].d_safe_enforced,
         'supports_priority': False,
         'supports_formation': True,
     }

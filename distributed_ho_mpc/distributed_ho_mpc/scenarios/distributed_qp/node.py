@@ -48,6 +48,7 @@ class Agent:
         d_form: float = 0.0,
         w_goal: float = 1.0,
         w_form: float = 1.0,
+        d_safe_enforced: float | None = None,
     ):
         self.node_id = node_id
         self.pos = np.array(pos, dtype=float)
@@ -56,6 +57,8 @@ class Agent:
 
         self.k_goal = k_goal
         self.d_safe = d_safe
+        # Distance the CBF actually enforces; defaults to d_safe (no margin).
+        self.d_safe_enforced = d_safe if d_safe_enforced is None else d_safe_enforced
         self.gamma = gamma
 
         self.k_form = k_form
@@ -109,7 +112,7 @@ class Agent:
             if dist > communication_range:
                 continue
 
-            h = dist**2 - self.d_safe**2
+            h = dist**2 - self.d_safe_enforced**2
             C_rows.append(-2.0 * diff)
             d_rows.append(self.gamma * h)
 

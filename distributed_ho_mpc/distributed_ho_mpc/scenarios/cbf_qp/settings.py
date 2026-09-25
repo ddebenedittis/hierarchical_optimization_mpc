@@ -32,6 +32,9 @@ l = 0.15  # extra conservative buffer this method holds beyond d_safe (agent foo
 # The CBF barrier enforces d_safe_enforced = d_safe + 2*l, not d_safe directly -- this baseline
 # is deliberately more conservative than the shared measurement threshold, the same way a real
 # CBF-QP controller needs margin beyond the metric's collision distance to stay feasible/robust.
+# Enforced center-to-center distance. None keeps the `d_safe + 2*l` default above; the
+# comparison harness sets it so every constraint-based method enforces the same bound.
+d_safe_enforced = None
 gamma = 4.0  # class-K CBF gain: how aggressively the safety margin may be recovered
 
 w_safety = 1e3  # heavily-penalized SOFT weight for velocity-limit + CBF constraints (not

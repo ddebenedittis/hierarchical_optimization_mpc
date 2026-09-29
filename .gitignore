@@ -3,6 +3,14 @@ __pycache__
 .venv
 .vscode
 
+# colcon workspace
+build
+install
+log
+
+# Local simulation and campaign outputs
+out
+
 *.csv
 *.mp4
 *.pdf

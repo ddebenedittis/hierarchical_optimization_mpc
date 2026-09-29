@@ -1,7 +1,7 @@
 [submodule "hierarchical_qp"]
-	path = hierarchical_qp
+	path = src/hierarchical_qp
 	url = git@github.com:ddebenedittis/hierarchical_qp.git
 	branch = ros2
 [submodule "mocap_msgs"]
-	path = mocap_msgs
+	path = src/mocap_msgs
 	url = git@github.com:ddebenedittis/mocap_msgs.git

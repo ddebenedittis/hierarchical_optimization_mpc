@@ -33,59 +33,51 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 def neigh_connection(
     states, nodes, graph_matrix, communication_range, limit_connection, system_tasks
 ):
-    """
-    For each node, connect to up to 6 nearest neighbors within communication range.
-    Disconnect from neighbors outside range or beyond top 6 closest.
+    """Keep every agent linked to its `limit_connection` nearest agents within range.
+
+    The target link set is computed once per call from the current distances and
+    is symmetric: i-j is linked iff j is among the nearest in-range agents of i, or
+    i among those of j. Only the difference to the current graph is applied
+    (disconnections first). The previous version processed agents one at a time
+    and made each one drop every link outside its own top-k, including links a
+    neighbour had just created because i was in *its* top-k, so the same links were
+    torn down and rebuilt every step.
+
+    Returns:
+        (n_connect, n_disconnect) link events applied by this call.
     """
     num_nodes = len(nodes)
+    pos = np.array([np.asarray(s)[:2] for s in states])
+    dist = np.linalg.norm(pos[:, None, :] - pos[None, :, :], axis=2)
 
+    target = np.zeros((num_nodes, num_nodes), dtype=bool)
     for i in range(num_nodes):
-        distances = []
+        in_range = [j for j in np.argsort(dist[i]) if j != i and dist[i, j] < communication_range]
+        for j in in_range[:limit_connection]:
+            target[i, j] = target[j, i] = True
 
-        for j in range(num_nodes):
-            if i == j:
-                continue
-            dist = np.linalg.norm(states[i][:2] - states[j][:2])
-            if dist < communication_range:
-                distances.append((j, dist))
+    current = graph_matrix != 0
+    pairs = list(combinations(range(num_nodes), 2))
+    to_disconnect = [(i, j) for i, j in pairs if current[i, j] and not target[i, j]]
+    to_connect = [(i, j) for i, j in pairs if target[i, j] and not current[i, j]]
 
-        # Sort and select up to 6 nearest within range
-        distances.sort(key=lambda x: x[1])
-        if len(distances) > 0:
-            if distances[0][1] < 4:
-                nodes[i].a = 1
-            elif distances[0][1] > 4:
-                nodes[i].a = 5
-        closest_neighbors = set(idx for idx, _ in distances[:limit_connection])
+    for i, j in to_disconnect:
+        graph_matrix[i][j] = 0.0
+        graph_matrix[j][i] = 0.0
+        nodes[i].remove_connection(graph_matrix[i], f'agent_{j}', j)
+        nodes[j].remove_connection(graph_matrix[j], f'agent_{i}', i)
 
-        current_connections = set(np.nonzero(graph_matrix[i])[0])
+    for i, j in to_connect:
+        graph_matrix[i][j] = 1.0
+        graph_matrix[j][i] = 1.0
+        nodes[i].create_connection(
+            graph_matrix[i], {f'agent_{j}': copy.deepcopy(system_tasks[f'agent_{j}'])}, states[j]
+        )
+        nodes[j].create_connection(
+            graph_matrix[j], {f'agent_{i}': copy.deepcopy(system_tasks[f'agent_{i}'])}, states[i]
+        )
 
-        to_connect = closest_neighbors - current_connections
-        to_disconnect = current_connections - closest_neighbors
-
-        # --- CONNECT (bidirectional)
-        for idx in to_connect:
-            graph_matrix[i][idx] = 1.0
-            graph_matrix[idx][i] = 1.0  # mirror connection
-
-            # i connects to idx
-            tasks_i = {f'agent_{i}': {f'agent_{idx}': copy.deepcopy(system_tasks[f'agent_{idx}'])}}
-            nodes[i].create_connection(graph_matrix[i], tasks_i[f'agent_{i}'], states[idx])
-
-            # idx connects to i
-            tasks_j = {f'agent_{idx}': {f'agent_{i}': copy.deepcopy(system_tasks[f'agent_{i}'])}}
-            nodes[idx].create_connection(graph_matrix[idx], tasks_j[f'agent_{idx}'], states[i])
-
-        # --- DISCONNECT (bidirectional)
-        for idx in to_disconnect:
-            graph_matrix[i][idx] = 0.0
-            graph_matrix[idx][i] = 0.0  # mirror disconnection
-
-            # i disconnects from idx
-            nodes[i].remove_connection(graph_matrix[i], f'agent_{idx}', idx)
-
-            # idx disconnects from i
-            nodes[idx].remove_connection(graph_matrix[idx], f'agent_{i}', i)
+    return len(to_connect), len(to_disconnect)
 
 
 def save_run_info(output_dir: str, config: dict, run_id: str | None = None) -> Path:
@@ -142,6 +134,10 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'unicycle': get_unicycle_model(0.5),
         'omnidirectional': get_omnidirectional_model(st.dt),
     }
+
+    # n_xi is derived from n_control; settings.py computes it at import time, so a
+    # caller that changes n_control afterwards would otherwise leave it stale.
+    st.n_xi = st.n_control * (5 if st.type == 'uni' else 4)
 
     n_robot = st.n_nodes
     comm_range = st.communication_range
@@ -253,53 +249,34 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     #         {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
     #     ]
     if st.scenario == 'priority_conflict':
-        system_tasks = {
-            'agent_3': [
+        # One template for every agent: limits 1, collision 2, then the objectives.
+        # The formation pair differs only in how it orders its two objectives:
+        # agent fa keeps its own goal above the formation, agent fb the formation
+        # above its own goal. The previous table mixed collision at 2 or 3, put
+        # input_smooth at the same level as collision for some agents and not
+        # others, and ranked input_smooth above collision for agents 2-3.
+        fa, fb, d_pair = st.formation_pairs[0]
+        system_tasks = {}
+        for ag in range(num_points):
+            tasks = [
                 {'prio': 1, 'name': 'input_limits'},
-                {'prio': 3, 'name': 'input_smooth'},
                 {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[3], 'goal_index': 3},
-            ],
-            'agent_2': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 3, 'name': 'input_smooth'},
-                {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
-                {'prio': 2, 'name': 'collision_avoidance'},
-            ],
-            'agent_1': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-                {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
-            ],
-            'agent_0': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 2, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
-                {'prio': 3, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
-            ],
-            'agent_4': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[4], 'goal_index': 4},
-            ],
-            'agent_5': [
-                {'prio': 1, 'name': 'input_limits'},
-                {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[5], 'goal_index': 5},
-            ],
-        }
+            ]
+            position = {'name': 'position', 'goal': goals[ag], 'goal_index': ag}
+            formation = {'name': 'formation', 'agents': [[fa, fb]], 'distance': d_pair}
+            if ag == fa:
+                tasks += [{'prio': 3, **position}, {'prio': 4, **formation}]
+            elif ag == fb:
+                tasks += [{'prio': 3, **formation}, {'prio': 4, **position}]
+            else:
+                tasks += [{'prio': 3, **position}]
+            system_tasks[f'agent_{ag}'] = tasks
     elif st.scenario == 'uniform' or st.scenario == 'asymmetric':
         system_tasks = {
             f'agent_{ag}': [
                 {'prio': 1, 'name': 'input_limits'},
-                # {'prio': 2, 'name': 'input_smooth'},
-                {'prio': 3, 'name': 'collision_avoidance'},
-                {'prio': 4, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
+                {'prio': 2, 'name': 'collision_avoidance'},
+                {'prio': 3, 'name': 'position', 'goal': goals[ag], 'goal_index': ag},
             ]
             for ag in range(num_points)
         }
@@ -374,7 +351,9 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     # out_dir = f'{workspace_dir}/out/{root}{limit_conn}/{comm_range}/{cycle}/'
-    out_dir = f'{workspace_dir}/out/{root}/'
+    # An absolute out_dir is used as is (the comparison harness passes one);
+    # a relative one is placed under the workspace's out/ as before.
+    out_dir = f'{root}/' if os.path.isabs(root) else f'{workspace_dir}/out/{root}/'
     os.makedirs(out_dir, exist_ok=True)
     time_start = time.time()
     # Create an agents of the same type for each node of the system
@@ -418,20 +397,39 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     time_goal = 0
     start_time_coop = time.time()
     step_goal = 0
+    link_events = []  # (connect, disconnect) events per step
     for j in range(n_robot):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
+
+    # Control-loop bookkeeping, same as the other baselines: x_hist includes the
+    # initial state; solve_times is each agent's full control computation
+    # (node.update: matrix construction + HQP), qp_times only the HQP solve.
+    x_hist = [np.array([np.asarray(s_j)[:2] for s_j in state])]
+    u_hist = []
+    solve_times = []
+    qp_times = []
+    time_start = time.perf_counter()
     for i in tqdm(range(st.n_steps), desc='iteration', position=2, colour='red', leave=False):
         #    for i in range(st.n_steps):
         if i == st.n_steps - 1:
             last_step = i + 1
-        if i > 0:
-            neigh_connection(
-                state, nodes, graph_matrix, communication_range, limit_connection, system_tasks
-            )
+        # Also at i == 0: the graph starts empty, so skipping the first call let every
+        # agent take its first step with no neighbours and no collision task.
+        n_conn, n_disc = neigh_connection(
+            state, nodes, graph_matrix, communication_range, limit_connection, system_tasks
+        )
+        link_events.append((n_conn, n_disc))
         # for rr in range(st.inner_loop):
+        step_times, step_qp = [], []
         for j in range(n_robot):
+            qp_before = nodes[j].hompc.solve_times['Solve Problem']
+            t0 = time.perf_counter()
             nodes[j].reorder_s_init(state)
             nodes[j].update('2')  # Update primal solution and state evolution
+            step_times.append(time.perf_counter() - t0)
+            step_qp.append(nodes[j].hompc.solve_times['Solve Problem'] - qp_before)
+        solve_times.append(step_times)
+        qp_times.append(step_qp)
         for j in range(n_robot):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             # for ij in nodes[j].neigh:  # select my neighbours
@@ -440,6 +438,8 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             # for j in range(st.n_nodes):
             nodes[j].dual_update()  # linear update of dual problem
         pairwise_distances, min_distance = agents_distance(state, pairwise_distances, min_distance)
+        x_hist.append(np.array([np.asarray(s_j)[:2] for s_j in state]))
+        u_hist.append([np.asarray(nodes[j].u_applied, dtype=float)[:2] for j in range(n_robot)])
         # for j in range(st.n_nodes):
         #     for ij in nodes[j].neigh:  # select my neighbours
         #         msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
@@ -482,7 +482,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             others = [k for k in range(n_robot) if k not in (fa, fb)]
             others_ok = np.all(goal_errors[others] < st.goal_tol) if others else True
             formation_dist = np.linalg.norm(positions_arr[fa][:2] - positions_arr[fb][:2])
-            formation_ok = abs(formation_dist - d_form) < st.goal_tol
+            formation_ok = abs(formation_dist - d_form) < st.form_tol
             converged_now = others_ok and formation_ok
         else:
             converged_now = np.all(goal_errors < st.goal_tol)
@@ -491,12 +491,12 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             last_step = i + 1
             for j in range(n_robot):
                 nodes[j].s_history = nodes[j].s_history[:last_step]
-            time_goal = time.time() - time_start
+            time_goal = time.perf_counter() - time_start
             step_goal = i
             break
         # b.update(i)
 
-    time_elapsed = time.time() - time_start
+    time_elapsed = time.perf_counter() - time_start
     time_coop = time.time() - start_time_coop
     # print(f'The time elapsed is {time_elapsed} seconds')
     # print(f'Time used to coordinate the network is {time_coop}')
@@ -549,7 +549,16 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
     #         f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s\ntotal solving {tot_solve}\n time to goal: {time_goal} at iter {step_goal} \nmax {max_a}\nall max {max_value}\n cr {creation}'
     #     )
 
-    if st.simulation:
+    s_hist_merged = [
+        sum(([node.s_history[i][0][0]] for node in nodes), [])
+        for i in range(len(nodes[0].s_history))
+    ]
+    if st.type == 'omni':
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+    elif st.type == 'uni':
+        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+
+    if st.simulation and make_plots:
         robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, last_step + 1) * st.dt
         plt.figure(figsize=(10, 6))
@@ -571,15 +580,6 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
-        s_hist_merged = [
-            sum(([node.s_history[i][0][0]] for node in nodes), [])
-            for i in range(len(nodes[0].s_history))
-        ]
-        if st.type == 'omni':
-            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
-        elif st.type == 'uni':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
-
         s_history_all = []
         for r in range(len(nodes[0].state_k)):
             s = []
@@ -661,6 +661,18 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
         'wall_time_s': time_elapsed,
         'solve_time_s': tot_solve,
         'min_distance': min_distance,
+        # dHQP's own collision threshold (1.6 + v_max*dt, see node.py) is
+        # deliberately kept above the shared canonical `d_safe` to absorb its
+        # per-step velocity-induced tracking error -- not overridden by the
+        # comparison harness, reported here so the extra margin is explicit
+        # in the KPI tables instead of silently reporting the canonical value.
+        'enforced_safety_distance': nodes[0].threshold,
+        'x_hist': np.array(x_hist),
+        'u_hist': np.array(u_hist).reshape(len(u_hist), n_robot, 2),
+        'solve_times': np.array(solve_times),
+        'qp_times': np.array(qp_times),
+        'infeasible_count': 0,
+        'link_events': np.array(link_events, dtype=int).reshape(-1, 2),
         'supports_priority': True,
         'supports_formation': True,
         'supports_per_agent_priority': True,

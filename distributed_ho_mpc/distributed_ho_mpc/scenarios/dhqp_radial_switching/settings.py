@@ -16,11 +16,11 @@ inner_loop = 1  # number of inner loop of the distributed algorithm
 # other baselines' per-step `communication_range` filter, but here it
 # actually adds/removes tasks via `Node.create_connection`/`remove_connection`
 # instead of just gating a force term.
-communication_range = 5
+communication_range = 6
 neighbor_limit = 3  # connect to at most this many closest agents within range
 
 v_max = 1.4
-v_min = -1.0
+v_min = -v_max  # symmetric per-axis box, was -1.0 (slowed motion along -x/-y only)
 omega_max = 0.5
 omega_min = -0.5
 
@@ -29,8 +29,12 @@ omega_min = -0.5
 # ---------------------------------------------------------------------------- #
 radius = 6.0
 
+# Enforced collision distance; None falls back to 1.6 + v_max*dt (see node.py).
+safety_distance = None
+
 d_form = 2.0  # desired inter-robot distance for a formation pair
 goal_tol = 1e-2  # stop tolerance (matches the paper's own metric definition)
+form_tol = 5e-2  # formation-distance tolerance, same one the comparison uses to score success
 
 # ---------------------------------------------------------------------------- #
 #                                   Scenario                                   #

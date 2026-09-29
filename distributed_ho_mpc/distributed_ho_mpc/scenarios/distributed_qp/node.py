@@ -48,6 +48,7 @@ class Agent:
         d_form: float = 0.0,
         w_goal: float = 1.0,
         w_form: float = 1.0,
+        d_safe_enforced: float | None = None,
     ):
         self.node_id = node_id
         self.pos = np.array(pos, dtype=float)
@@ -56,6 +57,8 @@ class Agent:
 
         self.k_goal = k_goal
         self.d_safe = d_safe
+        # Distance the CBF actually enforces; defaults to d_safe (no margin).
+        self.d_safe_enforced = d_safe if d_safe_enforced is None else d_safe_enforced
         self.gamma = gamma
 
         self.k_form = k_form
@@ -66,6 +69,7 @@ class Agent:
         self.w_form = w_form
 
         self.hqp = HierarchicalQP(solver=solver, hierarchical=False)
+        self.infeasible_count = 0
 
     def _formation_task(self, positions: dict[int, np.ndarray]):
         """Equality task: drive the projected relative velocity to close the
@@ -109,7 +113,7 @@ class Agent:
             if dist > communication_range:
                 continue
 
-            h = dist**2 - self.d_safe**2
+            h = dist**2 - self.d_safe_enforced**2
             C_rows.append(-2.0 * diff)
             d_rows.append(self.gamma * h)
 
@@ -143,7 +147,17 @@ class Agent:
 
         # Non-hierarchical ("weighted") mode returns the solution vector
         # directly, not a (x_star, slacks) tuple like the hierarchical mode.
-        x_star = self.hqp(A_levels, b_levels, C_levels, d_levels, we=we_levels, wi=wi_levels)
+        # With hard (wi = inf) safety rows the QP has no solution when several
+        # neighbours pin the agent from conflicting sides. The solver then returns
+        # None and slicing it used to crash the whole run; stop in place instead
+        # and count the event.
+        try:
+            x_star = self.hqp(A_levels, b_levels, C_levels, d_levels, we=we_levels, wi=wi_levels)
+        except (TypeError, ValueError):
+            x_star = None
+        if x_star is None:
+            self.infeasible_count += 1
+            return np.zeros(nx)
         u = np.asarray(x_star[:nx], dtype=float)
 
         speed = np.linalg.norm(u)
@@ -153,4 +167,11 @@ class Agent:
         return u
 
     def step(self, u: np.ndarray, dt: float) -> None:
+        # Plant saturation ||u|| <= v_max, applied identically by every method in the
+        # comparison regardless of what its controller already guarantees.
+        u = np.asarray(u, dtype=float)
+        speed = np.linalg.norm(u)
+        if speed > self.v_max:
+            u = u / speed * self.v_max
+        self.u_applied = u
         self.pos = self.pos + dt * u

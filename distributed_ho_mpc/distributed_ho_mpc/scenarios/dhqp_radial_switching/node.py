@@ -170,6 +170,17 @@ class Node:
         self.u_star_prev = None
         self.time_start = time.time()
 
+    def _own_prio(self, name: str) -> int:
+        """Priority of task `name` in this agent's own task list."""
+        return next(t['prio'] for t in self.tasks if t['name'] == name)
+
+    def _has_formation_task(self, prio: int, robot_index: list[list[int]]) -> bool:
+        """Whether a formation task with this priority and robot pair already exists."""
+        return any(
+            t.name == 'formation' and t.prio == prio and t.robot_index == robot_index
+            for t in self.hompc._tasks
+        )
+
     def index_local_to_global(self, r) -> int:
         """
         Convert the local index of the node to the global index in the adjacency vector.
@@ -255,10 +266,13 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        if st.scenario == 'uniform':
-            self.threshold = 1.65
+        # Center-to-center distance the collision task enforces. None keeps this
+        # scenario's own 1.6 + v_max*dt; the comparison harness sets it so every
+        # constraint-based method enforces the same bound.
+        if getattr(st, 'safety_distance', None) is not None:
+            self.threshold = st.safety_distance
         else:
-            self.threshold = 1.65
+            self.threshold = 1.6 + st.v_max * st.dt
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(
@@ -461,9 +475,9 @@ class Node:
                 #     copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
                 # )
 
-                self.s = self.evolve(
-                    copy.deepcopy(self.s_init), RobCont(omni=self.u_star[0]), self.dt
-                )
+                u_applied = RobCont(omni=[np.array(u, dtype=float) for u in self.u_star[0]])
+                self.s = self.evolve(copy.deepcopy(self.s_init), u_applied, self.dt)
+                self.u_applied = u_applied.omni[0]
 
             if st.inner_plot and round == '2':
                 for i in range(len(self.s_.omni)):
@@ -534,6 +548,12 @@ class Node:
                     )
         if st.type == 'omni':
             for j, _ in enumerate(s.omni):
+                # Plant saturation ||u|| <= v_max, the same one every other method in
+                # the comparison applies in its integrator.
+                u_j = np.asarray(u_star.omni[j], dtype=float)
+                speed = np.linalg.norm(u_j)
+                if speed > self.v_max:
+                    u_star.omni[j] = u_j / speed * self.v_max
                 for _ in range(n_intervals):
                     s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                         [
@@ -612,6 +632,8 @@ class Node:
                             task_formation_coeff,
                             f_robot_idx,
                         ) = self.task_formation_method(task['agents'], task['distance'])
+                        if self._has_formation_task(task['prio'], f_robot_idx):
+                            continue
                         self.hompc.create_task_bi(
                             name='formation',
                             prio=task['prio'],
@@ -723,7 +745,7 @@ class Node:
             if self.degree == 1:
                 self.hompc.create_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=self._own_prio('collision_avoidance'),
                     type=TaskType.Bi,
                     aux=self.aux_avoid_collision,
                     mapping=self.mapping_avoid_collision.tolist(),
@@ -736,7 +758,7 @@ class Node:
 
                 self.hompc.update_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=self._own_prio('collision_avoidance'),
                     type=TaskType.Bi,
                     # aux = self.aux_avoid_collision,
                     # mapping = self.mapping_avoid_collision.tolist(),
@@ -767,6 +789,11 @@ class Node:
                     aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
                         self.task_formation_method(task['agents'], task['distance'])
                     )
+                    # Every new connection used to re-add the agent's own formation
+                    # task, so an agent with k neighbours carried k-1 copies of it,
+                    # which reweights it against the other tasks at its level.
+                    if self._has_formation_task(task['prio'], f_robot_idx):
+                        continue
                     self.hompc.create_task_bi(
                         name='formation',
                         prio=task['prio'],
@@ -778,7 +805,11 @@ class Node:
                         robot_index=f_robot_idx,
                     )
 
-            self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='input_limits',
+                prio=self._own_prio('input_limits'),
+                robot_index=[self.robot_idx],
+            )
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
@@ -845,7 +876,9 @@ class Node:
                 or task.name == 'collision'
             ]
 
-        self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='input_limits', prio=self._own_prio('input_limits'), robot_index=[self.robot_idx]
+        )
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
 
         for n, task in enumerate(self.hompc._tasks):

@@ -408,7 +408,7 @@ def main(num_robots):
                 None,
                 [[0, obs_centers[0][1], R_obs], [0, obs_centers[1][1], R_obs]],
                 st.dt,
-                [(last_step - 1) * st.dt],
+                [(last_step / 2) * st.dt, (last_step - 1) * st.dt],
                 f'{out_dir}/snapshot',
                 x_lim=[-9, 9],
                 y_lim=[-8, 8],
@@ -422,6 +422,15 @@ def main(num_robots):
             #         form = False
             #     )
         b.finish()
+
+        plot_distances(
+            s_hist_merged,
+            0.05,  # dt 012
+            None,  # 0.6,#0.5, #1.8,  # dmin 0.6
+            f'{out_dir}/dist.pdf',
+            to_obj=True,
+            form=False,
+        )
 
         flags.trajectory = False
 
@@ -442,6 +451,6 @@ def main(num_robots):
 if __name__ == '__main__':
     for _ in range(1):
         n_robots = 10
-        for i in range(5):
+        for i in range(1):
             main(n_robots)
             n_robots += 10

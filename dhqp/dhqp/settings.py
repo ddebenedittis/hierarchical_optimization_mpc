@@ -3,7 +3,7 @@ import numpy as np
 # ---------------------------------------------------------------------------- #
 #                               Network settings                               #
 # ---------------------------------------------------------------------------- #
-experiment_name = 'radial_switch'  # 'radial_switch' 'coverage' 'obst_avoid'
+experiment_name = 'obst_avoid'  # 'radial_switch' 'coverage' 'obst_avoid'
 
 if experiment_name == 'radial_switch':
     # goals = [
@@ -53,15 +53,19 @@ elif experiment_name == 'obst_avoid':
     n_nodes = 4
     moving_obstacle = False
     goals = [
-        np.array([3.48, 1.25]),  # np.array([-3.437, -3.618]),
-        np.array([3.4, -0.36]),
-        np.array([-0.58, -0.59]),
-        np.array([-0.61, 1.32]),
-        # np.array([-0.58, -0.59]),  # np.array([-3.437, -3.618]),
-        # np.array([-0.61, 1.32]),
-        # np.array([3.48, 1.25]),
-        # np.array([3.4, -0.36]),
+        np.array([2.50472862, -0.44350808]),  # limo_1
+        np.array([2.60031723, 1.42929871]),  # limo_2
+        np.array([0.30474463, 1.53108807]),  # limo_3
+        np.array([-0.42369137, 0.22340126]),  # limo_4
+        np.array([0.72717752, -1.07773726]),  # limo_5
     ]
+    # goals = [
+    #     np.array([-0.2194180, 1.10852516]),  # limo_1
+    #     np.array([-0.3150066, -0.76428163]),  # limo_2
+    #     np.array([1.98056602, -0.86607099]),  # limo_3
+    #     np.array([2.70900202, 0.44161582]),  # limo_4
+    #     np.array([1.55813313, 1.74275434]),  # limo_5
+    # ]
     system_tasks = {
         f'agent_{i}': [
             {'prio': 1, 'name': 'input_limits'},
@@ -81,7 +85,7 @@ R = 0.045
 L = 0.173
 dt = 0.05
 dt_mpc_model = 0.75
-n_steps = 400
+n_steps = 500
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 communication_range = 1
@@ -106,22 +110,20 @@ estimation_plotting = False
 # ---------------------------------------------------------------------------- #
 #                                 MPC settings                                 #
 # ---------------------------------------------------------------------------- #
-n_control = 6  # mpc control step
+n_control = 4  # mpc control step
 n_pred = 0  # mpc prediction step
 
 n_xi = n_control * 5
 safety_distance = 0.6  # minimum safety distance between robots
-obstacle_position = np.array([0.5, 0])
-obstacle_size = 0.4
+obstacle_position = np.array([0.90, 0.32])
+obstacle_size = 0.5
 vel = np.array([-0.05, 0.0])
 # --------------------------------------------------------------------------- #
 #                                 PDD settings                               #
 # ---------------------------------------------------------------------------- #
 
-
 n_priority = 4
 step_size = 1e-5
 
-
-variable_connection = True
+variable_connection = False
 n_connection = 2  # number of maximum connections per node

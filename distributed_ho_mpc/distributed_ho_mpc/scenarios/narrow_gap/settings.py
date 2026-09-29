@@ -9,11 +9,11 @@ random_graph = False  # create a random graph or not
 I_NN = np.identity(n_nodes, dtype=int)
 
 dt = 0.05
-n_steps = 1200
+n_steps = 400
 inner_loop = 1  # number of inner loop of the distributed algorithm
 
 
-communication_range = 1
+communication_range = 0.5
 limit_connection = 4
 
 v_max = 2.0
@@ -23,7 +23,7 @@ v_min = 0
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #
 output = {'display': 'plot', 'save': 'save', 'nothing': 'none'}
-visual_method = output['nothing']  # change the key to decide the output visualization
+visual_method = output['display']  # change the key to decide the output visualization
 snap = True
 save_data = True
 simulation = True

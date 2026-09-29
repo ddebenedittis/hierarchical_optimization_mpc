@@ -1,10 +1,15 @@
 import copy
+import csv
+import os
 import time
+from datetime import datetime
 from itertools import combinations
 
 import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
+import progressbar
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
@@ -13,7 +18,7 @@ from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     TaskType,
 )
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
+    MultiRobotArtistFlags,
     display_animation,
     save_snapshots,
 )
@@ -40,8 +45,11 @@ def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
 
 def main():
     np.random.seed(1)
-
+    n_steps = 40
     time_start = time.time()
+
+    b = progressbar.ProgressBar(maxval=n_steps)
+    b.start()
 
     # ============================== Parameters ============================= #
 
@@ -51,6 +59,29 @@ def main():
 
     v_max = 2
     v_min = -1
+
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching_central_{n_robots.omni}A/'
+    os.makedirs(out_dir, exist_ok=True)
+
+    filename = f'{out_dir}/cntr_data.csv'
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+
+        header = ['iter', 'Time']
+        for i in range(n_robots.omni):
+            header.append(f'stateX_{i}')
+            header.append(f'stateY_{i}')
+            # header.append(f'stateRHO_{i}')
+            header.append(f'inputV_{i}')
+            header.append(f'inputOH_{i}')
+        for i in range(4):
+            header.append(f'lambdA_{i}')
+        for i in range(4):
+            header.append(f'tau_{i}')
+
+        writer.writerow(header)
 
     # ======================= Define The System Model ======================= #
 
@@ -152,30 +183,30 @@ def main():
         eq_task_coeff=task_pos_ref_1_coeff.tolist(),
         robot_index=[[0]],
     )
-    hompc.create_task(
-        name='pos_ref_2',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_2.tolist(),
-        eq_task_coeff=task_pos_ref_2_coeff.tolist(),
-        robot_index=[[1]],
-    )
-    hompc.create_task(
-        name='pos_ref_3',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_3.tolist(),
-        eq_task_coeff=task_pos_ref_3_coeff.tolist(),
-        robot_index=[[2]],
-    )
-    hompc.create_task(
-        name='pos_ref_4',
-        prio=4,
-        type=TaskType.Same,
-        eq_task_ls=task_pos_ref_4.tolist(),
-        eq_task_coeff=task_pos_ref_4_coeff.tolist(),
-        robot_index=[[3]],
-    )
+    # hompc.create_task(
+    #     name='pos_ref_2',
+    #     prio=4,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_2.tolist(),
+    #     eq_task_coeff=task_pos_ref_2_coeff.tolist(),
+    #     robot_index=[[1]],
+    # )
+    # hompc.create_task(
+    #     name='pos_ref_3',
+    #     prio=4,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_3.tolist(),
+    #     eq_task_coeff=task_pos_ref_3_coeff.tolist(),
+    #     robot_index=[[2]],
+    # )
+    # hompc.create_task(
+    #     name='pos_ref_4',
+    #     prio=4,
+    #     type=TaskType.Same,
+    #     eq_task_ls=task_pos_ref_4.tolist(),
+    #     eq_task_coeff=task_pos_ref_4_coeff.tolist(),
+    #     robot_index=[[3]],
+    # )
 
     hompc.create_task_bi(
         name='collision_avoidance',
@@ -186,14 +217,15 @@ def main():
         ineq_task_ls=task_avoid_collision,
         ineq_task_coeff=task_avoid_collision_coeff,
     )
-    # hompc.create_task_bi(
-    #    name="formation", prio=3,
-    #    type=TaskType.Bi,
-    #    aux=aux,
-    #    mapping=mapping.tolist(),
-    #    eq_task_ls=task_formation,
-    #    eq_task_coeff=task_formation_coeff,
-    # )
+    hompc.create_task_bi(
+        name='formation',
+        prio=3,
+        type=TaskType.Bi,
+        aux=aux,
+        mapping=mapping.tolist(),
+        eq_task_ls=task_formation,
+        eq_task_coeff=task_formation_coeff,
+    )
     # hompc.create_task(
     #     name="pos_ref_3", prio=5,
     #     type=TaskType.Same,
@@ -238,21 +270,33 @@ def main():
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
-    n_steps = 500
+    # n_steps = 500
 
     s_history = [None for _ in range(n_steps)]
 
     for k in range(n_steps):
-        print(k)
+        u_star, lambdA, mu = hompc(copy.deepcopy(s.tolist()))
 
-        u_star = hompc(copy.deepcopy(s.tolist()))
-
-        print(f's: {s}')
-        print(f'u_star: {u_star}')
-        print()
+        # print(f's: {s}')
+        # print(f'u_star: {u_star}')
+        # print()
 
         s = evolve(s, RobCont(omni=u_star[0]), dt)
+        time_round = time_start - time.time()
+        b.update(k + 1)
+        with open(filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            row = [k, time_round]
 
+            for i in range(n_robots.omni):
+                row.extend(s.omni[i])
+                row.extend(u_star[0][i])
+            for i in range(1, 4):
+                row.extend([np.linalg.norm(lambdA[i], ord=1)])
+            for i in range(1, 4):
+                row.extend([np.linalg.norm(mu[i], ord=1)])
+
+            writer.writerow(row)
         s_history[k] = copy.deepcopy(s)
         pairwise_distances = agents_distance(s.tolist()[0], pairwise_distances)
 
@@ -267,44 +311,40 @@ def main():
 
     # ========================= Visualization Options ======================== #
 
-    robot_pairs = list(combinations(range(num_robots), 2))
-    x = np.arange(1, n_steps + 1) * dt
-    plt.figure(figsize=(10, 6))
-    for i, dist_list in enumerate(pairwise_distances):
-        plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
+    # robot_pairs = list(combinations(range(num_robots), 2))
+    # x = np.arange(1, n_steps + 1) * dt
+    # plt.figure(figsize=(10, 6))
+    # for i, dist_list in enumerate(pairwise_distances):
+    #     plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
 
-    plt.title('Time Evolution of Pairwise Robot Distances')
-    plt.xlabel('Time Step')
-    plt.ylabel('Distance')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    # plt.title('Time Evolution of Pairwise Robot Distances')
+    # plt.xlabel('Time Step')
+    # plt.ylabel('Distance')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.tight_layout()
+    # plt.show()
 
     visual_method = 'plot'
 
     s_history = [[[]] + s.tolist() for s in s_history]
 
-    artist_flags = MultiRobotArtists(
-        centroid=False,
-        goals=True,
-        obstacles=False,
-        past_trajectory=True,
-        omnidir=RobCont(omni=True),
-        unicycles=False,
-        # robots=RobCont(omni=True),
-        # robot_names=True,
-        voronoi=False,
-    )
+    artist_flags = MultiRobotArtistFlags()
+    artist_flags.voronoi = False
 
     if visual_method is not None and visual_method != 'none':
         display_animation(
+            s_history,
             s_history,
             [[5, 5], [-5, -5], [-5, 5], [5, -5]],
             None,
             dt,
             visual_method,
-            artist_flags,
+            video_name=f'{out_dir}/video.mp4',
+            x_lim=[-10, 10],
+            y_lim=[-8, 8],
+            flags=artist_flags,
+            n_c=4,
         )
 
     if visual_method == 'save':
@@ -316,7 +356,7 @@ def main():
             'snapshot',
             artist_flags,
         )
-
+    b.finish()
     return time_elapsed
 
 

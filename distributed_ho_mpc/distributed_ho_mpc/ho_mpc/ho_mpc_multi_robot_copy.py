@@ -9,7 +9,8 @@ import numpy as np
 from scipy.special import binom
 
 from distributed_ho_mpc.ho_mpc.hierarchical_qp_copy import HierarchicalQP, QPSolver
-from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, subs
+from distributed_ho_mpc.ho_mpc.ho_mpc import HOMPC, cached_function
+from distributed_ho_mpc.ho_mpc.ho_mpc import subs_cached as subs
 from hierarchical_optimization_mpc.voronoi_task import VoronoiTask
 
 np.set_printoptions(threshold=np.inf)
@@ -560,8 +561,10 @@ class HOMPCMultiRobot(HOMPC):
         type: TaskType | None = None,
         eq_task_ls: list[ca.SX] | None = None,
         eq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        eq_weight: float | None = None,
         ineq_task_ls: list[ca.SX] | None = None,
         ineq_task_coeff: list[list[list[np.ndarray]]] | None = None,
+        ineq_weight: float | None = None,
         time_index: TaskIndexes | None = None,
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,
@@ -614,12 +617,16 @@ class HOMPCMultiRobot(HOMPC):
             ineq_task_ls = self._tasks[id].ineq_task_ls
         if ineq_task_coeff is None:
             ineq_task_coeff = self._tasks[id].ineq_coeff
+        if eq_weight is None:
+            eq_weight = self._tasks[id].eq_weight
+        if ineq_weight is None:
+            ineq_weight = self._tasks[id].ineq_weight
         if time_index is None:
             time_index = self._tasks[id].time_index
         if robot_index is None:
             robot_index = self._tasks[id].robot_index
 
-        self._tasks[i] = self.Task(
+        self._tasks[id] = self.Task(
             name=name,
             prio=prio,
             type=type,
@@ -643,6 +650,7 @@ class HOMPCMultiRobot(HOMPC):
                 ]
                 for c in range(len(self.n_robots))
             ],
+            eq_weight=eq_weight,
             ineq_task_ls=ineq_task_ls,
             ineq_J_T_s=[
                 ca.jacobian(ineq_task_ls[c], self._states[c]) for c in range(len(self.n_robots))
@@ -663,6 +671,7 @@ class HOMPCMultiRobot(HOMPC):
                 ]
                 for c in range(len(self.n_robots))
             ],
+            ineq_weight=ineq_weight,
             time_index=time_index,
             robot_index=robot_index,
         )
@@ -739,10 +748,10 @@ class HOMPCMultiRobot(HOMPC):
         mapping: list[ca.SX] | None = None,
         eq_task_ls: ca.SX | None = None,
         eq_task_coeff: list[np.ndarray] | None = None,
-        eq_weight: float = 1.0,
+        eq_weight: float | None = None,
         ineq_task_ls: ca.SX | None = None,
         ineq_task_coeff: list[np.ndarray] | None = None,
-        ineq_weight: float = 1.0,
+        ineq_weight: float | None = None,
         time_index: TaskIndexes = TaskIndexes.All,
         robot_index: TaskIndexes | None = None,
         pos: int | None = None,
@@ -1263,6 +1272,19 @@ class HOMPCMultiRobot(HOMPC):
         else:
             ki = k
 
+        # The symbolic Jacobians below depend only on the task and on which robot
+        # (first or second of the pair) is differentiated, never on the numeric
+        # point, so each one is compiled once and re-evaluated (see
+        # `cached_function`). Building them inline, as this used to, redid
+        # ca.jacobian + ca.Function for every task, pair and timestep of every step.
+        def mapped(c: int, j: int):
+            fun = cached_function(
+                ('map', id(t.mapping[c]), id(self._states[c]), id(self._inputs[c])),
+                (t.mapping[c], self._states[c], self._inputs[c]),
+                lambda: ca.Function('f', [self._states[c], self._inputs[c]], [t.mapping[c]]),
+            )
+            return fun(self._state_bar[c][j][k + 1], self._input_bar[c][j][ki]).full()
+
         def J_f_var(self, task_ls: ca.SX, ci: int, ji: int, derivating_var: ca.SX):
             """Return jacobian(task_ls, derivating_var) computed in x_bar, u_bar."""
             if ci == c0 and ji == j0:
@@ -1270,59 +1292,45 @@ class HOMPCMultiRobot(HOMPC):
             else:
                 i = 1
 
-            return (
-                subs(
-                    [
-                        ca.jacobian(task_ls, t.aux_var[i, :])
-                        @ ca.jacobian(t.mapping[ci], derivating_var[ci])
-                    ],
+            def build():
+                expr = ca.jacobian(task_ls, t.aux_var[i, :]) @ ca.jacobian(
+                    t.mapping[ci], derivating_var[ci]
+                )
+                return ca.Function(
+                    'f',
                     [
                         self._states[ci],
                         self._inputs[ci],
                         ca.vertcat(t.aux_var[0, :].T),
                         ca.vertcat(t.aux_var[1, :].T),
                     ],
-                    [
-                        self._state_bar[ci][ji][k + 1],
-                        self._input_bar[ci][ji][ki],
-                        subs(
-                            [t.mapping[c0]],
-                            [self._states[c0], self._inputs[c0]],
-                            [
-                                self._state_bar[c0][j0][k + 1],
-                                self._input_bar[c0][j0][ki],
-                            ],
-                        ),
-                        subs(
-                            [t.mapping[c1]],
-                            [self._states[c1], self._inputs[c1]],
-                            [
-                                self._state_bar[c1][j1][k + 1],
-                                self._input_bar[c1][j1][ki],
-                            ],
-                        ),
-                    ],
-                ),
+                    [expr],
+                )
+
+            fun = cached_function(
+                ('J', id(task_ls), id(t.aux_var), id(t.mapping[ci]), id(derivating_var[ci]), i),
+                (task_ls, t.aux_var, t.mapping[ci], derivating_var[ci]),
+                build,
+            )
+            return (
+                fun(
+                    self._state_bar[ci][ji][k + 1],
+                    self._input_bar[ci][ji][ki],
+                    mapped(c0, j0),
+                    mapped(c1, j1),
+                ).full(),
             )
 
         def f_in_x_bar_u_bar(self, task: ca.SX):
             """Returns task_ls computed in x_bar, u_bar."""
-            return -subs(
-                [task],
-                [ca.vertcat(t.aux_var[0, :].T), ca.vertcat(t.aux_var[1, :].T)],
-                [
-                    subs(
-                        [t.mapping[c0]],
-                        [self._states[c0], self._inputs[c0]],
-                        [self._state_bar[c0][j0][k + 1], self._input_bar[c0][j0][ki]],
-                    ),
-                    subs(
-                        [t.mapping[c1]],
-                        [self._states[c1], self._inputs[c1]],
-                        [self._state_bar[c1][j1][k + 1], self._input_bar[c1][j1][ki]],
-                    ),
-                ],
+            fun = cached_function(
+                ('F', id(task), id(t.aux_var)),
+                (task, t.aux_var),
+                lambda: ca.Function(
+                    'f', [ca.vertcat(t.aux_var[0, :].T), ca.vertcat(t.aux_var[1, :].T)], [task]
+                ),
             )
+            return -fun(mapped(c0, j0), mapped(c1, j1)).full()
 
         if constr_type == self.ConstraintType.Eq:
             return [
@@ -1441,9 +1449,29 @@ class HOMPCMultiRobot(HOMPC):
         if self.hierarchical:
             x_star, lamb_P, w_P = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, prio_list=prio)
         else:
-            we = [np.inf] + [t.eq_weight for t in self._tasks]
-            wi = [np.inf] + [t.ineq_weight for t in self._tasks]
-            x_star, x_star_p = self.hqp(A, b, C, d, rho_delta, self.degree, n_c, we, wi)
+            # A/b/C/d are stacked per priority LEVEL (index 0 = dynamics consistency,
+            # then one entry per unique task priority, in the same ascending order
+            # used by the stacking loop above). Build we/wi with the same indexing,
+            # taking the max weight among tasks sharing a level (inf wins, i.e. hard).
+            levels = sorted({t.prio for t in self._tasks})
+            we = [np.inf]
+            wi = [np.inf]
+            for lvl in levels:
+                tasks_lvl = [t for t in self._tasks if t.prio == lvl]
+                we.append(
+                    np.inf
+                    if any(t.eq_weight == np.inf for t in tasks_lvl)
+                    else max(t.eq_weight for t in tasks_lvl)
+                )
+                wi.append(
+                    np.inf
+                    if any(t.ineq_weight == np.inf for t in tasks_lvl)
+                    else max(t.ineq_weight for t in tasks_lvl)
+                )
+            assert len(we) == len(A)
+            x_star = self.hqp(A, b, C, d, we=we, wi=wi)
+            lamb_P = np.ones(5) * -10
+            w_P = np.ones(5) * -10
         st = time.time() - start_time
         if st > self.max_iter or self.max_iter == 0.0:
             self.max_iter = st

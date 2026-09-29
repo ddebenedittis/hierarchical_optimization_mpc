@@ -113,6 +113,10 @@ def main(num_robots, steps):
             header.append(f'stateTheta_{i}')
             header.append(f'inputV_{i}')
             header.append(f'inputOH_{i}')
+        # for i in range(4):
+        #     header.append(f'lambdA_{i}')
+        for i in range(4):
+            header.append(f'tau_{i}')
 
         writer.writerow(header)
 
@@ -256,11 +260,13 @@ def main(num_robots, steps):
             time_goal = time.time() - time_start
             step_goal = k
             print(f'scored a goal at {k}: {time_goal}')
+            break
 
         time_coord_start = time.time()
         time_round = time_start - time.time()
 
-        u_star = hompc(copy.deepcopy(s.tolist()))
+        # u_star, lambdA, mu = hompc(copy.deepcopy(s.tolist()))
+        u_star, mu = hompc(copy.deepcopy(s.tolist()))
 
         s = evolve(copy.deepcopy(s), RobCont(omni=u_star[0]), dt)
 
@@ -271,6 +277,10 @@ def main(num_robots, steps):
             for i in range(n_robots.omni):
                 row.extend(s.omni[i])
                 row.extend(u_star[0][i])
+            # for i in range(1,5):
+            # row.extend([np.linalg.norm(lambdA[i], ord=1)])
+            for i in range(1, 5):
+                row.extend([np.linalg.norm(mu[i], ord=1)])
 
             writer.writerow(row)
         b.update(k)
@@ -310,7 +320,7 @@ def main(num_robots, steps):
     # plt.savefig(f'{out_dir}/distances_cntr.pdf', bbox_inches='tight', format='pdf')
     # plt.close()
 
-    visual_method = 'None'
+    visual_method = 'plot'
 
     s_history = [s.tolist() + [[]] for s in s_history[:last_step]]
 
@@ -346,18 +356,19 @@ def main(num_robots, steps):
     #     flags=flags,
     # )
 
-    # if visual_method is not None and visual_method != 'None':
-    #     display_animation(
-    #         s_history,
-    #         None,
-    #         [[0, 6, 4.5], [0, -6, 4.5]],
-    #         dt,
-    #         visual_method,
-    #         x_lim=[-7.5, 7.5],
-    #         y_lim=[-5, 5],
-    #         video_name=f'{out_dir}/video_central.mp4',
-    #         flags=flags,
-    #     )
+    if visual_method is not None and visual_method != 'None':
+        display_animation(
+            s_history,
+            None,
+            goals,
+            [[0, obstacle_pos_1[1], R_obs], [0, obstacle_pos_2[1], R_obs]],
+            dt,
+            visual_method,
+            x_lim=[-7.5, 7.5],
+            y_lim=[-5, 5],
+            video_name=f'{out_dir}/video_central.mp4',
+            flags=flags,
+        )
 
     b.finish()
 
@@ -366,8 +377,8 @@ def main(num_robots, steps):
 
 if __name__ == '__main__':
     for _ in range(1):
-        n_robots = 20
-        steps = 1200
+        n_robots = 8
+        steps = 300
         for i in range(1):
             main(n_robots, steps)
             n_robots += 10

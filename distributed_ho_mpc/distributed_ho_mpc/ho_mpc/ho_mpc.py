@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 import casadi as ca
@@ -11,6 +12,42 @@ def subs(f: ca.SX, input: list[ca.SX], input_0: list[ca.SX]) -> np.ndarray:
 
     fun = ca.Function('f', input, f)
 
+    return fun(*input_0).full()
+
+
+# Compiled ca.Function objects, keyed on the identity of the SX expressions they
+# evaluate. Task expressions and Jacobians live as long as their task, while only
+# the numeric linearization point changes between control steps, so building the
+# Function once and re-evaluating it gives the same numbers as `subs` without
+# redoing the symbolic work every step. Each entry keeps references to the keyed
+# SX objects, so their ids cannot be reused while the entry exists; the LRU bound
+# caps memory when tasks are recreated often (a stale entry is only evicted, never
+# matched).
+_FUNCTION_CACHE: OrderedDict = OrderedDict()
+_FUNCTION_CACHE_SIZE = 20000
+
+
+def cached_function(key: tuple, refs: tuple, builder) -> ca.Function:
+    """Return the cached ca.Function for `key`, building it with `builder()` on a miss."""
+    hit = _FUNCTION_CACHE.get(key)
+    if hit is None:
+        hit = (builder(), refs)
+        _FUNCTION_CACHE[key] = hit
+        if len(_FUNCTION_CACHE) > _FUNCTION_CACHE_SIZE:
+            _FUNCTION_CACHE.popitem(last=False)
+    else:
+        _FUNCTION_CACHE.move_to_end(key)
+    return hit[0]
+
+
+def subs_cached(f: list[ca.SX], input: list[ca.SX], input_0: list) -> np.ndarray:
+    """Same as `subs`, for expressions that outlive the call (see `cached_function`).
+
+    Do not pass expressions built inline at the call site: they get a new id every
+    call, so they never hit the cache and only fill it.
+    """
+    key = ('subs', tuple(id(x) for x in f), tuple(id(x) for x in input))
+    fun = cached_function(key, (list(f), list(input)), lambda: ca.Function('f', input, f))
     return fun(*input_0).full()
 
 

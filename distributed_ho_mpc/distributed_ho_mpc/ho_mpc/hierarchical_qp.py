@@ -402,7 +402,6 @@ class HierarchicalQP:
                 ]
             )
         ]
-
         # Initialize the null space projector.
         # if agents had already communicated at least once, init the Z from previous value merged with neighbours
         Z = np.eye(nx)
@@ -469,22 +468,21 @@ class HierarchicalQP:
                 )
 
                 p = np.zeros(nx + nw)
-            # TODO hard coded brutto
+                # TODO hard coded brutto
             if degree != 0:
-                # prio = [0, 1, 2, 3, 3, 4, 4]
-                if priority > 2:
+                if priority > 0:
                     if stack:
                         rhop = rho[
-                            :, prio_list[priority] - 3, :
+                            :, prio_list[priority] - 1, :
                         ]  # extract both i and j for priority p for each neighbour
                     else:
                         rhop = rho[
-                            :, prio_list[priority] - 3, :
+                            :, prio_list[priority] - 1, :
                         ]  # extract both i and j for priority p for each neighbour
                     rho_vector = self.rho_vector(rhop, degree, n_c)  # reorder rho correctly
                     rho_vector = np.block([rho_vector, np.zeros(nw)])
                     #! add each term to the corrisponding one in p in order to have multiple linear term in the qp
-                    p += rho_vector
+                    # p += rho_vector
 
             # Make H positive definite
             H = H + self._regularization * np.eye(H.shape[0])
@@ -535,24 +533,17 @@ class HierarchicalQP:
                             continue
                         else:
                             x_star_bar_p.append(x_star_bar_p[-1])
-                return x_star_bar, x_star_bar_p, w_star_bar
+                return x_star_bar, x_star_bar_p
 
             # ======================== Post-processing ======================= #
 
             # Extract x_star from the solution.
             x_star = sol[0:nx]
-
             Z_list.append(Z)
-            """if self.start_consensus and priority >= 3:                           # NOTE: for each neigh, intersect null space for each level of priority
-                for key in Z_n.keys():
-                    if len(Z_n[key][-1]) > priority:           # check if neigh as same priority level's task
-                        Z = Z @ Z_n[key][-1][priority]
-                    else:
-                        Z = Z @ Z_n[key][-1][-1]"""
 
             # Update the solution of all the tasks up to now.
             x_star_bar = x_star_bar + Z @ x_star
-            if priority > 2:
+            if priority > 0:
                 if not stack:
                     if prio_list[priority] == prio_list[priority - 1]:
                         x_star_bar_p[-1] = (
@@ -564,7 +555,7 @@ class HierarchicalQP:
                         )  # collect the solution for each priority level
                 else:
                     x_star_bar_p.append(x_star_bar)  # collect the solution for each priority level
-
+            # print(f'delta_x at prio {priority}:{x_star_bar - x_star}')
             # Store the history of w_star
             if priority == 0:
                 w_star_bar = [sol[nx:]]
@@ -578,9 +569,9 @@ class HierarchicalQP:
 
             # End the loop if Z is the null matrix.
             if not np.any((Z > self.regularization) | (Z < -self.regularization)):
-                return x_star_bar, x_star_bar_p, w_star_bar
-
-        return x_star_bar, x_star_bar_p, w_star_bar
+                return x_star_bar, x_star_bar_p
+                # w_star_bar
+        return x_star_bar, x_star_bar_p
 
     def rho_vector(self, rho, degree, n_c):
         x_i = rho[1].shape[0] // degree

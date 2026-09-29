@@ -53,6 +53,22 @@ def get_unicycle_model(dt: float):
     )
 
     return s, u, s_kp1
+    # s = ca.SX.sym('s_diff', 3)  # x, y, theta
+    # u = ca.SX.sym('u_diff', 2)  # omega_l, omega_r
+
+    # x, y, theta = s[0], s[1], s[2]
+    # omega_l, omega_r = u[0], u[1]
+
+    # v = 0.045 * (omega_r + omega_l) / 2
+    # omega = 0.045 * (omega_r - omega_l) / 0.173
+
+    # s_kp1 = ca.vertcat(
+    #     x + dt * ca.cos(theta + 0.5 * dt * omega) * v,
+    #     y + dt * ca.sin(theta + 0.5 * dt * omega) * v,
+    #     theta + dt * omega,
+    # )
+
+    # return s, u, s_kp1
 
 
 def get_omnidirectional_model(dt: float):

@@ -2,3 +2,6 @@
 	path = hierarchical_qp
 	url = git@github.com:ddebenedittis/hierarchical_qp.git
 	branch = ros2
+[submodule "mocap_msgs"]
+	path = mocap_msgs
+	url = git@github.com:ddebenedittis/mocap_msgs.git

@@ -1,0 +1,142 @@
+<?xml version="1.0"?>
+<robot name="limo_four_diff" xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:arg name="namespace" default= ""/>
+    <xacro:include filename="$(find limo_simulation)/model/limo_gazebo.gazebo" />
+
+    <!-- Actuator configurations -->
+    <xacro:limo_wheel_transmission wheel_prefix="front_right" />
+    <xacro:limo_wheel_transmission wheel_prefix="front_left" />
+    <xacro:limo_wheel_transmission wheel_prefix="rear_left" />
+    <xacro:limo_wheel_transmission wheel_prefix="rear_right" />
+    <!-- Controller configurations -->
+    <!--<xacro:gazebo_laser frame_prefix="laser" />
+    <xacro:gazebo_depth_camera frame_prefix="depth_camera" />-->
+    <xacro:gazebo_imu frame_prefix="imu" /> 
+    <ros2_control name="GazeboSystem" type="system">
+        <hardware>
+            <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+        </hardware>
+        <joint name="rear_left_wheel">
+            <command_interface name="velocity">
+                <param name="min">-3</param>
+                <param name="mix">3</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="rear_right_wheel">
+            <command_interface name="velocity">
+                <param name="min">-3</param>
+                <param name="mix">3</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="front_left_wheel">
+            <command_interface name="velocity">
+                <param name="min">-3</param>
+                <param name="mix">3</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+        <joint name="front_right_wheel">
+            <command_interface name="velocity">
+                <param name="min">-3</param>
+                <param name="mix">3</param>
+            </command_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="position"/>
+        </joint>
+    </ros2_control>
+    <gazebo reference="$(arg robot_name)/base_link">
+        <material>Gazebo/Grey</material>
+    </gazebo>
+    <gazebo reference="front_left_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="front_right_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="rear_left_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+  <gazebo reference="rear_right_wheel">
+      <mu1>2.0</mu1>
+      <mu2>2.0</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <minDepth>0.01</minDepth>
+      <fdir1>1 0 0</fdir1>
+      <maxContacts value="64"/>
+  </gazebo>
+
+    <gazebo>
+        <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+            <ros>
+                <namespace>/$(arg namespace)</namespace>
+                <remapping>/tf:=tf</remapping>
+                <remapping>/tf_static:=tf_static</remapping>
+                <remapping>diff_drive_controller/odom:=odom</remapping>
+            </ros>
+            <parameters>
+                $(find limo_simulation)/config/diff_drive_controller.yaml
+            </parameters>
+            <!--<updateRate>100.0</updateRate>
+            <leftFrontJoint>front_left_wheel</leftFrontJoint>
+            <rightFrontJoint>front_right_wheel</rightFrontJoint>
+            <leftRearJoint>rear_left_wheel</leftRearJoint>
+            <rightRearJoint>rear_right_wheel</rightRearJoint>
+            <wheelSeparation>0.172</wheelSeparation>
+            <wheelDiameter>0.09</wheelDiameter>
+            <robotBaseFrame>base_footprint</robotBaseFrame>
+            <commandTopic>cmd_vel</commandTopic>
+            <torque>50</torque>
+            <broadcastTF>true</broadcastTF>
+            <odometryTopic>odom</odometryTopic>
+            <odometryFrame>odom</odometryFrame>
+            <covariance_x>0.000100</covariance_x>
+            <covariance_y>0.000100</covariance_y>
+            <covariance_yaw>0.010000</covariance_yaw>
+            <left_joint>$(arg robot_name)/front_left_wheel</left_joint>
+            <right_joint>$(arg robot_name)/front_right_wheel</right_joint>
+            <left_joint>$(arg robot_name)/rear_left_wheel</left_joint>
+            <right_joint>$(arg robot_name)/rear_right_wheel</right_joint>
+            <update_rate>1000</update_rate>
+            <num_wheel_pairs>2</num_wheel_pairs>
+            <wheel_separation>0.172</wheel_separation>
+            <wheel_radius>0.045</wheel_radius>
+            <max_wheel_torque>20</max_wheel_torque>
+            <max_wheel_acceleration>5.0</max_wheel_acceleration>
+            <command_topic>cmd_vel</command_topic>
+            <publish_odom>true</publish_odom>
+            <publish_odom_tf>true</publish_odom_tf>
+            <publish_wheel_tf>true</publish_wheel_tf>
+            <odometry_topic>odom</odometry_topic>
+            <odometry_frame>odom</odometry_frame>
+            <robot_base_frame>base_footprint</robot_base_frame>
+            <odometry_source>1</odometry_source>-->
+            <ros>
+                <remapping>odom:=/odometry</remapping>
+            </ros>
+        </plugin>
+    </gazebo> 
+</robot>

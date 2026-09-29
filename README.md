@@ -12,11 +12,15 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
     - [Scripts](#scripts)
       - [With ROS](#with-ros)
       - [With Python](#with-python)
-        - [Distributed](#distributed)
+    - [Distributed](#distributed)
+      - [With Python](#with-python-1)
+      - [With ROS](#with-ros-1)
+      - [Examples](#examples)
   - [Development](#development)
     - [Pre-Commit](#pre-commit)
     - [Tests](#tests)
   - [Known Bugs](#known-bugs)
+  - [Publications](#publications)
   - [Author](#author)
 
 ## Overview
@@ -47,7 +51,7 @@ colcon build --symlink-install
 
 Source the workspace with (you have to add it to the `~/.bashrc` or do it on every newly opened terminal)
 ```shell
-source install/setup.base
+source install/setup.bas
 ```
 
 ### Scripts
@@ -84,9 +88,31 @@ Parameters:
 - `--solver {clarabel, osqp, proxqp, quadprog, reluqp}`: QP solver to use.
 - `--visual_method {plot, save, none}`: how to display the results.
 
-##### Distributed
-
+### Distributed
+#### With Python
 Distributed examples can be run with the scripts `network_simulation.py` in the `scenarios` folder in `distributed_ho_mpc` package.
+The following scenarios with the relative setting are already settend in the folders:
+- Radial Switching
+- Movement in Formation with obstacle avoidance
+- Coverage
+- Passing through a narrow gap 
+
+
+#### With ROS
+The relative pkg are:
+- dhqp: 
+  run in different nodes the d-hqp algorithm
+- limo_simulation
+  provide a gazebo simulation for testing the algorithm. It spawns limo robots 
+
+#### Examples
+```shell
+ros2 launch limo_simulation gazebo_models_diff.launch.py
+```
+then
+```shell
+ros2 launch dhqp network.launch.py
+```
 
 ## Development
 
@@ -112,7 +138,7 @@ colcon test
 
 ## Known Bugs
 
-- **Problem**: `qpsolvers` does return both the solution and the cost. This breaks older centralized code. **Solution**: create another function `solve_qp_cost` that does also return the cost, and have `solve_qp` only return the solution. ToDo.
+None.
 
 ## Publications
 

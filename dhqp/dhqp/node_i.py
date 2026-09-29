@@ -1,0 +1,1150 @@
+import copy
+
+import casadi as ca
+import numpy as np
+import rclpy
+from gazebo_msgs.msg import ModelStates
+from geometry_msgs.msg import Twist, TwistStamped
+from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
+from std_msgs.msg import Bool, Float32MultiArray
+from tf_transformations import euler_from_quaternion
+
+import dhqp.settings as st
+from dhqp.ho_mpc_multi_robot import (
+    HOMPCMultiRobot,
+    TaskBiCoeff,
+    TaskType,
+)
+from dhqp.message import MessageReceiver, MessageSender
+from dhqp.utils.fading_filter import FadingFilter
+from hierarchical_optimization_mpc.utils.robot_models import (
+    RobCont,
+    get_omnidirectional_model,
+    get_unicycle_model,
+)
+from mocap_msgs.msg import RigidBodies
+
+
+class Agent(Node):
+    def __init__(self):
+        super().__init__(
+            'agent',
+            allow_undeclared_parameters=True,
+            automatically_declare_parameters_from_overrides=True,
+        )
+        qos_sync = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        qos_rel = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,  # keep last sample is enough for "latest state"
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+
+        # Get parameters from launcher
+        self.node_id = self.get_parameter('agent_id').value
+        self.adjacency_vector = np.array(self.get_parameter('neigh').value)
+        self.neigh = np.nonzero(self.adjacency_vector)[0].tolist()
+        self.all_neigh = copy.deepcopy(self.neigh)
+        self.degree = len(self.neigh)  # numbers of neighbours
+
+        self.robot_idx_global = [self.node_id] + self.neigh
+        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+        print(f'global: {self.robot_idx_global}')
+        print(f'local: {self.robot_idx}')
+
+        self.n_steps = self.get_parameter('max_iters').value
+        self.n_robots = RobCont(omni=self.degree + 1)  # number of robot seen from i
+        self.n_nodes = self.get_parameter('N_AGENTS').value  # total number of agents
+        self.n_xi = self.get_parameter('n_xi').value
+        self.step_size = self.get_parameter('step_size').value
+        self.n_priority = self.get_parameter('n_priority').value
+        self.n_connection = self.get_parameter('n_connection').value
+
+        self.dt = self.get_parameter('dt').value  # timestep size
+        self.communication_time = self.dt / 5  # self.get_parameter('communication_time').value
+
+        self.s_var = RobCont(omni=None, uni=None)  # symbolic state variables
+        self.u_var = RobCont(omni=None, uni=None)
+        self.s_kp1 = RobCont(omni=None, uni=None)
+
+        self.s = RobCont(omni=None, uni=None)  # current state
+        self.t_0 = np.nan
+
+        self.s_var.omni, self.u_var.omni, self.s_kp1.omni = get_unicycle_model(st.dt_mpc_model)
+        if self.node_id == 0:
+            self.init_pos = np.array([1.47, -0.2, 0.0])
+        else:
+            self.init_pos = np.array([-1.47, -0.2, 0.0])
+
+        self.y_i = np.zeros((self.n_priority, self.n_xi * (self.degree + 1)))
+        self.rho_i = np.zeros((2, self.n_priority, self.n_xi * (self.degree)))
+        # np.random.rand(2, 4, 4*(self.degree))*0       # two values for rho_i and rho_j, n_properties rows, n_xi*(degree) columns
+        # p1  [[[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+        # p2  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...],
+        # p3  [[rho^(ij1)_i, rho^(ij1)_j1], [rho^(ij2)_i, rho^(ij2)_j2]...]]
+        self.y_j = np.zeros(
+            (2, self.n_priority, self.n_xi * (self.degree))
+        )  # p1  [[[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+        # p2  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...],
+        # p3  [[x^(j1)_i, x^(j1)_j], [x^(j2)_i, x^(j2)_j]...]]
+        self.rho_j = np.zeros(
+            (2, self.n_priority, self.n_xi * (self.degree))
+        )  # p1  [[[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+        # p2  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...],
+        # p3  [[rho^(j1i)_i, rho^(j1i)_j1], [rho^(j2i)_i, rho^(j2i)_j2]...]]
+
+        self.sender = MessageSender(
+            self.node_id, self.neigh, self.y_i, self.rho_i, self.n_xi, self.n_priority
+        )
+
+        self.receiver = MessageReceiver(self.node_id, self.neigh, self.y_j, self.rho_j, self.n_xi)
+        self.flag_coverage = False
+        self.goals = st.goals
+        self.step = 0
+        self.step_plot = 0
+        # self.tasks = self.get_parameter('system_tasks').value
+        # self.neigh_tasks = self.get_parameter('neigh_tasks').value
+        sys_tasks = st.system_tasks
+        self.tasks = sys_tasks[f'agent_{self.node_id}']
+        self.neigh_tasks = {}
+        for j in self.neigh:
+            self.neigh_tasks[f'agent_{j}'] = copy.deepcopy(sys_tasks[f'agent_{j}'])
+        self.objects_detected = None
+        # create logging file
+        self.out_dir = self.get_parameter('out_dir').value
+
+        self.states = [np.array([0.0, 0.0]) for _ in range(self.n_nodes)]
+
+        # ------------- PUBLISHER ------------#
+
+        # create the publisher between node for communication
+        self.publisher_ = self.create_publisher(
+            Float32MultiArray, f'/topic_{self.node_id}', qos_sync
+        )
+
+        # create the publisher between node for communication
+        self.publisher_mpc = self.create_publisher(
+            Float32MultiArray,
+            f'/optimout_{self.node_id}',
+            qos_sync,
+        )
+
+        # create the publisher for optimal input computed
+        self.ns = f'/robot_{self.node_id+1}'
+        topic_name = f'{self.ns}/diff_drive_base_controller/cmd_vel'
+        self.diff_drive_publisher = self.create_publisher(
+            TwistStamped,
+            topic_name,
+            qos_sync,
+        )
+        self.get_logger().info(f'Publisher created for {topic_name}')
+
+        # create the publisher for optimal input computed
+
+        topic_name = f'{self.ns}/cmd_vel'
+        self.cmd_publisher = self.create_publisher(
+            Twist,
+            topic_name,
+            1,
+        )
+        # self.get_logger().info(f'Publisher created for {topic_name}')
+
+        """# Publisher for detected objects (as world positions)
+        self.publisher = self.create_publisher(
+            PoseArray,
+            f'{self.ns}/detected_objects',
+            20,
+        )"""
+
+        # ------------- SUBSCRIBER ------------#
+        # initialize subscription dict
+        self.subscriptions_list = {}
+        # intra-neighbour communication subscribers
+        for j in self.neigh:
+            topic_name = f'/topic_{j}'
+            self.subscriptions_list[j] = self.create_subscription(
+                Float32MultiArray,
+                topic_name,
+                lambda msg, node=j: self.listener_callback(msg, node),
+                qos_sync,
+            )
+        # State subscriber
+        self.subscription = self.create_subscription(
+            ModelStates,
+            '/model_states',  # topic name
+            self.states_callback,
+            1,
+        )
+        self.start = False
+        self.subscription_start = self.create_subscription(
+            Bool,
+            '/start',  # topic name
+            self.start_callback,
+            qos_rel,
+        )
+        # State-QUALYSIS subscriber
+        self.subscription = self.create_subscription(
+            RigidBodies,
+            '/rigid_bodies',  # topic name
+            self.state_callback,
+            1,
+        )
+
+        # Sensor configuration parameters
+        self.gap_threshold = 5  # samples separating objects
+        self.range_min = 0.01
+        self.range_max = 12.0
+        self.cylinder_radius = 0.1  # meters
+
+        self.timer = self.create_timer(self.communication_time, self.timer_callback)
+
+        # initialize a dictionary with the list of received messages from each neighbor j [a queue]
+        self.received_data = {
+            j: [] for j in self.robot_idx_global[1:]
+        }  #! changed from local to global
+        # self.received_data = {j: [] for j in self.robot_idx[1:]}
+
+        # Create Tasks and MPC
+        self.Tasks()
+        self.MPC()
+
+        # ==================================================================== #
+
+        self.filter = FadingFilter(beta=0.6)
+        self.filter.order = 2
+
+        print(f'Setup of agent {self.node_id} complete')
+
+    def listener_callback(self, msg, node):
+        self.received_data[node] = list(msg.data)  #! self.index_global_to_local(node)
+        # self.received_data[self.index_global_to_local(node)].append(list(msg.data))
+
+    def start_callback(self, msg):
+        self.start = True
+
+    def states_callback(self, msg):
+        """Extract the pose from gazebo"""
+        if self.step > 0:
+            # Extract position from Gazebo
+            """for n, name in enumerate(msg.name):
+                for neigh in self.robot_idx_global:
+                    if name == f'/robot_{neigh+1}':
+                        x = msg.pose[n].position.x  # msg.pose.pose.position.x
+                        y = msg.pose[n].position.y  # msg.pose.pose.position.y
+
+                        # Extract orientation (quaternion -> yaw)
+                        q = msg.pose[n].orientation  # msg.pose.pose.orientation
+                        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                        nn = self.index_global_to_local(neigh)
+                        self.s.omni[nn] = np.array([x, y, yaw])  # self state"""
+            for n, name in enumerate(msg.name):
+                if name == f'/robot_{self.node_id+1}':
+                    x = msg.pose[n].position.x  # msg.pose.pose.position.x
+                    y = msg.pose[n].position.y  # msg.pose.pose.position.y
+
+                    # Extract orientation (quaternion -> yaw)
+                    q = msg.pose[n].orientation  # msg.pose.pose.orientation
+                    roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                    # nn = self.index_global_to_local(neigh)
+                    self.s.omni[0] = np.array([x, y, yaw])  # self state
+        # self.get_logger().info(f'Position: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
+
+    def state_callback(self, msg):
+        """Extract the pose of the robot from qualysis node"""
+        for body in msg.rigidbodies:
+            if body.rigid_body_name == f'limo_{self.node_id+1}':
+                x = body.pose.position.x  # msg.pose.pose.position.x
+                y = body.pose.position.y  # msg.pose.pose.position.y
+
+                # Extract orientation (quaternion -> yaw)
+                q = body.pose.orientation  # msg.pose.pose.orientation
+                roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                # nn = self.index_global_to_local(neigh)
+                if self.step > 0:
+                    self.s.omni[0] = np.array([x, y, yaw])  # self state
+                else:
+                    self.init_pos = np.array([x, y, yaw])
+            else:
+                for neigh in self.robot_idx_global[1:]:
+                    if body.rigid_body_name == f'limo_{neigh+1}':
+                        x = body.pose.position.x  # msg.pose.pose.position.x
+                        y = body.pose.position.y  # msg.pose.pose.position.y
+                        q = body.pose.orientation  # msg.pose.pose.orientation
+                        roll, pitch, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
+                        nn = self.index_global_to_local(neigh)
+                        self.s.omni[nn] = np.array([x, y, yaw])  # self state"""
+                        self.states[nn] = np.array([x, y])  # self state"""
+            # if body.rigid_body_name == 'uomo_enorme':
+            #     x = body.pose.position.x  # msg.pose.pose.position.x
+            #     y = body.pose.position.y  # msg.pose.pose.position.y
+
+            #     pos = np.array([x, y])
+            #     msg_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            #     self.filter.update(pos, msg_time)
+            #     pos_filtered = self.filter.previous_value
+            #     vel_filtered = self.filter.previous_d_value
+            #     dt_pred = 0.125
+
+            #     if pos_filtered is None:
+            #         continue
+            #     obs_pos = pos_filtered + vel_filtered * dt_pred
+            #     if np.any(np.isnan(obs_pos)) and obs_pos is not None:
+            #         continue
+            #     task_obs_avoidance = [
+            #         ca.vertcat(
+            #             -((self.s_var.omni[0] - obs_pos[0]) ** 2)
+            #             - ((self.s_var.omni[1] - obs_pos[1]) ** 2)
+            #             + self.obstacle_size**2
+            #         )
+            #     ]
+
+            #     self.hompc.update_task(
+            #         name='obstacle_avoidance',
+            #         ineq_task_ls=task_obs_avoidance[0],
+            #     )
+            if st.variable_connection:
+                for nn in range(self.n_nodes):
+                    if nn == self.node_id:
+                        continue
+                    elif body.rigid_body_name == f'limo_{nn+1}':
+                        x = body.pose.position.x  # msg.pose.pose.position.x
+                        y = body.pose.position.y  # msg.pose.pose.position.y
+
+                        self.states[nn] = np.array([x, y])
+
+        # self.get_logger().info(f'POSITION: x={x:.3f}, y={y:.3f}, yaw={yaw:.3f} rad')
+
+    def timer_callback(self):
+        # Perform Partitioned optimization
+        # Initialize a message of type float
+        msg = Float32MultiArray()
+        msg_mpc = Float32MultiArray()
+        command = TwistStamped()
+        cmd = Twist()
+        if not self.start:
+            msg.data = [float(self.step)]
+            [msg.data.append(float(ss)) for ss in self.s.omni[0]]
+            [msg.data.append(float(0)) for _ in range(2)]
+            self.publisher_.publish(msg)
+
+            # log files
+            # 1) visualize on the terminal
+            # self.get_logger().info(f'Iter:{self.step} s:{self.s.tolist()}')
+        else:  # Have all messages at time t-1 arrived?
+            # Check if lists are nonempty
+            # all_received = all(
+            #     self.received_data[j] for j in self.robot_idx[1:]
+            # )  # check if all neighbors' have been received
+            # #! changed from local to global
+
+            # all_received = all(
+            #     self.received_data[j] for j in self.all_neigh
+            # )  # check if all neighbors' have been received
+
+            # # Check if messages are from time t-1
+            # sync = False
+
+            # # Have all messages at time t-1 arrived?
+            # if all_received:
+            #     sync = all(
+            #         self.step - 1 == self.received_data[j][0] for j in self.all_neigh
+            #     )  # True if all True
+            if True:
+                if np.isnan(self.t_0):
+                    self.t_0 = self.get_clock().now().nanoseconds
+                # if not all(self.received_data[j] for j in self.all_neigh):
+                #     return  # wait for missing data
+
+                # min_neighbor_step = min(self.received_data[j][0][0] for j in self.all_neigh)
+
+                # wait = (self.step - min_neighbor_step) >= 5
+                # if not wait:
+                if self.step == 0:
+                    self.step = 1
+                if st.variable_connection:
+                    self.connecter(self.states)
+                # Reorder the state vector received from the neighbors
+                self.reorder_s_init(self.received_data)
+
+                if self.flag_coverage:
+                    task_coverage_coeff = self.hompc.get_task_coverage(
+                        copy.deepcopy(self.s.tolist())
+                        # cov_rob_idx
+                    )
+
+                    self.hompc.update_task(
+                        name='coverage',
+                        # eq_task_ls = task_coverage,
+                        eq_task_coeff=task_coverage_coeff,
+                        robot_index=[self.robot_idx],
+                        # robot_index = cov_rob_idx,
+                    )
+                if st.moving_obstacle:
+                    self.obstacle_pos[0] = self.obstacle_pos[0] + st.vel * self.dt
+                    task_obs_avoidance = [
+                        ca.vertcat(
+                            -((self.s_var.omni[0] - self.obstacle_pos[0][0]) ** 2)
+                            - ((self.s_var.omni[1] - self.obstacle_pos[0][1]) ** 2)
+                            + self.obstacle_size**2
+                        )
+                    ]
+
+                    self.hompc.update_task(
+                        name='obstacle_avoidance',
+                        ineq_task_ls=task_obs_avoidance[0],
+                    )
+                self.u_star, s, u = self.hompc(copy.deepcopy(self.s.tolist()))
+                time_round = (self.get_clock().now().nanoseconds - self.t_0) / 1e9
+                # self.s = self.evolve(copy.deepcopy(self.s), RobCont(omni=self.u_star[0]), self.dt)
+
+                # publish the command
+                # command.header.stamp = self.get_clock().now().to_msg()
+                # command.twist.linear.x = float(
+                #     st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0])
+                # )
+                # command.twist.angular.z = float(
+                #     st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0])
+                # )
+                command.twist.linear.x = float(self.u_star[0][0][0])
+                command.twist.angular.z = float((self.u_star[0][0][1]))
+
+                self.diff_drive_publisher.publish(command)
+
+                # cmd.linear.x = float(st.R / 2 * (self.u_star[0][0][1] + self.u_star[0][0][0]))
+                # cmd.angular.z = float(st.R / st.L * (self.u_star[0][0][1] - self.u_star[0][0][0]))
+                cmd.linear.x = float(self.u_star[0][0][0])
+                cmd.angular.z = float(self.u_star[0][0][1])
+                self.cmd_publisher.publish(cmd)
+
+                # publish the updated message
+                msg.data = [float(self.step)]
+                [msg.data.append(float(ss)) for ss in self.s.omni[0]]
+                [msg.data.append(float(us)) for us in self.u_star[0][0]]
+                self.publisher_.publish(msg)
+
+                # publish the mpc output
+                msg_mpc.data = [time_round]
+                [msg_mpc.data.append(float(ag)) for ag in self.robot_idx_global[1:]]
+                for val in np.array(s).flatten():
+                    msg_mpc.data.append(float(val))
+
+                # inputs (dim = n_robots * n_c * 2)
+                for val in np.array(u).flatten():
+                    msg_mpc.data.append(float(val))
+                self.publisher_mpc.publish(msg_mpc)
+
+                # self.get_logger().info(
+                #     f'Iter:{self.step}\n s:{self.s.tolist( )} u:{self.u_star[0]}\n'
+                # )
+                self.get_logger().info(f'Iter:{self.step}')
+                # Stop the node if tt exceeds MAXITERS
+                if self.step > self.n_steps:
+                    print('\nMAXITERS reached')
+                    command.header.stamp = self.get_clock().now().to_msg()
+                    command.twist.linear.x = float(0)
+                    command.twist.angular.z = float(0)
+                    self.diff_drive_publisher.publish(command)
+                    self.destroy_node()
+
+                # self.get_logger().info(f'Iteration {self.step} time: {time_round:.4f} seconds')
+                # update iteration counter
+                self.step += 1
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Task                                     #
+    # ---------------------------------------------------------------------------- #
+
+    def Tasks(self) -> None:
+        "Define the tasks separately"
+
+        # =========================== Define The Tasks ========================== #
+
+        self.task_input_limits = RobCont(
+            omni=ca.vertcat(
+                self.u_var.omni[0] - st.velocity_limits[1],  # v max
+                -self.u_var.omni[0] + st.velocity_limits[0],  # v min
+                self.u_var.omni[1] - st.velocity_limits[3],  # omega max
+                -self.u_var.omni[1] + st.velocity_limits[2],  # omega min
+            )
+        )
+
+        # self.task_input_limits = RobCont(
+        #     omni=ca.vertcat(
+        #         st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) - st.v_max,  # vmax
+        #         -st.R / 2 * (self.u_var.omni[1] + self.u_var.omni[0]) + st.v_min,  # vmin
+        #         st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) - st.omega_max,  # vmax
+        #         -st.R / st.L * (self.u_var.omni[1] - self.u_var.omni[0]) + st.omega_min,  # vmin
+        #     )
+        # )
+
+        self.task_input_min = RobCont(omni=ca.vertcat(self.u_var.omni[0], self.u_var.omni[1]))
+
+        # ===========================simulation limits====================================== #
+
+        self.task_limits = RobCont(
+            omni=ca.vertcat(
+                self.s_var.omni[0] - 3.8,  # float(st.bounding_box[1]),  # limit max on x
+                -self.s_var.omni[0] - 1.5,  # float(st.bounding_box[0]),  # limit min on x
+                self.s_var.omni[1] - 1.5,  # float(st.bounding_box[3]),  # limit max on y
+                -self.s_var.omni[1] - 1.0,  # float(st.bounding_box[2]),  # limit min on y
+            )
+        )
+        # ===========================Coverage====================================== #
+
+        self.task_coverage = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+        self.task_coverage_coeff = RobCont(
+            omni=[[np.random.rand(2)] for _ in range(self.n_robots.omni)],
+        )
+        # ===========================Go-to-Goal====================================== #
+        self.task_pos = [None for i in range(len(self.goals))]
+        self.task_pos_coeff = [None for i in range(len(self.goals))]
+        for i, g in enumerate(self.goals):
+            self.task_pos[i] = RobCont(omni=ca.vertcat(self.s_kp1.omni[0], self.s_kp1.omni[1]))
+            self.task_pos_coeff[i] = RobCont(
+                omni=[[np.array(g)] for _ in range(self.n_robots.omni)],
+            )
+
+        self.mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
+
+        # =====================Collision Avoidance=================================== #
+        self.threshold = st.safety_distance  # minimum safety distance between robots
+
+        self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
+        self.mapping_avoid_collision = RobCont(
+            omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1])
+        )
+        self.task_avoid_collision = ca.vertcat(
+            -((self.aux_avoid_collision[0, 0] - self.aux_avoid_collision[1, 0]) ** 2)
+            - (self.aux_avoid_collision[0, 1] - self.aux_avoid_collision[1, 1]) ** 2,
+        )
+
+        self.task_avoid_collision_coeff = [
+            TaskBiCoeff(0, i, 0, j, 0, -(self.threshold**2))
+            for i in range(self.n_robots.omni)
+            for j in range(i + 1, self.n_robots.omni)
+        ]
+
+        # =====================Obstacle Avoidance===================================== #
+
+        self.obstacle_pos = (
+            np.array(self.objects_detected)
+            if self.objects_detected is not None
+            else [
+                st.obstacle_position,
+                # np.array([2.1, -2.9]),
+            ]
+        )
+        self.task_obs_avoidances = []
+        self.obstacle_size = st.obstacle_size
+        for obs in self.obstacle_pos:
+            self.task_obs_avoidances.append(
+                [
+                    ca.vertcat(
+                        -((self.s_var.omni[0] - obs[0]) ** 2)
+                        - (self.s_var.omni[1] - obs[1]) ** 2
+                        + self.obstacle_size**2
+                    )
+                ]
+            )
+        self.objects_detected = []
+
+    def task_formation_method(self, agents, distance):
+        aux = ca.SX.sym('aux', 2, 2)
+        # mapping = RobCont(omni=ca.vertcat(self.s_var.omni[0], self.s_var.omni[1]))
+        task_formation = ca.vertcat(
+            (aux[0, 0] - aux[1, 0]) ** 2 + (aux[0, 1] - aux[1, 1]) ** 2 - 0,
+        )
+        agents_0 = self.index_global_to_local(agents[0][0])  # convert global index to local index
+        agents_1 = self.index_global_to_local(agents[0][1])  # convert global index to local index
+        task_formation_coeff = [
+            TaskBiCoeff(0, agents_0, 0, agents_1, 0, distance**2),
+        ]
+        formation_index = [[agents_0, agents_1]]
+        # formation_index = [[agents_1]]
+        return aux, self.mapping, task_formation, task_formation_coeff, formation_index
+
+    def create_neigh_tasks(self, neigh):
+        """
+        Create the tasks for the HOMPCMultiRobot instance
+        """
+        is_formation_with_neigh = lambda agents, neigh: all(
+            item in neigh for item in agents
+        )  # check if neighour's formation is with current agent's neighbour
+
+        robot_idx = None
+        for i in self.neigh:
+            if neigh == f'agent_{i}':
+                robot_idx = self.robot_idx_global.index(i)
+                break
+            # if f'agent_{i}' in neigh:
+            #     robot_idx = self.robot_idx_global.index(i)
+            #     break
+        if robot_idx is None:
+            raise ValueError(f'Could not find robot index for neighbor {neigh.key}')
+        for task in self.neigh_tasks[neigh]:
+            if task['name'] == 'position':
+                self.hompc.create_task(
+                    name='position',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_pos[task['goal_index']].tolist(),
+                    eq_task_coeff=self.task_pos_coeff[task['goal_index']].tolist(),
+                    # time_index=[2],
+                    robot_index=[[robot_idx]],
+                )
+            elif task['name'] == 'formation':
+                for t in task['agents']:
+                    if is_formation_with_neigh(t, self.robot_idx_global):
+                        (
+                            aux,
+                            mapping,
+                            task_formation,
+                            task_formation_coeff,
+                            f_robot_idx,
+                        ) = self.task_formation_method(task['agents'], task['distance'])
+                        self.hompc.create_task_bi(
+                            name='formation',
+                            prio=task['prio'],
+                            type=TaskType.Bi,
+                            aux=aux,
+                            mapping=self.mapping.tolist(),
+                            eq_task_ls=task_formation,
+                            eq_task_coeff=task_formation_coeff,
+                            robot_index=f_robot_idx,
+                        )
+            # elif task['name'] == 'obstacle_avoidance':
+            #     self.hompc.create_task(
+            #         name='obstacle_avoidance',
+            #         prio=task['prio'],
+            #         type=TaskType.Same,
+            #         ineq_task_ls=self.task_obs_avoidance,
+            #     )
+
+    # ---------------------------------------------------------------------------- #
+    #                                      MPC                                     #
+    # ---------------------------------------------------------------------------- #
+    def MPC(self) -> None:
+        self.hompc = HOMPCMultiRobot(
+            self.s_var.tolist(),
+            self.u_var.tolist(),
+            self.s_kp1.tolist(),
+            self.n_robots.tolist(),
+            self.degree,
+        )
+        self.hompc.n_control = st.n_control
+        self.hompc.n_pred = st.n_pred
+
+        # ======================================================================== #
+
+        for task in self.tasks:
+            if task['name'] == 'input_limits':
+                self.hompc.create_task(
+                    name='input_limits',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    ineq_task_ls=self.task_input_limits.tolist(),
+                    robot_index=[self.robot_idx],
+                    # ineq_task_coeff= self.task_input_limits_coeffs
+                )
+            elif task['name'] == 'position':
+                self.hompc.create_task(
+                    name='position',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_pos[task['goal_index']].tolist(),
+                    eq_task_coeff=self.task_pos_coeff[task['goal_index']].tolist(),
+                    # time_index=[3],
+                    robot_index=[[0]],
+                )
+            elif task['name'] == 'input_minimization':
+                self.hompc.create_task(
+                    name='input_minimization',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_input_min.tolist(),
+                    robot_index=[self.robot_idx],
+                )
+            elif task['name'] == 'coverage':
+                self.flag_coverage = True
+                self.hompc.create_task(
+                    name='coverage',
+                    prio=task['prio'],
+                    type=TaskType.Same,
+                    eq_task_ls=self.task_coverage.tolist(),
+                    eq_task_coeff=self.task_coverage_coeff.tolist(),
+                    # time_index=[1],
+                    robot_index=[self.robot_idx],
+                )
+            elif task['name'] == 'input_smooth':
+                self.hompc.create_task(
+                    name='input_smooth',
+                    prio=task['prio'],
+                    type=TaskType.SameTimeDiff,
+                    ineq_task_ls=RobCont(
+                        omni=ca.vertcat(
+                            self.u_var.omni[0],
+                            -self.u_var.omni[0],
+                            self.u_var.omni[1],
+                            -self.u_var.omni[1],
+                        )
+                    ).tolist(),
+                    ineq_task_coeff=[
+                        [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
+                        [[]],
+                    ],
+                    robot_index=[self.robot_idx],
+                )
+                self.hompc.create_task(
+                    name='space_limits',
+                    prio=2,
+                    type=TaskType.Same,
+                    ineq_task_ls=self.task_limits.tolist(),
+                    robot_index=[self.robot_idx],
+                    # ineq_task_coeff= self.task_input_limits_coeffs
+                )
+            elif task['name'] == 'formation':
+                aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
+                    self.task_formation_method(task['agents'], task['distance'])
+                )
+                self.hompc.create_task_bi(
+                    name='formation',
+                    prio=task['prio'],
+                    type=TaskType.Bi,
+                    aux=aux,
+                    mapping=self.mapping.tolist(),
+                    eq_task_ls=task_formation,
+                    eq_task_coeff=task_formation_coeff,
+                    robot_index=f_robot_idx,
+                )
+            elif task['name'] == 'collision_avoidance' and self.degree > 0:
+                self.hompc.create_task_bi(
+                    name='collision',
+                    prio=task['prio'],
+                    type=TaskType.Bi,
+                    aux=self.aux_avoid_collision,
+                    mapping=self.mapping_avoid_collision.tolist(),
+                    ineq_task_ls=self.task_avoid_collision,
+                    ineq_task_coeff=self.task_avoid_collision_coeff,
+                    robot_index=[self.robot_idx[1:]],
+                )
+            elif task['name'] == 'obstacle_avoidance':
+                for obj in self.task_obs_avoidances:
+                    self.hompc.create_task(
+                        name='obstacle_avoidance',
+                        prio=task['prio'],
+                        type=TaskType.Same,
+                        ineq_task_ls=obj,
+                        robot_index=[self.robot_idx],
+                    )
+                # for obst in self.obstacles:
+                #     self.hompc.create_task(
+                #         name='obstacle_avoidance',
+                #         prio=task['prio'],
+                #         type=TaskType.Same,
+                #         ineq_task_ls=obst,
+                #     )
+        for neigh in self.neigh_tasks:
+            self.create_neigh_tasks(neigh)
+
+        # ======================================================================== #
+
+        self.s = RobCont(omni=[np.zeros(3) for _ in range(self.n_robots.omni)])
+
+        self.s_history = [None for _ in range(self.n_steps)]
+        self.s_history_p = [None for _ in range(self.n_steps)]
+        self.s_init = copy.deepcopy(self.s)
+        return
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Methods                                  #
+    # ---------------------------------------------------------------------------- #
+    def reorder_s_init(self, state_meas: list[float]):
+        """Reorder the state vector received from the neighbors"""
+        # for j in self.robot_idx[1:]:
+        #     s_j = [s for s in state_meas[j].pop(0)[1:-2]]
+        #     s_j = np.array(s_j)
+        #     self.s.omni[j] = copy.deepcopy(s_j)
+        #! changed from local to global
+        # for jglobal in self.robot_idx_global[1:]:
+        #     j = self.index_global_to_local(jglobal)
+        #     s_j = [s for s in state_meas[jglobal].pop(0)[1:-2]]
+        #     s_j = np.array(s_j)
+        #     self.s.omni[j] = copy.deepcopy(s_j)
+        #! for simulation purpose only
+        for jglobal in range(self.n_nodes):
+            if jglobal == self.node_id:
+                continue
+            elif jglobal in self.robot_idx_global:
+                j = self.index_global_to_local(jglobal)
+                s_j = [s for s in state_meas[jglobal][1:-2]]
+                s_j = np.array(s_j)
+                self.s.omni[j] = copy.deepcopy(s_j)
+            #     self.states[jglobal] = copy.deepcopy(s_j[0:2])
+            # else: # jsut for simulation
+            #     s_j = [s for s in state_meas[jglobal][1:-2]]
+            #     s_j = np.array(s_j)
+            #     self.states[jglobal] = copy.deepcopy(s_j[0:2])
+
+    def evolve(self, s: list[list[float]], u_star: list[list[float]], dt: float):
+        """Update the state of the system using the control input u_star and the time step dt"""
+        # n_intervals = 10
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         theta = s.omni[j][2]
+
+        #         omega_l = u_star.omni[j][0]
+        #         omega_r = u_star.omni[j][1]
+
+        #         v = st.R * (omega_r + omega_l) / 2
+        #         omega = st.R * (omega_r - omega_l) / st.L
+
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 v * np.cos(theta),
+        #                 v * np.sin(theta),
+        #                 omega,
+        #             ]
+        #         )
+        n_intervals = 10
+        for j, _ in enumerate(s.omni):
+            for _ in range(n_intervals):
+                s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+                    [
+                        u_star.omni[j][0] * np.cos(s.omni[j][2]),
+                        u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                        u_star.omni[j][1],
+                    ]
+                )
+        # for j, _ in enumerate(s.omni):
+        #     for _ in range(n_intervals):
+        #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+        #             [
+        #                 u_star.omni[j][0],
+        #                 u_star.omni[j][1],
+        #             ]
+        #         )
+
+        return s
+
+    def index_local_to_global(self, r) -> int:
+        """
+        Convert the local index of the node to the global index in the adjacency vector.
+        """
+        return self.robot_idx_global[r]
+
+    def index_global_to_local(self, r) -> int:
+        """
+        Convert the global index of the node to the local index in the adjacency vector.
+        """
+        return self.robot_idx_global.index(r)
+
+    def connecter(self, states):
+        # self.s.omni[nn] = np.array([x, y, yaw])  # neighbor state
+        distances = []
+        for nn in range(self.n_nodes):
+            if nn == self.node_id:
+                continue
+            dist = np.linalg.norm(self.s.omni[0][:2] - states[nn])
+            distances.append((nn, dist))
+            # Sort and select up to 6 nearest within range
+        distances.sort(key=lambda x: x[1])
+        closest_neighbors = set(idx for idx, _ in distances[: self.n_connection])
+        current_connections = set(self.neigh)
+
+        to_connect = closest_neighbors - current_connections
+        to_disconnect = current_connections - closest_neighbors
+
+        # --- CONNECT (bidirectional)
+        for idx in to_connect:
+            self.adjacency_vector[idx] = 1.0
+            print(f'connect to {idx}')
+            # i connects to idx
+            tasks_i = {
+                f'agent_{self.node_id}': {
+                    f'agent_{idx}': copy.deepcopy(st.system_tasks[f'agent_{idx}'])
+                }
+            }
+            self.create_connection(
+                self.adjacency_vector, tasks_i[f'agent_{self.node_id}'], states[idx]
+            )
+
+        # --- DISCONNECT (bidirectional)
+        for idx in to_disconnect:
+            self.adjacency_vector[idx] = 0.0
+            # i disconnects from idx
+            print(f'remove to {idx}')
+            self.remove_connection(self.adjacency_vector, f'agent_{idx}', idx)
+
+    def create_connection(
+        self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]
+    ):
+        """
+        Adjust the MPC problem when a new connection is made
+        """
+        # TODO: save data to plot
+
+        added_robot = len(np.nonzero(adjacency_vector)[0].tolist()) + 1 - self.n_robots.omni
+        if added_robot > 0:
+            neigh = np.nonzero(adjacency_vector)[0].tolist()
+            self.degree = len(neigh)
+            self.n_robots = RobCont(omni=self.degree + 1)
+
+            # self.robot_idx_global = [self.node_id] + self.neigh
+            new_neigh = list(set(neigh) - set(self.neigh))  # index of the new connected neighbours
+            self.robot_idx_global.extend(new_neigh)
+            self.neigh.extend(new_neigh)
+            self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+            neigh_local_idx = [self.index_global_to_local(r) for r in new_neigh]
+            # expand the consensus variables
+            self.y_i = np.pad(
+                self.y_i,
+                ((0, 0), (0, self.n_xi * (self.degree + 1) - self.y_i.shape[1])),
+                mode='constant',
+                constant_values=0,
+            )
+            self.rho_i = np.pad(
+                self.rho_i,
+                ((0, 0), (0, 0), (0, self.n_xi * (self.degree) - self.rho_i.shape[2])),
+                mode='constant',
+                constant_values=0,
+            )
+            self.rho_j = np.pad(
+                self.rho_j,
+                ((0, 0), (0, 0), (0, self.n_xi * (self.degree) - self.rho_j.shape[2])),
+                mode='constant',
+                constant_values=0,
+            )
+            self.y_j = np.pad(
+                self.y_j,
+                ((0, 0), (0, 0), (0, self.n_xi * (self.degree) - self.y_j.shape[2])),
+                mode='constant',
+                constant_values=0,
+            )
+            self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
+
+            self.hompc.degree = self.degree
+
+            self.hompc.add_robots([added_robot], state_meas)
+
+            self.s.omni.append(state_meas)
+            self.s_init.omni.append(state_meas)
+
+            self.neigh_tasks.update(neigh_task)  # expand dictionary with neighbour tasks
+
+            for neigh in neigh_task:
+                self.create_neigh_tasks(neigh)
+
+            for jj in self.robot_idx[:-1]:  # for each robot except the last one
+                self.task_avoid_collision_coeff.append(
+                    TaskBiCoeff(0, jj, 0, self.robot_idx[-1], 0, -(self.threshold**2))
+                )
+
+            if self.degree == 1:
+                self.hompc.create_task_bi(
+                    name='collision',
+                    prio=3,
+                    type=TaskType.Bi,
+                    aux=self.aux_avoid_collision,
+                    mapping=self.mapping_avoid_collision.tolist(),
+                    ineq_task_ls=self.task_avoid_collision,
+                    ineq_task_coeff=self.task_avoid_collision_coeff,
+                    robot_index=[self.robot_idx[1:]],
+                )
+            else:
+                n = [p for p, v in enumerate(self.hompc._tasks) if v.name == 'collision']
+
+                self.hompc.update_task_bi(
+                    name='collision',
+                    prio=3,
+                    type=TaskType.Bi,
+                    # aux = self.aux_avoid_collision,
+                    # mapping = self.mapping_avoid_collision.tolist(),
+                    # ineq_task_ls= self.task_avoid_collision,
+                    ineq_task_coeff=self.task_avoid_collision_coeff,
+                    robot_index=[self.robot_idx[1:]],
+                    pos=n[0],
+                )
+            if st.experiment_name == 'obst_avoid':
+                self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
+            self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='input_smooth',
+                prio=2,
+                ineq_task_coeff=[
+                    [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
+                    [[]],
+                ],
+                robot_index=[self.robot_idx],
+            )
+            self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
+            self.sender.update(self.neigh, self.y_i, self.rho_i)
+            self.receiver.update(self.neigh, self.y_j, self.rho_j)
+
+    def remove_connection(self, adjacency_vector: np.array, neigh_tasks: str, neigh_id: int):
+        """
+        Adjust the MPC problem when a connection is removed
+        """
+
+        id_to_remove = self.index_global_to_local(neigh_id)
+
+        self.neigh_tasks.pop(neigh_tasks)
+
+        self.hompc.remove_robots([[id_to_remove]])
+
+        self.s.omni.pop(id_to_remove)
+        self.s_init.omni.pop(id_to_remove)
+
+        rho_idx = list(self.neigh).index(neigh_id)
+
+        # remove element from consensus variables
+        self.y_i = np.delete(
+            self.y_i,
+            np.s_[(id_to_remove * self.n_xi) : (id_to_remove + 1) * self.n_xi],
+            1,
+        )
+        self.rho_i = np.delete(
+            self.rho_i, np.s_[(rho_idx * self.n_xi) : (rho_idx + 1) * self.n_xi], 2
+        )
+        self.rho_j = np.delete(
+            self.rho_j, np.s_[(rho_idx * self.n_xi) : (rho_idx + 1) * self.n_xi], 2
+        )
+        self.y_j = np.delete(self.y_j, np.s_[(rho_idx * self.n_xi) : (rho_idx + 1) * self.n_xi], 2)
+
+        # adjust dimension of variables
+        self.neigh.pop(rho_idx)
+        self.adjacency_vector = copy.deepcopy(adjacency_vector)
+        self.degree = len(self.neigh)
+        self.n_robots = RobCont(omni=self.degree + 1)
+        robot_idx_global_old = copy.deepcopy(self.robot_idx_global)
+        robot_idx_old = copy.deepcopy(self.robot_idx)
+        self.robot_idx_global = [self.node_id] + self.neigh
+        self.robot_idx = [self.robot_idx_global.index(r) for r in self.robot_idx_global]
+        self.alpha = st.step_size * np.ones(self.n_xi * (self.degree))
+        self.hompc.degree = copy.deepcopy(self.degree)
+        # remove tasks related to the removed robot
+        # index = [p for p, task in enumerate(self.hompc._tasks) if id_to_remove not in task.robot_index[0]]
+        # self.hompc._tasks = self.hompc._tasks[index]
+        if self.degree == 0:
+            self.hompc._tasks[:] = [
+                task
+                for task in self.hompc._tasks
+                if id_to_remove not in task.robot_index[0] or task.prio < 3
+            ]
+        else:
+            self.hompc._tasks[:] = [
+                task
+                for task in self.hompc._tasks
+                if id_to_remove not in task.robot_index[0]
+                or task.prio < 3
+                or task.name == 'collision'
+                or task.name == 'coverage'
+                or task.name == 'obstacle_avoidance'
+            ]
+
+        self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='input_smooth',
+            prio=2,
+            ineq_task_coeff=[
+                [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
+                [[]],
+            ],
+            robot_index=[self.robot_idx],
+        )
+        self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
+        if st.experiment_name == 'obst_avoid':
+            self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
+        for n, task in enumerate(self.hompc._tasks):
+            if task.type == TaskType.Bi and task.prio > 2:
+                if task.name == 'formation':
+                    c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
+
+                    aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
+                        self.task_formation_method(
+                            [[robot_idx_global_old[j0], robot_idx_global_old[j1]]],
+                            np.sqrt(coeff),
+                        )
+                    )
+                    self.hompc.update_task_bi(
+                        name=task.name,
+                        prio=task.prio,
+                        aux=aux,
+                        mapping=self.mapping.tolist(),
+                        robot_index=f_robot_idx,
+                        eq_task_ls=task_formation,
+                        eq_task_coeff=task_formation_coeff,
+                        pos=n,
+                    )
+                elif task.name == 'collision':
+                    # id = robot_idx_global_old[task.robot_index[0][0]]
+                    # id = self.robot_idx_global.index(id)
+
+                    self.task_avoid_collision_coeff = [
+                        TaskBiCoeff(0, 0, 0, j, 0, -(self.threshold**2)) for j in self.robot_idx[1:]
+                    ]
+                    for p, j in enumerate(self.robot_idx[1:]):
+                        for pp in self.robot_idx[p + 1 :]:
+                            self.task_avoid_collision_coeff.append(
+                                TaskBiCoeff(0, j, 0, pp, 0, -(self.threshold**2))
+                            )
+
+                    self.hompc.update_task_bi(
+                        name=task.name,
+                        prio=task.prio,
+                        robot_index=[self.robot_idx[1:]],
+                        ineq_task_coeff=self.task_avoid_collision_coeff,
+                        pos=n,
+                    )
+            elif task.prio > 2:
+                if task.name == 'coverage' or task.name == 'obstacle_avoidance':
+                    continue
+                # self.task_pos_coeff = [None for i in range(len(self.goals))]
+                # for i, g in enumerate(self.goals):
+                #     self.task_pos_coeff[i] = RobCont(
+                #         omni=[[g] for _ in range(self.n_robots.omni)],
+                #     )
+                while len(task.eq_coeff[0]) < self.n_robots.omni:
+                    task.eq_coeff[0].append([None])
+
+                id = robot_idx_global_old[task.robot_index[0][0]]
+                id = self.robot_idx_global.index(id)
+                self.hompc.update_task(
+                    name=task.name,
+                    prio=task.prio,
+                    robot_index=[[id]],
+                    # eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
+                    pos=n,
+                )
+
+        self.sender.update(self.neigh, self.y_i, self.rho_i)
+        self.receiver.update(self.neigh, self.y_j, self.rho_j)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    agent = Agent()
+    print(f'Agent {agent.node_id} -- Waiting for sync.')
+    # sleep(0.25)
+    print('GO!')
+    try:
+        rclpy.spin(agent)
+    except KeyboardInterrupt:
+        print('----- Node stopped cleanly -----')
+    finally:
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

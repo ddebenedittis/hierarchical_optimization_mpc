@@ -273,14 +273,16 @@ def main_formation(
 
     obstacle_pos = np.array([10, 0.5])
     obstacle_size = 3
-    task_obs_avoidance = tasks_creator.get_task_obs_avoidance(obstacle_pos, obstacle_size)
+    safe_distance = 0.5
+
+    task_obs_avoidance = tasks_creator.get_task_obs_avoidance(obstacle_pos, threshold=obstacle_size)
 
     (
         aux_avoid_collision,
         mapping_avoid_collision,
         task_avoid_collision,
         task_avoid_collision_coeff,
-    ) = tasks_creator.get_task_avoid_collision(0.5)
+    ) = tasks_creator.get_task_avoid_collision(safe_distance)
 
     task_centroid_vel_ref = tasks_creator.get_task_centroid_vel_ref([1, 0])
 
@@ -441,8 +443,10 @@ def main_formation(
         )
 
         plot_distances(
-            s_history,
-            dt,
+            s_history=s_history,
+            dt=dt,
+            d_min=safe_distance,
+            filename='distances.pdf',
         )
 
     return time_elapsed

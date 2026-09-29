@@ -24,6 +24,8 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 
 
 def main():
+    np.random.seed(1)
+
     model = {
         'unicycle': get_unicycle_model(st.dt),
         'omnidirectional': get_omnidirectional_model(st.dt),
@@ -103,19 +105,18 @@ def main():
     #         np.array([-6, -8]),
     #         np.array([0,0])
     #     ]
-    snap = [0] # time for snapshot
+    snap = [0]  # time for snapshot
     for tt in snap:
-        if tt > st.n_steps*st.dt:
+        if tt > st.n_steps * st.dt:
             raise ValueError('Time instant for snapshot out of simulation lenght')
-    
-    
+
     time_start = time.time()
 
     goals = [
-        np.array([5, -6]),
-        np.array([-5, -6]),
-        np.array([-5, 6]),
-        np.array([5, 6]),
+        np.array([5, 5]),
+        np.array([-2, -10]),
+        np.array([-5, 5]),
+        np.array([5, -5]),
         np.array([8, 3]),
         np.array([-8, -3]),
         np.array([8, -3]),
@@ -126,21 +127,24 @@ def main():
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
+            {'prio': 4, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
+            {'prio': 3, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 4, 'name': 'position', 'goal': goals[0], 'goal_index': 0},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 4, 'name': 'position', 'goal': goals[1], 'goal_index': 1},
-            {'prio': 3, 'name': 'collision_avoidance'},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 3, 'name': 'formation', 'agents': [[0, 1]], 'distance': 2},
+            {'prio': 3, 'name': 'formation', 'agents': [[1, 2]], 'distance': 2},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
             {'prio': 2, 'name': 'input_smooth'},
-            {'prio': 3, 'name': 'collision_avoidance'},
-            # {'prio':4, 'name':"formation", 'agents': [[2,3]], 'distance': 4},
-            {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
+            # {'prio': 3, 'name': 'collision_avoidance'},
+            {'prio': 4, 'name': 'formation', 'agents': [[1, 2]], 'distance': 2},
+            # {'prio': 4, 'name': 'position', 'goal': goals[2], 'goal_index': 2},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
@@ -193,10 +197,10 @@ def main():
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 1.0],
-                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
@@ -211,7 +215,7 @@ def main():
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
-    graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
+    # graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
     while st.random_graph:
@@ -258,7 +262,7 @@ def main():
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model['unicycle'],  # robot model
+            model['omnidirectional'],  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -284,18 +288,7 @@ def main():
 
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
-    gg = np.array(
-        [
-            [5, -6],
-            [-5, -6],
-            [-5, 6],
-            [5, 6],
-            [8, 3],
-            [-8, 3],
-            [8, -3],
-            [-8, -3],
-        ]
-    )
+
     gg = np.array(goals[: st.n_nodes])
 
     start_time_coop = time.time()
@@ -303,17 +296,16 @@ def main():
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     for i in range(st.n_steps):
-        if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i
-            break
         if i == st.n_steps - 1:
             last_step = i + 1
-        if i > 0:
-            neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for i in range(1):
+        if i == 30:
+            None
+        # if i > 0:
+        #     neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        for rr in range(st.inner_loop):
             for j in range(st.n_nodes):
                 nodes[j].reorder_s_init(state)
-                nodes[j].update('1')  # Update primal solution and state evolution
+                nodes[j].update('2')  # Update primal solution and state evolution
             for j in range(st.n_nodes):
                 state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
                 for ij in nodes[j].neigh:  # select my neighbours
@@ -325,17 +317,21 @@ def main():
                 for ij in nodes[j].neigh:  # select my neighbours
                     msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
                     nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].reorder_s_init(state)
-            nodes[j].update('2')  # Update primal solution and state evolution
+        # for j in range(st.n_nodes):
+        #     nodes[j].reorder_s_init(state)
+        #     nodes[j].update('2')  # Update primal solution and state evolution
         pairwise_distances = agents_distance(state, pairwise_distances)
-
+        if np.all(np.abs(np.array(state)[:, :4] - gg) < 10e-3):
+            last_step = i + 1
+            for j in range(st.n_nodes):
+                nodes[j].s_history = nodes[j].s_history[:last_step]
+            break
     """for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
     # neigh_connection(state, nodes, graph_matrix, st.communication_range)
     for j in range(st.n_nodes):
         nodes[j].reorder_s_init(state)
-        nodes[j].update()  # Update primal solution and state evolution
+        nodes[j].update('2')  # Update primal solution and state evolution
     for j in range(st.n_nodes):
         state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
         for ij in nodes[j].neigh:  # select my neighbours
@@ -346,18 +342,18 @@ def main():
 
     for i in range(st.n_steps):
         if np.all(np.abs(np.array(state)[:, :2] - gg) < 10e-3):
-            last_step = i
+            last_step = i+1
             break
         if i == st.n_steps - 1:
             last_step = i + 1
-        neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        # neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for j in range(st.n_nodes):
             for ij in nodes[j].neigh:  # select my neighbours
                 msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
                 nodes[ij].receive_data(msg)  # neighbour receives the message
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
-            nodes[j].update()  # Update primal solution and state evolution
+            nodes[j].update('2')  # Update primal solution and state evolution
         for j in range(st.n_nodes):
             state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
             for ij in nodes[j].neigh:  # select my neighbours
@@ -410,21 +406,49 @@ def main():
             for i in range(len(nodes[0].s_history))
         ]
 
-        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+
+        centr_sol = np.array([5, 5])
+
+        ############# PLOT DISTANCE TO OPTIMAL SOL #############
+        if 0:
+            s_hist_merged_2 = [
+                sum(([node.s_history[i][0][1]] for node in nodes[1:]), [])
+                for i in range(len(nodes[0].s_history))
+            ]
+
+            distances = [[] for n in range(1, st.n_nodes)]
+            for out_loop, iter in enumerate(s_hist_merged_2[: (len(nodes[0].s_history) - 2)]):
+                for nn, ag in enumerate(iter):
+                    dist_opt = np.linalg.norm(ag[:2] - nodes[0].s_history[out_loop][0][0])
+                    distances[nn].append(dist_opt)
+
+            # distances = np.array(distances)  # shape: (n_valid_iterations, 4)
+
+            plt.figure(figsize=(8, 5))
+            for nn, fig in enumerate(distances):
+                plt.semilogy(fig, label=f'agent{nn}')
+            plt.xlabel('Iteration')
+            plt.ylabel('Distance (log scale)')
+            plt.title('Distances per vector')
+            # plt.legend()
+            plt.grid(True, which='both', ls='--')
+            plt.savefig(f'{out_dir}/dist_to_opt.pdf', bbox_inches='tight', format='pdf')
+            plt.close()
 
         flags = MultiRobotArtistFlags()
         flags.voronoi = False
-        flags.centroid = False
+        # flags.centroid = False
 
         save_snapshots(
             s_hist_merged,
             goals,
             None,
             st.dt,
-            [10.0],
+            [(last_step - 1) * st.dt],
             f'{out_dir}/snapshot',
             x_lim=[-10, 10],
-            y_lim=[-10, 10],
+            y_lim=[-8, 8],
             flags=flags,
         )
 
@@ -436,7 +460,7 @@ def main():
             st.visual_method,
             video_name=f'{out_dir}/video.mp4',
             x_lim=[-10, 10],
-            y_lim=[-10, 10],
+            y_lim=[-8, 8],
             flags=flags,
         )
 

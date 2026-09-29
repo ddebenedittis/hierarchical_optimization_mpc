@@ -1,10 +1,14 @@
 import copy
+import csv
+import os
 import time
+from datetime import datetime
 from itertools import combinations
 
 import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
@@ -13,22 +17,36 @@ from hierarchical_optimization_mpc.ho_mpc_multi_robot import (
     TaskType,
 )
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
-    MultiRobotArtists,
+    MultiRobotArtistFlags,
     display_animation,
     save_snapshots,
 )
-from hierarchical_optimization_mpc.utils.robot_models import RobCont, get_unicycle_model
+from hierarchical_optimization_mpc.utils.robot_models import (
+    RobCont,
+    get_omnidirectional_model,
+    get_unicycle_model,
+)
 
 
 def evolve(s: list[list[float]], u_star: list[list[float]], dt: float):
     n_intervals = 10
 
+    # for j, _ in enumerate(s.omni):
+    #     for _ in range(n_intervals):
+    #         s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
+    #             [
+    #                 u_star.omni[j][0] * np.cos(s.omni[j][2]),
+    #                 u_star.omni[j][0] * np.sin(s.omni[j][2]),
+    #                 u_star.omni[j][1],
+    #             ]
+    #         )
+
+    # return s
     for j, _ in enumerate(s.omni):
         for _ in range(n_intervals):
             s.omni[j] = s.omni[j] + dt / n_intervals * np.array(
                 [
-                    u_star.omni[j][0] * np.cos(s.omni[j][2]),
-                    u_star.omni[j][0] * np.sin(s.omni[j][2]),
+                    u_star.omni[j][0],
                     u_star.omni[j][1],
                 ]
             )
@@ -45,10 +63,28 @@ def main():
 
     dt = 0.05
 
-    n_robots = RobCont(omni=12)
+    n_robots = RobCont(omni=4)
 
-    v_max = 1.8
+    v_max = 1.5
     v_min = -1
+
+    package_name = 'distributed_ho_mpc'
+    workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
+    out_dir = f'{workspace_dir}/out/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching_central/'
+    os.makedirs(out_dir, exist_ok=True)
+
+    filename = f'{out_dir}/cntr_data.csv'
+    with open(filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+
+        header = ['Time']
+        for i in range(n_robots.omni):
+            header.append(f'stateX_{i}')
+            header.append(f'stateY_{i}')
+            header.append(f'inputX_{i}')
+            header.append(f'inputY_{i}')
+
+        writer.writerow(header)
 
     # ======================= Define The System Model ======================= #
 
@@ -56,14 +92,15 @@ def main():
     u = RobCont(omni=None)
     s_kp1 = RobCont(omni=None)
 
-    s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 10)
+    # s.omni, u.omni, s_kp1.omni = get_unicycle_model(dt * 10)
+    s.omni, u.omni, s_kp1.omni = get_omnidirectional_model(dt)
 
     # =========================== Define The Tasks ========================== #
 
     task_input_limits = RobCont(
         omni=ca.vertcat(
             u.omni[0] - v_max,
-            -u.omni[0] + 0,  # v_min,
+            -u.omni[0] - 1.5,  # v_min,
             u.omni[1] - 1.5,  # 1v_max,
             -u.omni[1] - 1.5,  # v_min
         )
@@ -73,26 +110,25 @@ def main():
 
     task_pos_ref_1 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_1_coeff = RobCont(
-        omni=[[np.array([5, -6])] for _ in range(n_robots.omni)],
+        omni=[[np.array([5, 5])] for _ in range(n_robots.omni)],
     )
 
-    # ======================================================================= #
-
+    # ======================================================================= #3
     task_pos_ref_2 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_2_coeff = RobCont(omni=[[np.array([-5, -6])] for _ in range(n_robots.omni)])
+    task_pos_ref_2_coeff = RobCont(omni=[[np.array([-5, -5])] for _ in range(n_robots.omni)])
 
     # ======================================================================= #
 
     task_pos_ref_3 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_3_coeff = RobCont(omni=[[np.array([-5, 6])] for _ in range(n_robots.omni)])
+    task_pos_ref_3_coeff = RobCont(omni=[[np.array([-5, 5])] for _ in range(n_robots.omni)])
 
     # ======================================================================= #
 
     task_pos_ref_4 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
-    task_pos_ref_4_coeff = RobCont(omni=[[np.array([5, 6])] for _ in range(n_robots.omni)])
+    task_pos_ref_4_coeff = RobCont(omni=[[np.array([5, -5])] for _ in range(n_robots.omni)])
     # ======================================================================= #
 
-    task_pos_ref_5 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
+    """task_pos_ref_5 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_5_coeff = RobCont(omni=[[np.array([8, 3])] for _ in range(n_robots.omni)])
 
     # ======================================================================= #
@@ -125,7 +161,7 @@ def main():
 
     task_pos_ref_12 = RobCont(omni=ca.vertcat(s_kp1.omni[0], s_kp1.omni[1]))
     task_pos_ref_12_coeff = RobCont(omni=[[np.array([0, -6])] for _ in range(n_robots.omni)])
-    # ======================================================================= #
+    # ======================================================================= #"""
 
     threshold = 2
     aux_avoid_collision = ca.SX.sym('aux', 2, 2)
@@ -135,72 +171,9 @@ def main():
         - (aux_avoid_collision[0, 1] - aux_avoid_collision[1, 1]) ** 2,
     )
     task_avoid_collision_coeff = [
-        TaskBiCoeff(0, 0, 0, 1, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 2, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 0, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 2, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 1, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 3, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 2, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 4, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 3, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 5, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 4, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 6, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 5, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 7, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 6, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 8, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 7, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 9, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 8, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 9, 0, 10, 0, -(threshold**2)),
-        TaskBiCoeff(0, 9, 0, 11, 0, -(threshold**2)),
-        TaskBiCoeff(0, 10, 0, 11, 0, -(threshold**2)),
+        TaskBiCoeff(0, i, 0, j, 0, -(threshold**2))
+        for i in range(n_robots.omni)
+        for j in range(i + 1, n_robots.omni)
     ]
 
     # ============================ Create The MPC =========================== #
@@ -252,7 +225,7 @@ def main():
         eq_task_coeff=task_pos_ref_4_coeff.tolist(),
         robot_index=[[3]],
     )
-    hompc.create_task(
+    """hompc.create_task(
         name='pos_ref_5',
         prio=4,
         type=TaskType.Same,
@@ -315,7 +288,7 @@ def main():
         eq_task_ls=task_pos_ref_12.tolist(),
         eq_task_coeff=task_pos_ref_12_coeff.tolist(),
         robot_index=[[11]],
-    )
+    )"""
 
     hompc.create_task_bi(
         name='collision_avoidance',
@@ -331,18 +304,10 @@ def main():
 
     s = RobCont(
         omni=[
-            np.array([-5, 5, 0.1]),
-            np.array([4.5, 5, -2.1]),
-            np.array([4.5, -5, 2.1]),
-            np.array([-5, -5, 0.75]),
-            np.array([-6, -3, 0.25]),
-            np.array([6, 3, 3]),
-            np.array([-6, 3, 0.25]),
-            np.array([6, -3, 3]),
-            np.array([-7, 0, 0.25]),
-            np.array([7, 0, 3]),
-            np.array([0, -5, 2.1]),
-            np.array([0, 5, -2.1]),
+            np.array([-1, -1.5]),
+            np.array([1.5, 3]),
+            np.array([2, -2]),
+            np.array([-1.5, 1.5]),
         ]
     )
 
@@ -362,33 +327,22 @@ def main():
     # Initialize one list per robot pair
     pairwise_distances = [[] for _ in range(num_pairs)]
 
-    n_steps = 1500
+    n_steps = 400
 
     s_history = [None for _ in range(n_steps)]
 
-    goals = np.array(
-        [
-            [5, -6],
-            [-5, -6],
-            [-5, 6],
-            [5, 6],
-            [8, 3],
-            [-8, 3],
-            [8, -3],
-            [-8, -3],
-            [9, 0],
-            [-9, 0],
-            [0, 6],
-            [0, -6],
-        ]
-    )
+    goals = np.array([[5, 5], [-5, -5], [-5, 5], [5, -5]])
 
     for k in range(n_steps):
-        if np.all(np.abs(np.array(s.omni)[:, :2] - goals) < 10e-3):
+        if np.all(np.abs(np.array(s.omni)[:, :4] - goals) < 10e-3):
+            last_step = k
             break
 
         time_coord_start = time.time()
         print(k)
+        # s_copy = copy.deepcopy(s)
+        # for n, jj in enumerate(s_copy.omni):
+        #     s_copy.omni[n] = jj + np.random.uniform(-0.05, 0.05, jj.shape)
 
         u_star = hompc(copy.deepcopy(s.tolist()))
 
@@ -398,8 +352,19 @@ def main():
 
         s = evolve(s, RobCont(omni=u_star[0]), dt)
 
+        with open(filename, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            row = [k]
+
+            for i in range(n_robots.omni):
+                row.extend(s.omni[i])
+                row.extend(u_star[0][i])
+
+            writer.writerow(row)
+
         s_history[k] = copy.deepcopy(s)
         pairwise_distances = agents_distance(s.tolist()[0], pairwise_distances)
+        last_step = k + 1
 
     time_elapsed = time.time() - time_start
     time_coord = time.time() - time_coord_start
@@ -415,7 +380,7 @@ def main():
     # ========================= Visualization Options ======================== #
 
     robot_pairs = list(combinations(range(num_robots), 2))
-    x = np.arange(1, n_steps + 1) * dt
+    x = np.arange(1, last_step + 1) * dt
     plt.figure(figsize=(10, 6))
     for i, dist_list in enumerate(pairwise_distances):
         plt.plot(x, dist_list, label=f'Robots {robot_pairs[i]}')
@@ -426,26 +391,20 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f'{out_dir}/distances.pdf', bbox_inches='tight', format='pdf')
+    plt.close()
 
-    visual_method = 'plot'
+    visual_method = 'save'
 
-    s_history = [[[]] + s.tolist() for s in s_history]
+    s_history = [[[]] + s.tolist() for s in s_history[:last_step]]
 
-    artist_flags = MultiRobotArtists(
-        centroid=False,
-        goals=True,
-        obstacles=False,
-        past_trajectory=False,
-        omnidir=RobCont(omni=True),
-        unicycles=False,
-        voronoi=False,
-    )
+    flags = MultiRobotArtistFlags()
+    flags.voronoi = False
     goal = [
-        [6, -6],
-        [-6, -6],
-        [-6, 6],
-        [6, 6],
+        [5, 5],
+        [5, -5],
+        [-5, -5],
+        [-5, 5],
         [8, 3],
         [-8, 3],
         [8, -3],
@@ -455,24 +414,30 @@ def main():
         [0, 6],
         [0, -6],
     ]
-    if visual_method is not None and visual_method != 'none':
+    """if visual_method is not None and visual_method != 'none':
         display_animation(
             s_history,
-            goal,
+            goal[0:4],
             None,
             dt,
             visual_method,
-            artist_flags,
-        )
+            video_name=f'{out_dir}/video.mp4',
+            x_lim=[-10, 10],
+            y_lim=[-8, 8],
+            flags=flags,
+        )"""
 
     if visual_method == 'save':
         save_snapshots(
             s_history,
+            goal[0:4],
             None,
             dt,
-            [0, 10, 25],
-            'snapshot',
-            artist_flags,
+            [(last_step - 1) * dt],
+            filename=f'{out_dir}/snapshot',
+            x_lim=[-10, 10],
+            y_lim=[-8, 8],
+            flags=flags,
         )
 
     return time_elapsed

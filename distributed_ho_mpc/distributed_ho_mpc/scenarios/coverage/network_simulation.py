@@ -5,6 +5,7 @@ from datetime import datetime
 
 import networkx as nx
 import numpy as np
+import progressbar
 from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
@@ -21,12 +22,18 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 )
 
 
-def main(model_name='omni'):
+def main(model_name):
     model = None
+    print(f'model name: {model_name}')
     if model_name == 'omni':
         model = get_omnidirectional_model(dt=st.dt)
     elif model_name == 'unicycle':
         model = get_unicycle_model(dt=st.dt)
+    elif model_name == 'heterogeneous':
+        model = [get_unicycle_model(dt=st.dt), get_omnidirectional_model(dt=st.dt)]
+    np.random.seed(1)
+    b = progressbar.ProgressBar(maxval=st.n_steps)
+    b.start()
 
     def neigh_connection(states, nodes, graph_matrix, communication_range):
         """
@@ -47,7 +54,7 @@ def main(model_name='omni'):
 
             # Sort and select up to 6 nearest within range
             distances.sort(key=lambda x: x[1])
-            closest_neighbors = set(idx for idx, _ in distances[:7])
+            closest_neighbors = set(idx for idx, _ in distances[:5])
 
             current_connections = set(np.nonzero(graph_matrix[i])[0])
 
@@ -96,7 +103,7 @@ def main(model_name='omni'):
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
     # =========================================================================== #
-
+    fleet = ['o', 'u', 'o', 'u', 'o', 'u', 'o', 'u', 'o', 'u']
     goals = [np.array([0, 0]), np.array([0, 0]), np.array([0, 0])]
 
     time_start = time.time()
@@ -115,52 +122,62 @@ def main(model_name='omni'):
     system_tasks = {
         'agent_0': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_1': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_2': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_3': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_7': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_4': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_5': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_6': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_8': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
         'agent_9': [
             {'prio': 1, 'name': 'input_limits'},
-            {'prio': 2, 'name': 'input_smooth'},
+            # {'prio': 2, 'name': 'input_smooth'},
+            {'prio': 2, 'name': 'collision_avoidance'},
             {'prio': 3, 'name': 'coverage'},
         ],
     }
@@ -179,10 +196,10 @@ def main(model_name='omni'):
     if st.n_nodes == 4:
         graph_matrix = np.array(
             [
-                [0.0, 1.0, 0.0, 0.0],
-                [1.0, 0.0, 1.0, 0.0],
-                [0.0, 1.0, 0.0, 1.0],
-                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0],
+                [1.0, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0, 0.0],
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3])
@@ -197,6 +214,24 @@ def main(model_name='omni'):
             ]
         )
         network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
+    if st.n_nodes == 10:
+        graph_matrix = np.array(
+            [
+                [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0],
+            ]
+        )
+
+        graph_matrix = np.ones((10, 10)) - np.eye(10)
+        # network_graph = nx.from_numpy_array(graph_matrix, nodelist=[0, 1, 2, 3, 4])
     graph_matrix = np.zeros((st.n_nodes, st.n_nodes))
 
     # random graph 🎲
@@ -244,7 +279,7 @@ def main(model_name='omni'):
         node = Node(
             i,  # ID
             graph_matrix[i],  # Neighbours
-            model_name,  # robot model
+            fleet,  # robot model
             st.dt,  # time step
             system_tasks[f'agent_{i}'],  # agent's tasks
             neigh_tasks[f'agent_{i}'],  # neighbours tasks
@@ -285,44 +320,29 @@ def main(model_name='omni'):
 
     start_time_coop = time.time()
 
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-    # neigh_connection(state, nodes, graph_matrix, st.communication_range)
-    for j in range(st.n_nodes):
-        nodes[j].reorder_s_init(state)
-        nodes[j].update()  # Update primal solution and state evolution
-    for j in range(st.n_nodes):
-        state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-        for ij in nodes[j].neigh:  # select my neighbours
-            msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-            nodes[ij].receive_data(msg)  # neighbour receives the message
-    for j in range(st.n_nodes):
-        nodes[j].dual_update()  # linear update of dual problem
-
+    for idx, j in enumerate(fleet):
+        state[idx] = nodes[idx].s.omni[0] if j == 'o' else nodes[idx].s.uni[0]
     for i in range(st.n_steps):
-        # if np.all(np.abs(np.array(state)[:,:2] - gg) < 10e-3):
-        #     last_step = i
-        #     break
-        if i == 37:
-            None
         if i == st.n_steps - 1:
             last_step = i + 1
-        neigh_connection(state, nodes, graph_matrix, st.communication_range)
-        for j in range(st.n_nodes):
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'D')  # Transmit Dual variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
+        if i == 30:
+            None
+        if i > 0:
+            neigh_connection(state, nodes, graph_matrix, st.communication_range)
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update()  # Update primal solution and state evolution
-        for j in range(st.n_nodes):
-            state[j] = nodes[j].s.omni[0]  # TODO manage heterogeneous robots
-            for ij in nodes[j].neigh:  # select my neighbours
-                msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
-                nodes[ij].receive_data(msg)  # neighbour receives the message
-        for j in range(st.n_nodes):
-            nodes[j].dual_update()  # linear update of dual problem
-        pairwise_distances = agents_distance(state, pairwise_distances)
+        for idx, j in enumerate(fleet):
+            if j == 'o':
+                state[idx] = nodes[idx].s.omni[0]
+            else:
+                state[idx] = nodes[idx].s.uni[0]
+            # for ij in nodes[j].neigh:  # select my neighbours
+            #     msg = nodes[j].transmit_data(ij, 'P')  # Transmit primal variable
+            #     nodes[ij].receive_data(msg)  # neighbour receives the message
+            # for j in range(st.n_nodes):
+            nodes[idx].dual_update()
+        b.update(i)
 
     time_elapsed = time.time() - time_start
     time_coop = time.time() - start_time_coop
@@ -347,30 +367,42 @@ def main(model_name='omni'):
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
-        s_hist_merged = [
-            sum(([node.s_history[i][0][0]] for node in nodes), [])
-            for i in range(len(nodes[0].s_history))
-        ]
+        # s_hist_merged = [
+        #     sum(([node.s_history[i][0][0]] for node in nodes), [])
+        #     for i in range(len(nodes[0].s_history))
+        # ]
 
-        if model_name == 'unicycle':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
-        elif model_name == 'omni':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        # if model_name == 'unicycle':
+        #     s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+        # elif model_name == 'omni':
+        #     s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+
+        s_hist_merged = []
+        for n in range(len(nodes[0].s_history)):
+            row = [[], []]
+            for j, node in enumerate(nodes):
+                if fleet[j] == 'o':
+                    row[1].append(node.s_history[n])
+                else:
+                    row[0].append(node.s_history[n])
+            s_hist_merged.append(row)
 
         flags = MultiRobotArtistFlags()
         flags.centroid = False
+        flags.future_trajectory = False
 
         save_snapshots(
             s_hist_merged,
             None,
             None,
             st.dt,
-            [20],
+            [(last_step - 1) * st.dt, (last_step - 1) / 2 * st.dt],
             f'{out_dir}/snapshot',
             flags=flags,
         )
 
         display_animation(
+            s_hist_merged,
             s_hist_merged,
             None,
             None,
@@ -379,6 +411,7 @@ def main(model_name='omni'):
             video_name=f'{out_dir}/video.mp4',
             flags=flags,
         )
+    b.finish()
 
 
 if __name__ == '__main__':
@@ -388,8 +421,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--model',
         type=str,
-        choices=['omni', 'unicycle'],
-        default='omni',
+        choices=['omni', 'unicycle', 'heterogeneous'],
+        default='heterogeneous',
         help='Model type to use for simulation',
     )
     args = parser.parse_args()

@@ -21,6 +21,7 @@ ROS 2 packages to implement generic controllers based on Hierarchical Optimizati
   - [Development](#development)
     - [Pre-Commit](#pre-commit)
     - [Tests](#tests)
+    - [Paper Figures](#paper-figures)
   - [Known Bugs](#known-bugs)
   - [Publications](#publications)
   - [Author](#author)
@@ -33,7 +34,7 @@ These packages have been tested with ROS 2 Humble and ROS 2 Iron on an Ubuntu sy
 
 To use Torch with an NVIDIA graphics card, it is necessary to install the NVIDIA drivers for Ubuntu. [Here](https://letmegooglethat.com/?q=Install+nvidia+drivers+ubuntu).
 
-The repository root is the colcon workspace: the ROS packages are in `src/`, and the Docker files in `docker/`.
+The repository root is the colcon workspace: the ROS packages are in `src/`, the Docker files in `docker/`, and standalone scripts in `scripts/`.
 
 ### Docker
 
@@ -193,6 +194,16 @@ Tests can be run with
 ```
 colcon test
 ```
+
+### Paper Figures
+
+`scripts/omni_results/` turns the omnidirectional comparison campaign into tables and figures.
+It runs with the host Python (numpy, matplotlib, and a LaTeX installation for the paper-style figures), no ROS needed.
+```shell
+python3 scripts/omni_results/make_results.py        # summary figures and tables
+python3 scripts/omni_results/make_paper_figures.py  # paper-style figures
+```
+By default both read the campaign outputs in `out/omni_campaign_2026-09-25` and `out/omni_nl5_2026-09-26` and write to `out/omni_results/`; see `--help` for the options.
 
 ## Known Bugs
 

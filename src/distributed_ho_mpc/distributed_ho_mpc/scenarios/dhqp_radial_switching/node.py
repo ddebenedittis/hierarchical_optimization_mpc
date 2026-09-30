@@ -7,6 +7,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.dhqp_radial_switching.settings as st
+from distributed_ho_mpc.ho_mpc.connections import (
+    has_formation_task,
+    keep_on_removal,
+    own_prio,
+    remap_robot_index,
+)
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -169,17 +175,6 @@ class Node:
         self.counter = []
         self.u_star_prev = None
         self.time_start = time.time()
-
-    def _own_prio(self, name: str) -> int:
-        """Priority of task `name` in this agent's own task list."""
-        return next(t['prio'] for t in self.tasks if t['name'] == name)
-
-    def _has_formation_task(self, prio: int, robot_index: list[list[int]]) -> bool:
-        """Whether a formation task with this priority and robot pair already exists."""
-        return any(
-            t.name == 'formation' and t.prio == prio and t.robot_index == robot_index
-            for t in self.hompc._tasks
-        )
 
     def index_local_to_global(self, r) -> int:
         """
@@ -374,6 +369,8 @@ class Node:
                 aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
                     self.task_formation_method(task['agents'], task['distance'])
                 )
+                if has_formation_task(self.hompc, task['prio'], f_robot_idx):
+                    continue
                 self.hompc.create_task_bi(
                     name='formation',
                     prio=task['prio'],
@@ -632,7 +629,7 @@ class Node:
                             task_formation_coeff,
                             f_robot_idx,
                         ) = self.task_formation_method(task['agents'], task['distance'])
-                        if self._has_formation_task(task['prio'], f_robot_idx):
+                        if has_formation_task(self.hompc, task['prio'], f_robot_idx):
                             continue
                         self.hompc.create_task_bi(
                             name='formation',
@@ -745,7 +742,7 @@ class Node:
             if self.degree == 1:
                 self.hompc.create_task_bi(
                     name='collision',
-                    prio=self._own_prio('collision_avoidance'),
+                    prio=own_prio(self.tasks, 'collision_avoidance'),
                     type=TaskType.Bi,
                     aux=self.aux_avoid_collision,
                     mapping=self.mapping_avoid_collision.tolist(),
@@ -758,7 +755,7 @@ class Node:
 
                 self.hompc.update_task_bi(
                     name='collision',
-                    prio=self._own_prio('collision_avoidance'),
+                    prio=own_prio(self.tasks, 'collision_avoidance'),
                     type=TaskType.Bi,
                     # aux = self.aux_avoid_collision,
                     # mapping = self.mapping_avoid_collision.tolist(),
@@ -792,7 +789,7 @@ class Node:
                     # Every new connection used to re-add the agent's own formation
                     # task, so an agent with k neighbours carried k-1 copies of it,
                     # which reweights it against the other tasks at its level.
-                    if self._has_formation_task(task['prio'], f_robot_idx):
+                    if has_formation_task(self.hompc, task['prio'], f_robot_idx):
                         continue
                     self.hompc.create_task_bi(
                         name='formation',
@@ -807,7 +804,7 @@ class Node:
 
             self.hompc.update_task(
                 name='input_limits',
-                prio=self._own_prio('input_limits'),
+                prio=own_prio(self.tasks, 'input_limits'),
                 robot_index=[self.robot_idx],
             )
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
@@ -861,23 +858,14 @@ class Node:
         # remove tasks related to the removed robot
         # index = [p for p, task in enumerate(self.hompc._tasks) if id_to_remove not in task.robot_index[0]]
         # self.hompc._tasks = self.hompc._tasks[index]
-        if self.degree == 0:
-            self.hompc._tasks[:] = [
-                task
-                for task in self.hompc._tasks
-                if id_to_remove not in task.robot_index[0] or task.name == 'input_limits'
-            ]
-        else:
-            self.hompc._tasks[:] = [
-                task
-                for task in self.hompc._tasks
-                if id_to_remove not in task.robot_index[0]
-                or task.name == 'input_limits'
-                or task.name == 'collision'
-            ]
+        self.hompc._tasks[:] = [
+            task for task in self.hompc._tasks if keep_on_removal(task, id_to_remove, self.degree)
+        ]
 
         self.hompc.update_task(
-            name='input_limits', prio=self._own_prio('input_limits'), robot_index=[self.robot_idx]
+            name='input_limits',
+            prio=own_prio(self.tasks, 'input_limits'),
+            robot_index=[self.robot_idx],
         )
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=[self.robot_idx])
 
@@ -925,32 +913,18 @@ class Node:
 
             else:
                 if task.eq_coeff is not None:
-                    # self.task_pos_coeff = [None for i in range(len(self.goals))]
-                    # for i, g in enumerate(self.goals):
-                    #     self.task_pos_coeff[i] = RobCont(
-                    #         omni=[[g] for _ in range(self.n_robots.omni)],
-                    #     )
                     while len(task.eq_coeff[0]) < self.n_robots.omni:
                         task.eq_coeff[0].append([None])
-
-                    id = robot_idx_global_old[task.robot_index[0][0]]
-                    id = self.robot_idx_global.index(id)
-                    self.hompc.update_task(
-                        name=task.name,
-                        prio=task.prio,
-                        robot_index=[[id]],
-                        # eq_task_coeff = self.task_pos_coeff[task['goal_index']].tolist(),
-                        pos=n,
-                    )
-                else:
-                    # inequality-only task (e.g. 'input_smooth'): no per-goal eq_coeff
-                    # remap, just refresh robot_index to the post-removal indexing.
-                    self.hompc.update_task(
-                        name=task.name,
-                        prio=task.prio,
-                        robot_index=[self.robot_idx],
-                        pos=n,
-                    )
+                self.hompc.update_task(
+                    name=task.name,
+                    prio=task.prio,
+                    robot_index=[
+                        remap_robot_index(
+                            task.robot_index[0], robot_idx_global_old, self.robot_idx_global
+                        )
+                    ],
+                    pos=n,
+                )
 
         self.sender.update(self.neigh, self.y_i, self.rho_i)
         self.receiver.update(self.neigh, self.y_j, self.rho_j)

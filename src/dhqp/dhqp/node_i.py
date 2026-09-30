@@ -31,6 +31,39 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 from mocap_msgs.msg import RigidBodies
 
 
+# Mirrors distributed_ho_mpc.ho_mpc.connections, which this package does not depend on.
+def own_prio(tasks: list[dict], name: str, default: int | None = None) -> int:
+    """Priority of task `name` in an agent's own task list, or `default` if it has none."""
+    prio = next((t['prio'] for t in tasks if t['name'] == name), default)
+    if prio is None:
+        raise KeyError(f'task {name!r} is not in the agent task list and has no default')
+    return prio
+
+
+def has_formation_task(hompc, prio: int, robot_index: list[list[int]]) -> bool:
+    """Whether `hompc` already holds a formation task with this priority and robot pair."""
+    return any(
+        t.name == 'formation' and t.prio == prio and t.robot_index == robot_index
+        for t in hompc._tasks
+    )
+
+
+def keep_on_removal(task, id_to_remove: int, degree: int) -> bool:
+    """Whether a task survives the removal of local robot `id_to_remove`.
+
+    Dropped: tasks that exist only because of that robot, i.e. a pairwise task
+    involving it (formation) or a task on it alone (its goal copy). Kept: tasks
+    spanning all local robots, which are re-indexed afterwards, and the collision
+    task, which is rebuilt, unless no neighbour is left.
+    """
+    if task.name == 'collision':
+        return degree > 0
+    robots = task.robot_index[0]
+    if task.type == TaskType.Bi:
+        return id_to_remove not in robots
+    return robots != [id_to_remove]
+
+
 class Agent(Node):
     def __init__(self):
         super().__init__(
@@ -141,7 +174,7 @@ class Agent(Node):
         )
 
         # create the publisher for optimal input computed
-        self.ns = f'/robot_{self.node_id+1}'
+        self.ns = f'/robot_{self.node_id + 1}'
         topic_name = f'{self.ns}/diff_drive_base_controller/cmd_vel'
         self.diff_drive_publisher = self.create_publisher(
             TwistStamped,
@@ -249,7 +282,7 @@ class Agent(Node):
                         nn = self.index_global_to_local(neigh)
                         self.s.omni[nn] = np.array([x, y, yaw])  # self state"""
             for n, name in enumerate(msg.name):
-                if name == f'/robot_{self.node_id+1}':
+                if name == f'/robot_{self.node_id + 1}':
                     x = msg.pose[n].position.x  # msg.pose.pose.position.x
                     y = msg.pose[n].position.y  # msg.pose.pose.position.y
 
@@ -263,7 +296,7 @@ class Agent(Node):
     def state_callback(self, msg):
         """Extract the pose of the robot from qualysis node"""
         for body in msg.rigidbodies:
-            if body.rigid_body_name == f'limo_{self.node_id+1}':
+            if body.rigid_body_name == f'limo_{self.node_id + 1}':
                 x = body.pose.position.x  # msg.pose.pose.position.x
                 y = body.pose.position.y  # msg.pose.pose.position.y
 
@@ -277,7 +310,7 @@ class Agent(Node):
                     self.init_pos = np.array([x, y, yaw])
             else:
                 for neigh in self.robot_idx_global[1:]:
-                    if body.rigid_body_name == f'limo_{neigh+1}':
+                    if body.rigid_body_name == f'limo_{neigh + 1}':
                         x = body.pose.position.x  # msg.pose.pose.position.x
                         y = body.pose.position.y  # msg.pose.pose.position.y
                         q = body.pose.orientation  # msg.pose.pose.orientation
@@ -317,7 +350,7 @@ class Agent(Node):
                 for nn in range(self.n_nodes):
                     if nn == self.node_id:
                         continue
-                    elif body.rigid_body_name == f'limo_{nn+1}':
+                    elif body.rigid_body_name == f'limo_{nn + 1}':
                         x = body.pose.position.x  # msg.pose.pose.position.x
                         y = body.pose.position.y  # msg.pose.pose.position.y
 
@@ -613,6 +646,8 @@ class Agent(Node):
                             task_formation_coeff,
                             f_robot_idx,
                         ) = self.task_formation_method(task['agents'], task['distance'])
+                        if has_formation_task(self.hompc, task['prio'], f_robot_idx):
+                            continue
                         self.hompc.create_task_bi(
                             name='formation',
                             prio=task['prio'],
@@ -717,6 +752,8 @@ class Agent(Node):
                 aux, mapping, task_formation, task_formation_coeff, f_robot_idx = (
                     self.task_formation_method(task['agents'], task['distance'])
                 )
+                if has_formation_task(self.hompc, task['prio'], f_robot_idx):
+                    continue
                 self.hompc.create_task_bi(
                     name='formation',
                     prio=task['prio'],
@@ -850,41 +887,40 @@ class Agent(Node):
         return self.robot_idx_global.index(r)
 
     def connecter(self, states):
-        # self.s.omni[nn] = np.array([x, y, yaw])  # neighbor state
-        distances = []
-        for nn in range(self.n_nodes):
-            if nn == self.node_id:
-                continue
-            dist = np.linalg.norm(self.s.omni[0][:2] - states[nn])
-            distances.append((nn, dist))
-            # Sort and select up to 6 nearest within range
-        distances.sort(key=lambda x: x[1])
-        closest_neighbors = set(idx for idx, _ in distances[: self.n_connection])
+        """Keep this robot linked to the robots it shares a mutual k-nearest link with.
+
+        Robots i and j are linked iff each is among the other's `n_connection`
+        nearest robots. Every robot measures all positions through mocap, so each
+        one computes the same link set on its own and the graph stays symmetric; the
+        rule also bounds each robot's degree, hence its local QP, by `n_connection`.
+        """
+        pos = np.array([np.asarray(p, dtype=float)[:2] for p in states])
+        pos[self.node_id] = self.s.omni[0][:2]  # own pose is not stored in `states`
+        dist = np.linalg.norm(pos[:, None, :] - pos[None, :, :], axis=2)
+        np.fill_diagonal(dist, np.inf)
+        top_k = np.argsort(dist, axis=1, kind='stable')[:, : self.n_connection]
+
+        closest_neighbors = {int(j) for j in top_k[self.node_id] if self.node_id in top_k[j]}
         current_connections = set(self.neigh)
 
         to_connect = closest_neighbors - current_connections
         to_disconnect = current_connections - closest_neighbors
 
-        # --- CONNECT (bidirectional)
-        for idx in to_connect:
-            self.adjacency_vector[idx] = 1.0
-            print(f'connect to {idx}')
-            # i connects to idx
-            tasks_i = {
-                f'agent_{self.node_id}': {
-                    f'agent_{idx}': copy.deepcopy(st.system_tasks[f'agent_{idx}'])
-                }
-            }
-            self.create_connection(
-                self.adjacency_vector, tasks_i[f'agent_{self.node_id}'], states[idx]
-            )
-
-        # --- DISCONNECT (bidirectional)
-        for idx in to_disconnect:
+        # --- DISCONNECT first, so the local problem never exceeds n_connection neighbours
+        for idx in sorted(to_disconnect):
             self.adjacency_vector[idx] = 0.0
-            # i disconnects from idx
             print(f'remove to {idx}')
             self.remove_connection(self.adjacency_vector, f'agent_{idx}', idx)
+
+        # --- CONNECT
+        for idx in sorted(to_connect):
+            self.adjacency_vector[idx] = 1.0
+            print(f'connect to {idx}')
+            self.create_connection(
+                self.adjacency_vector,
+                {f'agent_{idx}': copy.deepcopy(st.system_tasks[f'agent_{idx}'])},
+                states[idx],
+            )
 
     def create_connection(
         self, adjacency_vector: np.array, neigh_task: dict, state_meas: list[float]
@@ -953,7 +989,7 @@ class Agent(Node):
             if self.degree == 1:
                 self.hompc.create_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=own_prio(self.tasks, 'collision_avoidance', 3),
                     type=TaskType.Bi,
                     aux=self.aux_avoid_collision,
                     mapping=self.mapping_avoid_collision.tolist(),
@@ -966,7 +1002,7 @@ class Agent(Node):
 
                 self.hompc.update_task_bi(
                     name='collision',
-                    prio=3,
+                    prio=own_prio(self.tasks, 'collision_avoidance', 3),
                     type=TaskType.Bi,
                     # aux = self.aux_avoid_collision,
                     # mapping = self.mapping_avoid_collision.tolist(),
@@ -977,17 +1013,25 @@ class Agent(Node):
                 )
             if st.experiment_name == 'obst_avoid':
                 self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
-            self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='input_limits',
+                prio=own_prio(self.tasks, 'input_limits', 1),
+                robot_index=[self.robot_idx],
+            )
             self.hompc.update_task(
                 name='input_smooth',
-                prio=2,
+                prio=own_prio(self.tasks, 'input_smooth', 2),
                 ineq_task_coeff=[
                     [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
                     [[]],
                 ],
                 robot_index=[self.robot_idx],
             )
-            self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
+            self.hompc.update_task(
+                name='space_limits',
+                prio=own_prio(self.tasks, 'space_limits', 2),
+                robot_index=[self.robot_idx],
+            )
             self.sender.update(self.neigh, self.y_i, self.rho_i)
             self.receiver.update(self.neigh, self.y_j, self.rho_j)
 
@@ -1035,38 +1079,33 @@ class Agent(Node):
         # remove tasks related to the removed robot
         # index = [p for p, task in enumerate(self.hompc._tasks) if id_to_remove not in task.robot_index[0]]
         # self.hompc._tasks = self.hompc._tasks[index]
-        if self.degree == 0:
-            self.hompc._tasks[:] = [
-                task
-                for task in self.hompc._tasks
-                if id_to_remove not in task.robot_index[0] or task.prio < 3
-            ]
-        else:
-            self.hompc._tasks[:] = [
-                task
-                for task in self.hompc._tasks
-                if id_to_remove not in task.robot_index[0]
-                or task.prio < 3
-                or task.name == 'collision'
-                or task.name == 'coverage'
-                or task.name == 'obstacle_avoidance'
-            ]
+        self.hompc._tasks[:] = [
+            task for task in self.hompc._tasks if keep_on_removal(task, id_to_remove, self.degree)
+        ]
 
-        self.hompc.update_task(name='input_limits', prio=1, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='input_limits',
+            prio=own_prio(self.tasks, 'input_limits', 1),
+            robot_index=[self.robot_idx],
+        )
         self.hompc.update_task(
             name='input_smooth',
-            prio=2,
+            prio=own_prio(self.tasks, 'input_smooth', 2),
             ineq_task_coeff=[
                 [[np.array([0.95, 0.95, 0.9, 0.9])] for _ in range(self.n_robots.omni)],
                 [[]],
             ],
             robot_index=[self.robot_idx],
         )
-        self.hompc.update_task(name='space_limits', prio=2, robot_index=[self.robot_idx])
+        self.hompc.update_task(
+            name='space_limits',
+            prio=own_prio(self.tasks, 'space_limits', 2),
+            robot_index=[self.robot_idx],
+        )
         if st.experiment_name == 'obst_avoid':
             self.hompc.update_task(name='obstacle_avoidance', robot_index=[self.robot_idx])
         for n, task in enumerate(self.hompc._tasks):
-            if task.type == TaskType.Bi and task.prio > 2:
+            if task.type == TaskType.Bi:
                 if task.name == 'formation':
                     c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
 
@@ -1106,9 +1145,15 @@ class Agent(Node):
                         ineq_task_coeff=self.task_avoid_collision_coeff,
                         pos=n,
                     )
-            elif task.prio > 2:
-                if task.name == 'coverage' or task.name == 'obstacle_avoidance':
-                    continue
+            # Tasks spanning all local robots were re-indexed above; what is left
+            # are single-robot goal tasks.
+            elif task.name not in (
+                'input_limits',
+                'input_smooth',
+                'space_limits',
+                'obstacle_avoidance',
+                'coverage',
+            ):
                 # self.task_pos_coeff = [None for i in range(len(self.goals))]
                 # for i, g in enumerate(self.goals):
                 #     self.task_pos_coeff[i] = RobCont(

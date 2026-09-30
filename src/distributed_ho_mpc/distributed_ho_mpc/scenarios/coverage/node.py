@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import distributed_ho_mpc.scenarios.coverage.settings as st
+from distributed_ho_mpc.ho_mpc.connections import own_prio
 from distributed_ho_mpc.ho_mpc.ho_mpc_multi_robot_copy import (
     HOMPCMultiRobot,
     TaskBiCoeff,
@@ -899,7 +900,11 @@ class Node:
 
             # collision for radial switching
 
-            self.hompc.update_task(name='input_limits', prio=1, robot_index=self.robot_idx.tolist())
+            self.hompc.update_task(
+                name='input_limits',
+                prio=own_prio(self.tasks, 'input_limits', 1),
+                robot_index=self.robot_idx.tolist(),
+            )
 
             # self.hompc.update_task(name='input_smooth', prio=2, robot_index=self.robot_idx.tolist())
             task_coverage_coeff = self.hompc.get_task_coverage(
@@ -919,7 +924,7 @@ class Node:
                 # collision task does not exist, create it
                 self.hompc.create_task_bi(
                     name='collision',
-                    prio=2,
+                    prio=own_prio(self.tasks, 'collision_avoidance', 2),
                     type=TaskType.Bi,
                     aux=self.aux_avoid_collision,
                     mapping=self.mapping_avoid_collision.tolist(),
@@ -1039,7 +1044,11 @@ class Node:
         #         or task.name == 'coverage'
         #     ]
 
-        self.hompc.update_task(name='input_limits', prio=1, robot_index=self.robot_idx.tolist())
+        self.hompc.update_task(
+            name='input_limits',
+            prio=own_prio(self.tasks, 'input_limits', 1),
+            robot_index=self.robot_idx.tolist(),
+        )
         # self.hompc.update_task(name='input_smooth', prio=2, robot_index=self.robot_idx.tolist())
         self.task_avoid_collision_coeff = pairwise_collision_coeff(
             self.robot_idx.tolist(), self.threshold
@@ -1052,7 +1061,7 @@ class Node:
         )
 
         for n, task in enumerate(self.hompc._tasks):
-            if task.type == TaskType.Bi and task.prio > 2:
+            if task.type == TaskType.Bi:
                 if task.name == 'formation':
                     c0, j0, c1, j1, k, coeff = task.eq_coeff[0].get()
 

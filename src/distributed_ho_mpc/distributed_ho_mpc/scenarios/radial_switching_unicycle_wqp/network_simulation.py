@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 import distributed_ho_mpc.scenarios.radial_switching_unicycle_wqp.settings as st
 from distributed_ho_mpc.ho_mpc.connections import update_links
-from distributed_ho_mpc.scenarios.radial_switching_unicycle_wqp.node import Node
+from distributed_ho_mpc.scenarios.radial_switching_unicycle_wqp.node import Node, enforced_back_off
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
     display_animation,
@@ -602,7 +602,8 @@ def main(
             'time_to_goal': time_goal,
             'iter_to_goal': step_goal,
             'max_solve_time': max_a,
-            'safety_distance': 2,
+            'safety_distance': st.safety_distance,
+            'back_off': enforced_back_off(),
             # "total_collisions": total_events,
             # "max_violation": max_violation,
             # "mean_violation": mean_violation,

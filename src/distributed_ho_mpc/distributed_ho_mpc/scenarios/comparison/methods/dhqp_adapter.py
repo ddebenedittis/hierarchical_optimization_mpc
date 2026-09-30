@@ -55,7 +55,8 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     # the untightened runs). dwqp_adapter must use the same default, or the
     # ablation stops isolating strict-vs-weighted priority.
     margin = params.get('margin', discretization_back_off(config))
-    st.safety_distance = config.safety_distance + margin
+    st.safety_distance = config.safety_distance
+    st.back_off = margin
 
     # MPC horizon. The scenario ships n_control = 1, n_pred = 0, which runs this
     # MPC as a one-step reactive controller -- the baselines get their gains
@@ -90,7 +91,7 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         'n_solves': out['n_solves'],
         'creation_time_total': out.get('creation_time_total', 0.0),
         'infeasible_measured': False,
-        'enforced_safety_distance': float(st.safety_distance),
+        'enforced_safety_distance': float(st.safety_distance + margin),
         'back_off': float(margin),
     }
 

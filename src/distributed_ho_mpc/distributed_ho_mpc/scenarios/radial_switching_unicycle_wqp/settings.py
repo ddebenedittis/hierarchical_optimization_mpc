@@ -26,6 +26,14 @@ type = 'uni'  # 'uni'
 # buried in node.py -- and so dHQP and its weighted ablation can be given the
 # same back-off, which is required for the two to stay comparable.
 safety_distance = 2.0
+
+# Discretization back-off added to safety_distance in the collision task. The
+# constraint holds only at sample instants, so a closing pair can cross it by up
+# to one sample of relative motion, 2 * v_max * dt, before the controller reacts.
+# None derives that value at run time from the current v_max and dt; set a number
+# to override it (0.0 enforces exactly safety_distance). Collisions are still
+# scored against safety_distance.
+back_off = None
 # ---------------------------------------------------------------------------- #
 #                              Flags for simulation                            #
 # ---------------------------------------------------------------------------- #

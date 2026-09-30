@@ -51,7 +51,8 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
     # tightens its collision bound the comparison stops isolating strict-vs-
     # weighted priority and starts measuring the margin difference instead.
     margin = params.get('margin', discretization_back_off(config))
-    st.safety_distance = config.safety_distance + margin
+    st.safety_distance = config.safety_distance
+    st.back_off = margin
 
     out = sim.main(
         config.n_robots,
@@ -78,7 +79,7 @@ def run_instance(instance: BenchmarkInstance, params: dict, out_dir: Path) -> Ru
         'kappa': st.kappa,
         'creation_time_total': out.get('creation_time_total', 0.0),
         'infeasible_measured': False,
-        'enforced_safety_distance': float(st.safety_distance),
+        'enforced_safety_distance': float(st.safety_distance + margin),
         'back_off': float(margin),
     }
 

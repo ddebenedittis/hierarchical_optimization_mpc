@@ -30,6 +30,11 @@ from hierarchical_optimization_mpc.utils.robot_models import (
 )
 
 
+def enforced_back_off() -> float:
+    """Back-off added to st.safety_distance in the collision task (see settings.py)."""
+    return 2.0 * st.v_max * st.dt if st.back_off is None else float(st.back_off)
+
+
 class Node:
     """
     Representing the node and its actions and attributes
@@ -261,7 +266,7 @@ class Node:
         self.mapping = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
 
         # =====================Collision Avoidance=================================== #
-        self.threshold = st.safety_distance
+        self.threshold = st.safety_distance + enforced_back_off()
         self.aux_avoid_collision = ca.SX.sym('aux', 2, 2)
         self.mapping_avoid_collision = RobCont(omni=ca.vertcat(self.s.omni[0], self.s.omni[1]))
         self.task_avoid_collision = ca.vertcat(

@@ -677,17 +677,35 @@ def main(
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Neighbour-limit x communication-range sweep of the radial-switching scenario.'
+    )
+    parser.add_argument(
+        '--cycles',
+        default='0:50',
+        help='half-open range a:b of cycle ids; the id is also the seed of the initial positions',
+    )
+    parser.add_argument(
+        '--name',
+        default=None,
+        help='output folder under out/ (default: timestamp); pass the same one to split cycles '
+        'across processes',
+    )
+    args = parser.parse_args()
+    first_cycle, last_cycle = (int(c) for c in args.cycles.split(':'))
+
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
-    date_str = f'{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
+    date_str = f'{args.name or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}-radial_switching/'
     root = f'{workspace_dir}/out/{date_str}'
     os.makedirs(root, exist_ok=True)
     n_robot = 8
     n_neig = [1, 2, 3, 4, 5, 6, 7]
     comm_radius = [2.5, 5, 10]
-    cycles = 51
 
-    for nn in tqdm(range(20, cycles), desc='Cycles', position=0, colour='blue'):
+    for nn in tqdm(range(first_cycle, last_cycle), desc='Cycles', position=0, colour='blue'):
         for ii, jj in tqdm(
             product(n_neig, comm_radius),
             desc='  Simulation',
@@ -696,6 +714,7 @@ if __name__ == '__main__':
             total=len(n_neig) * len(comm_radius),
             colour='green',
         ):
+            # Same seed for every configuration of a cycle: all 21 (limit, range)
+            # pairs start from the same initial positions, so they compare paired.
+            np.random.seed(nn)
             main(n_robot, jj, ii, date_str, nn)
-
-    print('Im tired bro, simulation done. going to sleep')

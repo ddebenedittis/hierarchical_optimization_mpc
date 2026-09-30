@@ -435,6 +435,16 @@ def run(out_dir: str | None = None, make_plots: bool = True, episode: dict | Non
     #         f'dt: {st.dt}\n n_c: {st.n_control}\ntime elapsed: {time_elapsed}s\ntotal solving {tot_solve}\n time to goal: {time_goal} at iter {step_goal} \nmax {max_a}\nall max {max_value}\n cr {creation}'
     #     )
 
+    # Merged state history; built outside `if st.simulation` because run() returns it.
+    s_hist_merged = [
+        sum(([node.s_history[i][0][0]] for node in nodes), [])
+        for i in range(len(nodes[0].s_history))
+    ]
+    if st.type == 'omni':
+        s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
+    elif st.type == 'uni':
+        s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
+
     if st.simulation:
         robot_pairs = list(combinations(range(num_robots), 2))
         x = np.arange(1, last_step + 1) * st.dt
@@ -457,15 +467,6 @@ def run(out_dir: str | None = None, make_plots: bool = True, episode: dict | Non
         # ---------------------------------------------------------------------------- #
         #                          plot the states evolutions                          #
         # ---------------------------------------------------------------------------- #
-        s_hist_merged = [
-            sum(([node.s_history[i][0][0]] for node in nodes), [])
-            for i in range(len(nodes[0].s_history))
-        ]
-        if st.type == 'omni':
-            s_hist_merged = [[[], s_k] for s_k in s_hist_merged]
-        elif st.type == 'uni':
-            s_hist_merged = [[s_k, []] for s_k in s_hist_merged]
-
         s_history_all = []
         for r in range(len(nodes[0].state_k)):
             s = []

@@ -653,7 +653,11 @@ class Node:
             # print(self.step)
             rho_delta = 0  #! to be controlled
 
-            self.u_star, self.y = self.hompc(copy.deepcopy(self.s_init.tolist()), rho_delta)
+            # __call__ returns (u_0, s, lambda_P, w_P); the shared y is no longer
+            # produced (its extraction is disabled in ho_mpc_multi_robot_copy.py).
+            self.u_star, _, self.lambda_p, self.mu_p = self.hompc(
+                copy.deepcopy(self.s_init.tolist()), rho_delta
+            )
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share
 
             # self.y_i = copy.deepcopy(self.y)

@@ -477,7 +477,8 @@ class Node:
         if self.step < self.n_steps:
             rho_delta = self.rho_i - self.rho_j  #! to be controlled
 
-            self.u_star, self.lambda_p, self.mu_p = self.hompc(
+            # __call__ returns (u_0, s, lambda_P, w_P).
+            self.u_star, _, self.lambda_p, self.mu_p = self.hompc(
                 copy.deepcopy(self.s_init.tolist()), rho_delta
             )
             # self.sender.y = copy.deepcopy(self.y)  # update copy of the states to share

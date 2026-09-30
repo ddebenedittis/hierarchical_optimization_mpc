@@ -717,4 +717,6 @@ if __name__ == '__main__':
             # Same seed for every configuration of a cycle: all 21 (limit, range)
             # pairs start from the same initial positions, so they compare paired.
             np.random.seed(nn)
-            main(n_robot, jj, ii, date_str, nn)
+            # No per-run snapshots/videos: analyze_data.py needs only the CSVs and
+            # run_info.json, and the LaTeX-rendered figures fail in images without TeX.
+            main(n_robot, jj, ii, date_str, nn, media=False)

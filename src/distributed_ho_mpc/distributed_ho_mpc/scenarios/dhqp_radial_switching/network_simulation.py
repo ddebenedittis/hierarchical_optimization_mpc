@@ -17,6 +17,7 @@ from tqdm import tqdm
 import distributed_ho_mpc.scenarios.dhqp_radial_switching.settings as st
 
 # from distributed_ho_mpc.scenarios.radial_switching_unicycle.node import Node
+from distributed_ho_mpc.ho_mpc.connections import update_links
 from distributed_ho_mpc.scenarios.dhqp_radial_switching.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
@@ -28,56 +29,6 @@ from hierarchical_optimization_mpc.utils.robot_models import (
     get_omnidirectional_model,
     get_unicycle_model,
 )
-
-
-def neigh_connection(
-    states, nodes, graph_matrix, communication_range, limit_connection, system_tasks
-):
-    """Keep every agent linked to its `limit_connection` nearest agents within range.
-
-    The target link set is computed once per call from the current distances and
-    is symmetric: i-j is linked iff j is among the nearest in-range agents of i, or
-    i among those of j. Only the difference to the current graph is applied
-    (disconnections first). The previous version processed agents one at a time
-    and made each one drop every link outside its own top-k, including links a
-    neighbour had just created because i was in *its* top-k, so the same links were
-    torn down and rebuilt every step.
-
-    Returns:
-        (n_connect, n_disconnect) link events applied by this call.
-    """
-    num_nodes = len(nodes)
-    pos = np.array([np.asarray(s)[:2] for s in states])
-    dist = np.linalg.norm(pos[:, None, :] - pos[None, :, :], axis=2)
-
-    target = np.zeros((num_nodes, num_nodes), dtype=bool)
-    for i in range(num_nodes):
-        in_range = [j for j in np.argsort(dist[i]) if j != i and dist[i, j] < communication_range]
-        for j in in_range[:limit_connection]:
-            target[i, j] = target[j, i] = True
-
-    current = graph_matrix != 0
-    pairs = list(combinations(range(num_nodes), 2))
-    to_disconnect = [(i, j) for i, j in pairs if current[i, j] and not target[i, j]]
-    to_connect = [(i, j) for i, j in pairs if target[i, j] and not current[i, j]]
-
-    for i, j in to_disconnect:
-        graph_matrix[i][j] = 0.0
-        graph_matrix[j][i] = 0.0
-        nodes[i].remove_connection(graph_matrix[i], f'agent_{j}', j)
-        nodes[j].remove_connection(graph_matrix[j], f'agent_{i}', i)
-
-    for i, j in to_connect:
-        graph_matrix[i][j] = 1.0
-        graph_matrix[j][i] = 1.0
-        nodes[i].create_connection(
-            graph_matrix[i], {f'agent_{j}': copy.deepcopy(system_tasks[f'agent_{j}'])}, states[j]
-        )
-        nodes[j].create_connection(
-            graph_matrix[j], {f'agent_{i}': copy.deepcopy(system_tasks[f'agent_{i}'])}, states[i]
-        )
-
-    return len(to_connect), len(to_disconnect)
 
 
 def save_run_info(output_dir: str, config: dict, run_id: str | None = None) -> Path:
@@ -415,7 +366,7 @@ def run(out_dir: str | None = None, make_plots: bool = True) -> dict:
             last_step = i + 1
         # Also at i == 0: the graph starts empty, so skipping the first call let every
         # agent take its first step with no neighbours and no collision task.
-        n_conn, n_disc = neigh_connection(
+        n_conn, n_disc = update_links(
             state, nodes, graph_matrix, communication_range, limit_connection, system_tasks
         )
         link_events.append((n_conn, n_disc))

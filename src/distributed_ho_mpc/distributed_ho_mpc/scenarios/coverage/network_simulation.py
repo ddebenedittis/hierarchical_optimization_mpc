@@ -10,6 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 from scipy.spatial.distance import pdist
 
 import distributed_ho_mpc.scenarios.coverage.settings as st
+from distributed_ho_mpc.ho_mpc.connections import update_links
 from distributed_ho_mpc.scenarios.coverage.node import Node
 from hierarchical_optimization_mpc.utils.disp_het_multi_rob import (
     MultiRobotArtistFlags,
@@ -34,60 +35,6 @@ def main(model_name):
     np.random.seed(1)
     b = progressbar.ProgressBar(maxval=st.n_steps)
     b.start()
-
-    def neigh_connection(states, nodes, graph_matrix, communication_range):
-        """
-        For each node, connect to up to 6 nearest neighbors within communication range.
-        Disconnect from neighbors outside range or beyond top 6 closest.
-        """
-        num_nodes = len(nodes)
-
-        for i in range(num_nodes):
-            distances = []
-
-            for j in range(num_nodes):
-                if i == j:
-                    continue
-                dist = np.linalg.norm(states[i][:2] - states[j][:2])
-                if dist < communication_range:
-                    distances.append((j, dist))
-
-            # Sort and select up to 6 nearest within range
-            distances.sort(key=lambda x: x[1])
-            closest_neighbors = set(idx for idx, _ in distances[:5])
-
-            current_connections = set(np.nonzero(graph_matrix[i])[0])
-
-            to_connect = closest_neighbors - current_connections
-            to_disconnect = current_connections - closest_neighbors
-
-            # --- CONNECT (bidirectional)
-            for idx in to_connect:
-                graph_matrix[i][idx] = 1.0
-                graph_matrix[idx][i] = 1.0  # mirror connection
-
-                # i connects to idx
-                tasks_i = {
-                    f'agent_{i}': {f'agent_{idx}': copy.deepcopy(system_tasks[f'agent_{idx}'])}
-                }
-                nodes[i].create_connection(graph_matrix[i], tasks_i[f'agent_{i}'], states[idx])
-
-                # idx connects to i
-                tasks_j = {
-                    f'agent_{idx}': {f'agent_{i}': copy.deepcopy(system_tasks[f'agent_{i}'])}
-                }
-                nodes[idx].create_connection(graph_matrix[idx], tasks_j[f'agent_{idx}'], states[i])
-
-            # --- DISCONNECT (bidirectional)
-            for idx in to_disconnect:
-                graph_matrix[i][idx] = 0.0
-                graph_matrix[idx][i] = 0.0  # mirror disconnection
-
-                # i disconnects from idx
-                nodes[i].remove_connection(graph_matrix[i], f'agent_{idx}', idx)
-
-                # idx disconnects from i
-                nodes[idx].remove_connection(graph_matrix[idx], f'agent_{i}', i)
 
     def agents_distance(state, pairwise_distances):
         """
@@ -327,8 +274,9 @@ def main(model_name):
             last_step = i + 1
         if i == 30:
             None
-        if i > 0:
-            neigh_connection(state, nodes, graph_matrix, st.communication_range)
+        # Also at i == 0: the graph starts empty, so skipping the first call let every
+        # agent take its first step with no neighbours and no collision task.
+        update_links(state, nodes, graph_matrix, st.communication_range, 5, system_tasks)
         for j in range(st.n_nodes):
             nodes[j].reorder_s_init(state)
             nodes[j].update()  # Update primal solution and state evolution

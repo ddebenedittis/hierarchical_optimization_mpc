@@ -692,7 +692,7 @@ def main():
     package_name = 'distributed_ho_mpc'
     workspace_dir = f'{get_package_share_directory(package_name)}/../../../..'
     scenario_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(scenario_dir, 'scene_info_0916-1427.json')
+    json_path = os.path.join(scenario_dir, 'scene_info_0929-1556.json')
 
     episodes = load_episodes(json_path)
 

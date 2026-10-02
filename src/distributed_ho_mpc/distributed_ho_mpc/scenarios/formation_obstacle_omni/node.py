@@ -885,17 +885,9 @@ class Node:
             task for task in self.hompc._tasks if keep_on_removal(task, id_to_remove, self.degree)
         ]
 
-        self.hompc.update_task(
-            name='input_limits',
-            prio=own_prio(self.tasks, 'input_limits', 1),
-            robot_index=[self.robot_idx],
-        )
-        self.hompc.update_task(
-            name='input_smooth',
-            prio=own_prio(self.tasks, 'input_smooth', 2),
-            robot_index=[self.robot_idx],
-        )
-
+        # The loop below re-indexes every task from the old local indices. Do not
+        # pre-set robot_index here: the loop would remap the new indices a second
+        # time and drop the last neighbour (e.g. its input limits).
         for n, task in enumerate(self.hompc._tasks):
             if task.type == TaskType.Bi:
                 if task.name == 'formation':

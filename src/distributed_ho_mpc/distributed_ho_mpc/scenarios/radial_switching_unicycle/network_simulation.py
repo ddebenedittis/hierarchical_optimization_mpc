@@ -200,7 +200,7 @@ def main(
 
     communication_range = comm_range
     limit_connection = limit_conn
-    safety_distance = 2
+    safety_distance = st.safety_distance
     n_steps_eff = max_steps if max_steps is not None else st.n_steps
     # =========================================================================== #
     #                                TASK SCHEDULER                               #
